@@ -27,6 +27,17 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-25 · ยังไม่ commit · บันทึกติดตาม RESPONSE/NEXT DOING จัดบรรทัดได้ อ่านง่ายขึ้น — v0.31.1
+**step:** 1.4 / 2.2 (ปรับ UI) | **ประเภท:** แก้บั๊ก/ปรับ UX
+- ปัญหา: ข้อความ RESPONSE/NEXT DOING ในบันทึกติดตามแสดงติดกันเป็นพืด (บรรทัดที่พิมพ์ถูกยุบ) อ่านยาก
+- เหตุ: div แสดงผลไม่มี `white-space` → newline ในข้อความถูกยุบเป็นช่องว่าง (เก็บใน DB ครบอยู่แล้ว)
+- แก้: เพิ่มคลาส `.log-body` + CSS `white-space:pre-wrap; word-break:break-word; line-height:1.55`
+- แก้ไขสะดวกขึ้น: textarea RESPONSE/NEXT DOING ใหญ่ขึ้น (rows 2→4/3) + auto-grow ยืดตามเนื้อหา
+  (`.ta-grow` + delegated input listener ใน loglist.js ผูกครั้งเดียว ครอบทั้งฟอร์มเพิ่ม+กล่องแก้ไข)
+- ใช้ร่วมทั้ง Pending (F4) และ Book 3 สี (F5) เพราะทั้งคู่เรียก loglist.js ตัวเดียว · popup (loghover) เก็บบรรทัดอยู่แล้ว
+**ไฟล์:** docs/js/ui/loglist.js · docs/css/app.css (.log-body) · docs/js/config.js + docs/sw.js (bump v0.31.1)
+**ทดสอบ:** logwrap-test 10/10 ผ่าน (display pre-wrap + เก็บ \n · textarea ta-grow rows=4 ยืด 114→162px ตอนพิมพ์)
+
 ## 2026-07-25 · ยังไม่ commit · คอลัมน์ "การติดตามล่าสุด" ตัดสั้น + hover popup เต็ม — v0.31.0
 **step:** 1.4 / 2.2 (ปรับ UI) | **ประเภท:** ฟีเจอร์
 - ข้อความในคอลัมน์ "การติดตามล่าสุด/ความคืบหน้า" ยาวล้นจอ → ตัดเหลือ ≤60 อักขระ เติม …

@@ -14,6 +14,22 @@ import { dateField, thaiDate, todayISO } from './datepicker.js';
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 
+// ── textarea ยืดสูงตามเนื้อหา (.ta-grow) ──
+// บันทึกยาว ๆ ถ้ากล่องสูงแค่ 2 บรรทัด จัดหน้า/ตัดบรรทัดตอนแก้ไขลำบาก มองไม่เห็นทั้งหมด
+// เก็บ line break ไว้ครบ (display ใช้ white-space:pre-wrap) — กด Enter ขึ้นบรรทัดใหม่ได้เลย
+function growTA(ta) {
+  ta.style.height = 'auto';
+  ta.style.height = Math.min(ta.scrollHeight + 2, 420) + 'px';
+}
+// ผูก listener เดียวทั้งหน้า (delegation) → ครอบทั้งฟอร์มเพิ่มและกล่องแก้ไข ทุกโมดูล ไม่ต้องแก้ผู้เรียก
+if (typeof document !== 'undefined' && !document.__logTaGrow) {
+  document.__logTaGrow = true;
+  document.addEventListener('input', (e) => {
+    const ta = e.target;
+    if (ta.tagName === 'TEXTAREA' && ta.classList.contains('ta-grow')) growTA(ta);
+  });
+}
+
 /**
  * ปุ่มแก้ไขโผล่เฉพาะบันทึกที่ตัวเองเขียน (หรือ admin)
  * ให้ตรงกับ policy ฝั่ง DB — ถ้าโชว์ปุ่มให้คนที่กดไม่ผ่าน เขาจะกดแล้วเจอ error งง ๆ
@@ -32,8 +48,8 @@ export function logListHtml(logs, me) {
             ? `<button type="button" class="btn-log log-edit" data-edit="${esc(l.id)}">แก้ไข</button>`
             : ''}
         </div>
-        ${l.response   ? `<div>${esc(l.response)}</div>` : ''}
-        ${l.next_doing ? `<div class="log-next">→ ${esc(l.next_doing)}</div>` : ''}
+        ${l.response   ? `<div class="log-body">${esc(l.response)}</div>` : ''}
+        ${l.next_doing ? `<div class="log-next log-body">→ ${esc(l.next_doing)}</div>` : ''}
       </div>
     </li>`).join('');
 }
@@ -63,9 +79,9 @@ export function bindLogEditing(host, logs, updateFn, onSaved) {
           <label class="fld"><span>BY</span>
             <input type="text" data-f="by_name" value="${esc(l.by_name || '')}"></label>
           <label class="fld fld-wide"><span>RESPONSE</span>
-            <textarea data-f="response" rows="2">${esc(l.response || '')}</textarea></label>
+            <textarea data-f="response" class="ta-grow" rows="4">${esc(l.response || '')}</textarea></label>
           <label class="fld fld-wide"><span>NEXT DOING</span>
-            <textarea data-f="next_doing" rows="2">${esc(l.next_doing || '')}</textarea></label>
+            <textarea data-f="next_doing" class="ta-grow" rows="3">${esc(l.next_doing || '')}</textarea></label>
         </div>
         <p class="login-err" data-err hidden></p>
         <div class="log-edit-foot">
@@ -73,6 +89,7 @@ export function bindLogEditing(host, logs, updateFn, onSaved) {
           <button type="button" class="btn btn-primary btn-sm" data-save>บันทึกการแก้ไข</button>
         </div>`;
       li.appendChild(box);
+      box.querySelectorAll('textarea.ta-grow').forEach(growTA);   // เนื้อหาเดิมยาว → ยืดให้เห็นทั้งหมดทันที
 
       const err = box.querySelector('[data-err]');
       box.querySelector('[data-cancel]').addEventListener('click', () => {
@@ -118,9 +135,9 @@ export function logFormHtml(idPrefix = 'lg') {
       <label class="fld"><span>BY — ใครติดตาม</span>
         <input type="text" id="${idPrefix}By"></label>
       <label class="fld fld-wide"><span>RESPONSE — ผลที่ได้</span>
-        <textarea id="${idPrefix}Res" rows="2"></textarea></label>
+        <textarea id="${idPrefix}Res" class="ta-grow" rows="3"></textarea></label>
       <label class="fld fld-wide"><span>NEXT DOING — ทำอะไรต่อ</span>
-        <textarea id="${idPrefix}Next" rows="2"></textarea></label>
+        <textarea id="${idPrefix}Next" class="ta-grow" rows="3"></textarea></label>
     </div>`;
 }
 

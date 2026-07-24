@@ -665,6 +665,8 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 .log-h { color: var(--text-dim); font-size: 12px; margin-bottom: 2px; }
 .log-next { color: var(--accent-text); margin-top: 2px; }
 .log-empty { color: var(--text-mute); text-align: center; }
+/* เก็บบรรทัด/ย่อหน้าที่ผู้ใช้พิมพ์ไว้ — ไม่งั้นตัวหนังสือติดกันเป็นพืด อ่านยาก */
+.log-body { white-space: pre-wrap; word-break: break-word; line-height: 1.55; }
 
 /* ---------- iPad ---------- */
 @media (max-width: 1024px) {
