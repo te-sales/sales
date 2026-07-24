@@ -43,11 +43,25 @@ const DEFAULT_MODEL = AI_MODELS[0].id;
 
 export const aiKey = {
   get:      () => { try { return localStorage.getItem(AI_KEY_LS) || ''; } catch { return ''; } },
-  set:      (v) => { try { localStorage.setItem(AI_KEY_LS, String(v || '').trim()); } catch {} },
+  // ⭐ คืน true/false ว่าบันทึกสำเร็จจริงไหม — localStorage ใน Safari โหมดส่วนตัว/incognito จะ throw
+  //    ถ้ากลืน error เงียบ ๆ ผู้ใช้จะเห็น "เหมือนไม่ยอมเซฟ" โดยไม่รู้สาเหตุ → ต้องบอกให้ชัด
+  set:      (v) => {
+    const val = String(v || '').trim();
+    try {
+      localStorage.setItem(AI_KEY_LS, val);
+      return localStorage.getItem(AI_KEY_LS) === val;   // ยืนยันว่าเขียนติดจริง
+    } catch { return false; }
+  },
   clear:    () => { try { localStorage.removeItem(AI_KEY_LS); } catch {} },
   has:      () => !!aiKey.get(),
   model:    () => { try { const m = localStorage.getItem(AI_MODEL_LS); return AI_MODEL_IDS.has(m) ? m : DEFAULT_MODEL; } catch { return DEFAULT_MODEL; } },
   setModel: (m) => { try { if (AI_MODEL_IDS.has(m)) localStorage.setItem(AI_MODEL_LS, m); } catch {} },
+};
+
+/** ปิดบัง key ให้เหลือหัว-ท้ายพอให้ผู้ใช้รู้ว่าเก็บอันไหนไว้ (ไม่โชว์ทั้งเส้น) */
+const maskKey = (k) => {
+  k = String(k || '');
+  return k.length <= 12 ? k : `${k.slice(0, 8)}…${k.slice(-4)}`;
 };
 
 /** ยิงตรงหา OpenRouter (OpenAI-compatible) ด้วย key ของผู้ใช้ · payload {prompt, image?, text?} → { text } */
@@ -431,8 +445,9 @@ export function openAIImport(targetType = 'customer', opts = {}) {
             <summary>🔑 เชื่อม AI ด้วย OpenRouter API key ของคุณเอง <span class="ai-keystate" id="aiKeyState"></span></summary>
             <div class="ai-keybody">
               <p class="ai-keynote">🔒 เก็บบน<b>เครื่องนี้เท่านั้น</b> · ไม่ส่งเข้าระบบ ไม่ขึ้น repo · ยิงตรงหา OpenRouter เพื่อให้ AI อ่าน/สรุปแล้วกรอกฟอร์มให้ (ทั้ง Pending และ Book 3 สี) · แต่ละคนหา key มาเอง<br><b>⚠️ อย่าใส่บนเครื่องสาธารณะ/เครื่องที่ใช้ร่วมกัน</b></p>
+              <p class="ai-keysaved" id="aiKeySaved" hidden></p>
               <div class="ai-keyrow">
-                <input type="password" class="inp" id="aiKeyInput" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false">
+                <input type="password" class="inp" id="aiKeyInput" placeholder="sk-or-v1-…" autocomplete="off" autocapitalize="off" spellcheck="false">
                 <button type="button" class="btn btn-primary btn-sm" id="aiKeySave">บันทึก key</button>
                 <button type="button" class="btn btn-ghost btn-sm" id="aiKeyClear">ลบ key</button>
               </div>
@@ -486,17 +501,34 @@ export function openAIImport(targetType = 'customer', opts = {}) {
 
   // ── BYO API key (เก็บ localStorage เครื่องนี้เท่านั้น) ──
   const syncKeyState = () => {
-    const el = q('#aiKeyState');
-    if (el) el.textContent = aiKey.has() ? '· ตั้งไว้แล้ว ✓' : '· ยังไม่ได้ตั้ง';
+    const has = aiKey.has();
+    const st = q('#aiKeyState');
+    if (st) st.textContent = has ? '· ตั้งไว้แล้ว ✓' : '· ยังไม่ได้ตั้ง';
+    // บรรทัดยืนยันชัด ๆ ว่าเก็บ key อันไหนไว้ (ค้างอยู่แม้เปิดใหม่ = พิสูจน์ว่าเซฟติดจริง)
+    const saved = q('#aiKeySaved');
+    if (saved) {
+      if (has) { saved.innerHTML = `✅ บันทึก key ไว้แล้ว: <b>${esc(maskKey(aiKey.get()))}</b>`; saved.hidden = false; }
+      else saved.hidden = true;
+    }
+    const clr = q('#aiKeyClear');
+    if (clr) clr.disabled = !has;
   };
   syncKeyState();
-  if (aiKey.has()) q('#aiKeyBox').open = false;
+  // มี key แล้ว → พับเก็บ · ยังไม่มี → กางไว้ให้เห็นช่องกรอกเลย (กันหาไม่เจอแล้วนึกว่าไม่มี)
+  q('#aiKeyBox').open = !aiKey.has();
   q('#aiKeySave')?.addEventListener('click', () => {
     const v = q('#aiKeyInput').value.trim();
     if (!v) return setErr('ใส่ API key ก่อนบันทึก');
-    aiKey.set(v); q('#aiKeyInput').value = ''; syncKeyState(); setErr('');
+    if (!aiKey.set(v))
+      return setErr('บันทึก key ไม่สำเร็จ — เบราว์เซอร์นี้อาจปิดที่เก็บข้อมูล (เช่นโหมดส่วนตัว/ไม่ระบุตัวตน) ลองปิดโหมดนั้นแล้วบันทึกใหม่');
+    q('#aiKeyInput').value = '';
+    syncKeyState();
+    setErr('');
+    const b = q('#aiKeySave'); const t = b.textContent;   // ยืนยันบนปุ่มให้เห็นชัด
+    b.textContent = '✓ บันทึกแล้ว';
+    setTimeout(() => { if (b.isConnected) b.textContent = t; }, 1600);
   });
-  q('#aiKeyClear')?.addEventListener('click', () => { aiKey.clear(); syncKeyState(); });
+  q('#aiKeyClear')?.addEventListener('click', () => { aiKey.clear(); q('#aiKeyInput').value = ''; syncKeyState(); setErr(''); });
   // เลือกโมเดล AI (จำใน localStorage)
   const modelSel = q('#aiModel');
   if (modelSel) {
