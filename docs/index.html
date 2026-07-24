@@ -29,7 +29,9 @@
 <script>try{var d=document.documentElement,t=localStorage.getItem('te-dashboard:theme'),a=localStorage.getItem('te-dashboard:accent'),f=localStorage.getItem('te-dashboard:font');if(t)d.dataset.theme=t;if(a)d.dataset.accent=a;if(f)d.dataset.font=f;}catch(e){}</script>
 
 <link rel="stylesheet" href="css/app.css">
-<link rel="stylesheet" href="css/print.css" media="print">
+<!-- ไม่ใส่ media="print" — print.css มีทั้งพรีวิวบนจอ (@media screen) และตอนพิมพ์ (@media print)
+     #printRoot ถูกซ่อนด้วย base จนกว่าจะเปิดพรีวิว จึงไม่กระทบหน้าปกติ -->
+<link rel="stylesheet" href="css/print.css">
 </head>
 <body>
 

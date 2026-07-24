@@ -262,34 +262,61 @@ function printRoot() {
   return el;
 }
 
+// A4 กว้าง 210mm ≈ 793.7px ที่ 96dpi — ใช้คำนวณอัตราย่อให้พอดีจอ
+const A4_W_PX = 793.7;
+
 /**
- * วางเนื้อหาลงกล่องพิมพ์แล้วสั่งพิมพ์
+ * เปิด "พรีวิวในแอป" ของฟอร์ม แล้วให้ผู้ใช้กดสั่งพิมพ์/บันทึก PDF เอง
  *
- * ⚠️ ห้ามล้าง innerHTML ทันทีหลัง window.print()
- *    Safari บน iOS เปิดหน้าต่างพิมพ์แบบไม่บล็อก — ล้างทันทีจะได้กระดาษเปล่า
- *    รอ event afterprint แทน (และมีตัวตั้งเวลาสำรองเผื่อเบราว์เซอร์ไม่ยิง event)
+ * ⭐ ทำไมต้องมีพรีวิวในแอป ไม่เรียก window.print() ตรง ๆ:
+ *    บนมือถือหลายเครื่อง (โดยเฉพาะ Chrome/Android เช่น S24) window.print()
+ *    "ไม่โชว์ตัวอย่างให้เห็นเลย" — ผู้ใช้กดปุ่มแล้วเหมือนไม่มีอะไรเกิดขึ้น
+ *    → วาดฟอร์มเป็นหน้ากระดาษ A4 บนจอก่อน (ย่อพอดีจอ) มีปุ่มสั่งพิมพ์ในแถบ
+ *    เดสก์ท็อปก็เห็นตัวอย่างเหมือนกัน แล้วค่อยกดพิมพ์ = ระบบพิมพ์ของเบราว์เซอร์เด้งตามปกติ
+ *
+ * เดสก์ท็อป/มือถือใช้เส้นทางเดียวกันหมด — ตอนพิมพ์ @media print ซ่อนแถบเครื่องมือ
+ * เหลือแต่ฟอร์ม (print.css) จึงพิมพ์ออกมาเหมือนเดิมทุกอย่าง
  */
 function doPrint(html, title) {
   const el = printRoot();
-  el.innerHTML = html;
-  document.documentElement.classList.add('is-printing');
-
   const prevTitle = document.title;
+
+  el.innerHTML = `
+    <div class="pfp-bar">
+      <button type="button" class="pfp-btn pfp-btn-go" data-pf="print">🖨 พิมพ์ / บันทึก PDF</button>
+      <span class="pfp-title">${esc(title)}</span>
+      <button type="button" class="pfp-btn" data-pf="close">✕ ปิด</button>
+    </div>
+    <p class="pfp-hint">ตัวอย่างก่อนพิมพ์ · ตอนสั่งพิมพ์ให้ตั้ง <b>Margins = None</b> และเปิด <b>Background graphics</b> เพื่อให้มุมสี/เส้นตารางครบ</p>
+    <div class="pfp-pages">${html}</div>`;
+
+  el.classList.add('pfp-show');
+  document.documentElement.classList.add('is-printing');
   document.title = title || prevTitle;      // ชื่อไฟล์ PDF ที่ได้ = ชื่อหน้าเว็บ
 
-  let done = false;
-  const cleanup = () => {
-    if (done) return;
-    done = true;
+  // ย่อหน้ากระดาษ A4 ให้พอดีความกว้างจอ (สำคัญบนมือถือ) — พิมพ์จริงไม่ได้ใช้ค่านี้ (print.css บังคับ zoom:1)
+  const pages = el.querySelector('.pfp-pages');
+  const fit = () => {
+    const avail = el.clientWidth - 32;
+    const scale = Math.min(1, avail / A4_W_PX);
+    pages.style.setProperty('--pfp-zoom', scale > 0 ? String(scale) : '1');
+  };
+  fit();
+  window.addEventListener('resize', fit);
+
+  const close = () => {
+    el.classList.remove('pfp-show');
+    el.innerHTML = '';
     document.documentElement.classList.remove('is-printing');
     document.title = prevTitle;
-    el.innerHTML = '';
-    window.removeEventListener('afterprint', cleanup);
+    window.removeEventListener('resize', fit);
+    document.removeEventListener('keydown', onKey);
   };
-  window.addEventListener('afterprint', cleanup);
-  setTimeout(cleanup, 60000);
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
 
-  window.print();
+  el.querySelector('[data-pf="close"]').addEventListener('click', close);
+  el.querySelector('[data-pf="print"]').addEventListener('click', () => window.print());
 }
 
 /** ชื่อไฟล์: ตัดอักขระที่ใช้ตั้งชื่อไฟล์ไม่ได้ออก */
