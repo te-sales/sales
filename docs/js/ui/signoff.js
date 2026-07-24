@@ -77,18 +77,20 @@ export function signoffBarHtml(st, sign) {
         ${st.note ? `<div class="so-note">“${esc(st.note)}”</div>` : ''}
       </div>
       ${sign ? `<button type="button" class="btn btn-sm btn-primary" id="soSign">
-                  ${st.kind === 'none' ? 'เซ็นรับทราบ' : 'เซ็นรับทราบใหม่'}
+                  ${st.kind === 'none' ? 'เซ็นรับทราบ' : '✏️ แก้ไข / เซ็นใหม่'}
                 </button>` : ''}
     </div>
     ${sign ? `<div class="so-form" id="soForm" hidden>
         <label class="fld fld-wide"><span>บันทึกการตรวจ (ไม่บังคับ)</span>
-          <textarea id="soNote" rows="2" placeholder="เช่น ตัวเลขถูกต้อง · ให้ตามลูกค้าอีกรอบภายในสิ้นเดือน"></textarea></label>
+          <textarea id="soNote" rows="2" placeholder="เช่น ตัวเลขถูกต้อง · ให้ตามลูกค้าอีกรอบภายในสิ้นเดือน">${st.kind !== 'none' ? esc(st.note || '') : ''}</textarea></label>
         <p class="so-warn">
-          ⚠️ ลายเซ็นลบไม่ได้และแก้ไม่ได้ แม้แต่ผู้ดูแลระบบ — ตรวจให้แน่ใจก่อนกดยืนยัน
+          ${st.kind === 'none'
+            ? '⚠️ ตรวจให้แน่ใจก่อนกดยืนยัน — แต่ละครั้งที่เซ็นจะถูกเก็บเป็นประวัติ ลบทิ้งไม่ได้'
+            : '✏️ แก้คอมเมนต์แล้วกดยืนยัน = บันทึกการตรวจรอบใหม่ (ทับที่แสดง) · รอบก่อนหน้ายังเก็บไว้ในประวัติ ลบไม่ได้'}
         </p>
         <div class="so-foot">
           <button type="button" class="btn btn-ghost btn-sm" id="soCancel">ยกเลิก</button>
-          <button type="button" class="btn btn-primary btn-sm" id="soConfirm">ยืนยันการเซ็น</button>
+          <button type="button" class="btn btn-primary btn-sm" id="soConfirm">${st.kind === 'none' ? 'ยืนยันการเซ็น' : 'ยืนยันการแก้ไข'}</button>
         </div>
       </div>
       <p class="login-err" id="soErr" role="alert" hidden></p>` : ''}`;

@@ -97,6 +97,11 @@ function presetRange(kind, now = new Date()) {
   }
 }
 
+// เดือนที่ใช้กรอง = เดือนคาดปิด · ถ้าไม่กรอกใช้เดือนของ DECISION DAY แทน (coalesce)
+// งานที่ไม่มีทั้งคู่ = "ยังไม่ระบุเดือน" → ห้ามซ่อนเงียบ ๆ ต้องนับแล้วบอกผู้ใช้ (กติกา CLAUDE.md)
+const effMonth = (r) =>
+  r.close_month || (r.decision_day ? String(r.decision_day).slice(0, 7) : '');
+
 // ── สถานะหน้าจอ (จำไว้ให้กลับมาแล้วเหมือนเดิม) ──
 const DEFAULT_VIEW = {
   sort: 'updated_at', dir: 'desc', search: '', stage: '',
@@ -238,29 +243,27 @@ export default {
     const listEl = $('pList');
     mountLogHover(listEl);   // ชี้เมาส์ที่ความคืบหน้า → เด้ง popup เต็ม
 
-    let rawRows = [];   // ทั้งหมดที่ RLS ให้เห็น
-    let rows = [];      // หลังกรองทีมที่เลือก
+    let rawRows = [];      // ทั้งหมดที่ RLS ให้เห็น
+    let rows = [];         // หลังกรองทีม + เดือน
+    let hiddenNoDate = 0;  // งานที่ถูกช่วงเดือนซ่อนเพราะยังไม่ระบุเดือน (ต้องบอกผู้ใช้ ห้ามซ่อนเงียบ)
     let scope = null;
 
     // แถบเลือกทีม (admin/หัวหน้าที่เห็นหลายทีม) — เลือกแล้วกรองในฝั่งเบราว์เซอร์ ไม่ต้องโหลดใหม่
     scope = mountTeamScope($('pScope'), teams, view.team || '', (id) => {
       view.team = id; saveView(view);
-      rows = scope.filter(rawRows);
-      paint();
+      applyFilters();
     });
 
     async function reload() {
       saveView(view);
       listEl.innerHTML = '<div class="skeleton">กำลังโหลด…</div>';
       try {
-        // ⚠️ Archive = งานที่จบแล้ว — "เดือนคาดปิด" ไม่มีความหมาย จึงไม่กรองเดือน
-        //    (ไม่งั้น badge นับงานในคลังทั้งหมด แต่ลิสต์ถูกตัวกรองเดือนซ่อน → เลข 1 แต่ลิสต์ว่าง งง)
-        const archived = view.status === 'archived';
+        // ⚠️ ไม่ส่ง from/to ให้ adapter แล้ว — กรองเดือนเองฝั่งเบราว์เซอร์ (ดู applyFilters)
+        //    เพื่อ (1) coalesce close_month↔decision_day (2) นับงานที่ "ไม่มีเดือน" ที่ถูกซ่อน
+        //    เดิม: งาน AI import ที่ยังไม่ระบุเดือน ถูกตัวกรองช่วงเดือนซ่อนเงียบ ๆ → นึกว่าข้อมูลหาย
         rawRows = await adapter.listPending({
           status: view.status,
           stage:  view.stage  || undefined,
-          from:   archived ? undefined : (view.from || undefined),
-          to:     archived ? undefined : (view.to   || undefined),
           search: view.search || undefined,
           sort: view.sort, dir: view.dir,
         });
@@ -269,9 +272,28 @@ export default {
         $('pSum').textContent = '';
         return;
       }
-      rows = scope ? scope.filter(rawRows) : rawRows;   // กรองตามทีมที่เลือก
-      paint();
+      applyFilters();
       refreshArcBadge();   // อัปเดตเลขบนแถบ Archive ทุกครั้ง (กดเก็บ/ปลุกกลับแล้วเลขตามทันที)
+    }
+
+    // กรองทีม + ช่วงเดือน ฝั่งเบราว์เซอร์ (ไม่โหลดใหม่) แล้ววาด
+    function applyFilters() {
+      const teamRows = scope ? scope.filter(rawRows) : rawRows;
+      // Archive = งานจบแล้ว "เดือนคาดปิด" ไม่มีความหมาย จึงไม่กรองเดือน
+      const range = view.status !== 'archived' && (view.from || view.to);
+      hiddenNoDate = 0;
+      if (range) {
+        const from = view.from || '0000-00';
+        const to   = view.to   || '9999-99';
+        rows = teamRows.filter(r => {
+          const m = effMonth(r);
+          if (!m) { hiddenNoDate++; return false; }   // ไม่มีเดือน → ซ่อนจากช่วง แต่ "นับไว้บอก"
+          return m >= from && m <= to;
+        });
+      } else {
+        rows = teamRows;
+      }
+      paint();
     }
 
     // ป้ายบอกว่ามีงานค้างใน Archive กี่งาน — เรียกทุก reload ให้ตรงเสมอ
@@ -294,9 +316,17 @@ export default {
           (won ? ` · ปิดได้แล้ว <b>${mbaht(won)}</b> บาท` : '')
         : '';
 
+      // งานที่ช่วงเดือนซ่อนเพราะยังไม่ระบุเดือน — ต้องบอกจำนวน + ให้กดดูได้ (ห้ามซ่อนเงียบ)
+      const hiddenNote = hiddenNoDate ? `
+        <div class="filter-hidden-note">
+          🔎 มี <b>${hiddenNoDate}</b> งานที่ยังไม่ระบุเดือนคาดปิด จึงไม่แสดงในช่วงเดือนที่เลือก
+          (เช่น งานที่เพิ่งนำเข้าจาก AI) — กด <b>ดูทั้งหมด</b> เพื่อดู แล้วค่อยกรอกเดือนคาดปิดให้
+          <button type="button" class="btn btn-ghost btn-sm" id="pShowAll">ดูทั้งหมด (ล้างช่วงเดือน)</button>
+        </div>` : '';
+
       if (!rows.length) {
         const filtered = view.search || view.stage || view.from || view.to;
-        listEl.innerHTML = `<div class="empty">
+        listEl.innerHTML = hiddenNote + `<div class="empty">
             <strong>ยังไม่มีงานที่ตรงกับเงื่อนไข</strong>
             ${filtered ? 'ลองล้างตัวกรอง หรือกด "+ เพิ่มงาน"'
                        : 'กด "+ เพิ่มงาน" เพื่อเริ่มบันทึกโครงการแรก'}
@@ -308,7 +338,7 @@ export default {
       const arrow = (k) => view.sort === k ? (view.dir === 'asc' ? ' ▲' : ' ▼') : '';
 
       // ตาราง (desktop) + การ์ด (มือถือ) — CSS เลือกแสดงอันเดียวตามความกว้างจอ
-      listEl.innerHTML = `
+      listEl.innerHTML = hiddenNote + `
         <div class="tbl-wrap">
           <table class="tbl">
             <thead><tr>
@@ -394,6 +424,15 @@ export default {
     });
 
     listEl.addEventListener('click', (e) => {
+      // "ดูทั้งหมด" — ล้างช่วงเดือน เพื่อเห็นงานที่ยังไม่ระบุเดือน (ที่เพิ่งนำเข้า)
+      if (e.target.closest('#pShowAll')) {
+        view.from = ''; view.to = '';
+        const pf = $('pFrom'), pt = $('pTo');
+        if (pf) pf.value = ''; if (pt) pt.value = '';
+        syncMonthFilterState?.();
+        return applyFilters();
+      }
+
       // ปุ่มบันทึกเร็วต้องเช็กก่อนแถว ไม่งั้นโดนแถวดักไปเปิดฟอร์มเต็มแทน
       const lg = e.target.closest('[data-log]');
       if (lg) {

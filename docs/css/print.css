@@ -142,6 +142,10 @@
 .pf-sum-l { border: none !important; font-size: 8.5pt; }
 .pf-sum   { font-weight: 600; }
 
+/* คอมเมนต์ของหัวหน้าผู้เซ็น (แถวเซ็นรับทราบ) — เน้นสีน้ำเงินให้เด่นจากบันทึกทั่วไป
+   (ข้อยกเว้น hardcode สีเพิ่มอีกจุด ตามที่เจ้าของขอ — สีต้องคงที่แม้ธีมจอเปลี่ยน) */
+.pf-signoff-row td { color: #1b53c0; }
+
 /* ตารางบันทึกติดตาม */
 .pf-log td { height: 15pt; }
 .pf-log th:nth-child(1), .pf-log td:nth-child(1) { width: 16%; }

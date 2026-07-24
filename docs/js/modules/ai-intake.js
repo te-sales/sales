@@ -31,12 +31,18 @@ const AI_KEY_LS   = 'te-dashboard:openrouter-key';
 const AI_MODEL_LS = 'te-dashboard:openrouter-model';
 
 // โมเดลแนะนำ (ทั้งหมดรองรับอ่านรูป vision · เป็น model id ของ OpenRouter) — ผู้ใช้เลือกจาก dropdown
+// ⭐ GPT-4o อยู่บนสุด = ตัวที่ "ทดสอบแล้วใช้ได้จริง" → เป็นค่าเริ่มต้น กันเจอรุ่นที่ผู้ให้บริการปิด/ไม่รองรับ
+// (บางรุ่นบน OpenRouter อาจถูกปิดชั่วคราว/ไม่รับรูป → ให้ผู้ใช้สลับได้หลากหลาย ตามที่เจ้าของขอ)
 export const AI_MODELS = [
-  { id: 'google/gemini-2.0-flash-001',      label: 'Gemini 2.0 Flash — เร็ว/ถูก (แนะนำ)' },
-  { id: 'anthropic/claude-3.5-sonnet',      label: 'Claude 3.5 Sonnet — อ่านลายมือไทยแม่น' },
-  { id: 'openai/gpt-4o',                    label: 'GPT-4o' },
-  { id: 'openai/gpt-4o-mini',               label: 'GPT-4o mini — ถูก' },
-  { id: 'google/gemini-2.0-flash-lite-001', label: 'Gemini 2.0 Flash Lite — ถูกสุด' },
+  { id: 'openai/gpt-4o',                    label: 'OpenAI · GPT-4o — ✅ ทดสอบแล้วใช้ได้ (แนะนำ)' },
+  { id: 'openai/gpt-4o-mini',               label: 'OpenAI · GPT-4o mini — เร็ว/ถูกกว่า' },
+  { id: 'openai/gpt-4.1',                   label: 'OpenAI · GPT-4.1' },
+  { id: 'anthropic/claude-3.5-sonnet',      label: 'Anthropic · Claude 3.5 Sonnet — อ่านลายมือไทยแม่น' },
+  { id: 'anthropic/claude-3.7-sonnet',      label: 'Anthropic · Claude 3.7 Sonnet' },
+  { id: 'google/gemini-2.0-flash-001',      label: 'Google · Gemini 2.0 Flash — เร็ว/ถูก' },
+  { id: 'google/gemini-2.5-flash',          label: 'Google · Gemini 2.5 Flash' },
+  { id: 'google/gemini-2.0-flash-lite-001', label: 'Google · Gemini 2.0 Flash Lite — ถูกสุด' },
+  { id: 'meta-llama/llama-3.2-90b-vision-instruct', label: 'Meta · Llama 3.2 90B Vision' },
 ];
 const AI_MODEL_IDS = new Set(AI_MODELS.map(m => m.id));
 const DEFAULT_MODEL = AI_MODELS[0].id;
@@ -456,13 +462,14 @@ export function openAIImport(targetType = 'customer', opts = {}) {
                   ${AI_MODELS.map(m => `<option value="${esc(m.id)}">${esc(m.label)}</option>`).join('')}
                 </select>
               </label>
+              <p class="ai-modelnote">✅ ทดสอบแล้วใช้ได้จริง: <b>GPT-4o</b> · บางรุ่นผู้ให้บริการอาจปิดชั่วคราว/ไม่รองรับรูป — ถ้าเจอ error ให้สลับไปรุ่นอื่น</p>
               <a class="ai-keylink" href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer">ขอ API key ที่ openrouter.ai/keys →</a>
             </div>
           </details>
 
-          <div class="ai-or"><span>หรือทำเองแบบไม่ใช้เน็ต · ฟรี</span></div>
+          <div class="ai-or"><span>หรือทำเองแบบไม่ต้องใส่ API key · ฟรี</span></div>
 
-          <p class="ai-step">2 · ก๊อปคำสั่งนี้ไปวางใน Claude พร้อมรูป/โน้ต แล้วรอ JSON</p>
+          <p class="ai-step">2 · ก๊อปคำสั่งนี้ไปวางใน <b>Claude / Gemini / ChatGPT</b> พร้อมรูป/โน้ต แล้วรอ JSON</p>
           <div class="ai-prompt-wrap">
             <textarea class="ai-prompt" id="aiPrompt" readonly rows="8"></textarea>
             <button type="button" class="btn btn-ghost btn-sm ai-copy" id="aiCopy">⧉ คัดลอกคำสั่ง</button>

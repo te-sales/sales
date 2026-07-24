@@ -40,6 +40,17 @@ const safeUrl = (u) => {
   } catch { return ''; }
 };
 
+/** รายการลิงก์ที่กดได้ (กรอง javascript: ออกด้วย safeUrl) — ใช้ร่วมทั้งแถบเส้นทางและกลยุทธ์ */
+function linksHtml(links) {
+  const items = (links || []).map(l => {
+    const u = safeUrl(l.url);
+    return u
+      ? `<li><a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(l.label || u)} ↗</a></li>`
+      : `<li><span class="src-badlink">${esc(l.label || '')} — ลิงก์ไม่ถูกต้อง</span></li>`;
+  });
+  return items.length ? `<ul class="src-links">${items.join('')}</ul>` : '';
+}
+
 const MB = (v) => Number(v || 0) / 1e6;
 const fmtMB = (v) => MB(v).toLocaleString('th-TH', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const has = (v) => String(v ?? '').trim() !== '';
@@ -256,14 +267,7 @@ async function drawPaths(body, root, me, redraw) {
           ${s.owner_name ? `<p class="src-owner">ผู้รับผิดชอบ: <b>${esc(s.owner_name)}</b></p>` : ''}
           ${(s.subs || []).length ? `<div class="src-subs">
             ${s.subs.map(x => `<span class="ateam">${esc(x)}</span>`).join('')}</div>` : ''}
-          ${(s.links || []).length ? `<ul class="src-links">
-            ${s.links.map(l => {
-              const u = safeUrl(l.url);
-              return u ? `<li><a href="${esc(u)}" target="_blank" rel="noopener noreferrer">
-                            ${esc(l.label || u)} ↗</a></li>`
-                       : `<li><span class="src-badlink">${esc(l.label || '')} — ลิงก์ไม่ถูกต้อง</span></li>`;
-            }).join('')}
-          </ul>` : '<p class="src-nolink">— ยังไม่มีลิงก์ —</p>'}
+          ${linksHtml(s.links) || '<p class="src-nolink">— ยังไม่มีลิงก์ —</p>'}
         </div>`).join('')}
     </div>`;
 
@@ -784,6 +788,10 @@ async function drawPlaybook(body, root, me, redraw) {
             ${has(s.playbook)
               ? `<ul class="pblist">${bullets(s.playbook).map(b => `<li>${esc(b)}</li>`).join('')}</ul>`
               : '<p class="src-nolink">— ยังไม่ได้เขียนกลยุทธ์เส้นทางนี้ —</p>'}
+            ${(s.links || []).length ? `<div class="pb-links">
+              <span class="pb-links-h">🔗 ลิงก์เข้าทำงาน</span>
+              ${linksHtml(s.links)}
+            </div>` : ''}
           </div>`).join('')}
       </div>`}`;
 
