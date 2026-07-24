@@ -29,6 +29,7 @@ export const SOURCES = ['namecard', 'form'];
 
 const AI_KEY_LS   = 'te-dashboard:openrouter-key';
 const AI_MODEL_LS = 'te-dashboard:openrouter-model';
+const AI_MODE_LS  = 'te-dashboard:ai-mode';   // 'free' (ก๊อปวางเอง) | 'api' (ใช้ key อัตโนมัติ)
 
 // โมเดลแนะนำ (ทั้งหมดรองรับอ่านรูป vision · เป็น model id ของ OpenRouter) — ผู้ใช้เลือกจาก dropdown
 // ⭐ GPT-4o อยู่บนสุด = ตัวที่ "ทดสอบแล้วใช้ได้จริง" → เป็นค่าเริ่มต้น กันเจอรุ่นที่ผู้ให้บริการปิด/ไม่รองรับ
@@ -429,61 +430,70 @@ export function openAIImport(targetType = 'customer', opts = {}) {
               `<button type="button" class="ai-srcbtn ${s === source ? 'on' : ''}" data-src="${s}">${esc(SOURCE_LABEL[s])}</button>`).join('')}
           </div>
 
-          <div class="ai-auto">
-            <div class="ai-auto-l">
-              <strong>🧠 ให้ AI อ่าน & กรอกฟอร์มให้อัตโนมัติ</strong>
-              <span>แนบรูป (นามบัตร/ฟอร์ม/ลายมือ) หรือวางข้อความบันทึกยาว ๆ ด้านล่าง → AI สรุปแล้วเลือกส่วนที่เกี่ยวข้องไปกรอกแต่ละช่อง แล้วพักในรายการรอตรวจให้ตรวจ/แก้ก่อนบันทึก (ต้องต่อเน็ต + ตั้ง API key หรือ deploy Edge Function)</span>
+          <p class="ai-step">2 · เลือกวิธีให้ AI อ่าน</p>
+          <div class="segmented ai-modeseg" id="aiModeSeg" role="tablist" aria-label="วิธีให้ AI อ่าน">
+            <button type="button" data-mode="free">📋 ก๊อปไปวางเอง — ฟรี</button>
+            <button type="button" data-mode="api">🔑 ใช้ API key — อัตโนมัติ</button>
+          </div>
+
+          <!-- โหมดฟรี: ก๊อปคำสั่งไปวางใน Claude / Gemini / ChatGPT ของ user เอง -->
+          <div class="ai-mode" id="aiModeFree">
+            <p class="ai-hint2">ไม่ต้องตั้งค่าอะไร — ก๊อปคำสั่งด้านล่างไปวางใน <b>Claude / Gemini / ChatGPT</b> ของคุณ (แนบรูป/ข้อความไปด้วย) แล้วเอา JSON ที่ได้มาวางกลับ</p>
+            <div class="ai-prompt-wrap">
+              <textarea class="ai-prompt" id="aiPrompt" readonly rows="8"></textarea>
+              <button type="button" class="btn btn-ghost btn-sm ai-copy" id="aiCopy">⧉ คัดลอกคำสั่ง</button>
             </div>
-            <label class="btn btn-primary ai-autobtn" id="aiImgBtn">
-              📷 เลือกรูป
-              <input type="file" id="aiImg" accept="image/*" hidden>
-            </label>
+            <p class="ai-step">วางผล JSON ที่ AI ตอบกลับมา</p>
+            <textarea class="ai-paste inp" id="aiPaste" rows="6"
+                      placeholder='วางที่นี่ เช่น [{"fields":{"name":"…"},"confidence":{"name":0.9}}]'></textarea>
+            <div class="lg-add-row">
+              <button type="button" class="btn btn-primary" id="aiParse">ตรวจ + เพิ่มเข้ารายการรอตรวจ →</button>
+              <span class="lg-hint">ข้อมูลจะพักในรายการรอตรวจก่อน ยังไม่เข้าระบบจนกว่าจะกดยืนยันทีละรายการ</span>
+            </div>
           </div>
 
-          <textarea class="ai-paste inp" id="aiNote" rows="5"
-                    placeholder="…หรือวางข้อความบันทึกยาว ๆ ที่นี่ เช่น สรุปการประชุม / โน้ตจากการโทร / ข้อความแชท → AI จะเลือกเฉพาะส่วนที่เกี่ยวข้องไปกรอกแต่ละช่องให้"></textarea>
-          <div class="lg-add-row">
-            <button type="button" class="btn btn-primary" id="aiNoteBtn">🧠 ให้ AI อ่านข้อความนี้ →</button>
-            <span class="lg-hint">AI กรอกลงฟอร์มในรายการรอตรวจ ให้คุณตรวจ/แก้ก่อนบันทึกจริง</span>
-          </div>
-
-          <details class="ai-keybox" id="aiKeyBox">
-            <summary>🔑 เชื่อม AI ด้วย OpenRouter API key ของคุณเอง <span class="ai-keystate" id="aiKeyState"></span></summary>
-            <div class="ai-keybody">
-              <p class="ai-keynote">🔒 เก็บบน<b>เครื่องนี้เท่านั้น</b> · ไม่ส่งเข้าระบบ ไม่ขึ้น repo · ยิงตรงหา OpenRouter เพื่อให้ AI อ่าน/สรุปแล้วกรอกฟอร์มให้ (ทั้ง Pending และ Book 3 สี) · แต่ละคนหา key มาเอง<br><b>⚠️ อย่าใส่บนเครื่องสาธารณะ/เครื่องที่ใช้ร่วมกัน</b></p>
-              <p class="ai-keysaved" id="aiKeySaved" hidden></p>
-              <div class="ai-keyrow">
-                <input type="password" class="inp" id="aiKeyInput" placeholder="sk-or-v1-…" autocomplete="off" autocapitalize="off" spellcheck="false">
-                <button type="button" class="btn btn-primary btn-sm" id="aiKeySave">บันทึก key</button>
-                <button type="button" class="btn btn-ghost btn-sm" id="aiKeyClear">ลบ key</button>
+          <!-- โหมด API: แนบรูป/วางข้อความ → AI อ่านให้อัตโนมัติ (ต้องตั้ง key) -->
+          <div class="ai-mode" id="aiModeApi" hidden>
+            <div class="ai-auto">
+              <div class="ai-auto-l">
+                <strong>🧠 ให้ AI อ่าน & กรอกฟอร์มให้อัตโนมัติ</strong>
+                <span>แนบรูป (นามบัตร/ฟอร์ม/ลายมือ) หรือวางข้อความบันทึกยาว ๆ ด้านล่าง → AI สรุปแล้วเลือกส่วนที่เกี่ยวข้องไปกรอกแต่ละช่อง แล้วพักในรายการรอตรวจให้ตรวจ/แก้ก่อนบันทึก (ต้องต่อเน็ต + ตั้ง API key ด้านล่าง)</span>
               </div>
-              <label class="ai-modelrow"><span>โมเดล AI</span>
-                <select class="inp" id="aiModel">
-                  ${AI_MODELS.map(m => `<option value="${esc(m.id)}">${esc(m.label)}</option>`).join('')}
-                </select>
+              <label class="btn btn-primary ai-autobtn" id="aiImgBtn">
+                📷 เลือกรูป
+                <input type="file" id="aiImg" accept="image/*" hidden>
               </label>
-              <p class="ai-modelnote">✅ ทดสอบแล้วใช้ได้จริง: <b>GPT-4o</b> · บางรุ่นผู้ให้บริการอาจปิดชั่วคราว/ไม่รองรับรูป — ถ้าเจอ error ให้สลับไปรุ่นอื่น</p>
-              <a class="ai-keylink" href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer">ขอ API key ที่ openrouter.ai/keys →</a>
             </div>
-          </details>
 
-          <div class="ai-or"><span>หรือทำเองแบบไม่ต้องใส่ API key · ฟรี</span></div>
+            <textarea class="ai-paste inp" id="aiNote" rows="5"
+                      placeholder="…หรือวางข้อความบันทึกยาว ๆ ที่นี่ เช่น สรุปการประชุม / โน้ตจากการโทร / ข้อความแชท → AI จะเลือกเฉพาะส่วนที่เกี่ยวข้องไปกรอกแต่ละช่องให้"></textarea>
+            <div class="lg-add-row">
+              <button type="button" class="btn btn-primary" id="aiNoteBtn">🧠 ให้ AI อ่านข้อความนี้ →</button>
+              <span class="lg-hint">AI กรอกลงฟอร์มในรายการรอตรวจ ให้คุณตรวจ/แก้ก่อนบันทึกจริง</span>
+            </div>
 
-          <p class="ai-step">2 · ก๊อปคำสั่งนี้ไปวางใน <b>Claude / Gemini / ChatGPT</b> พร้อมรูป/โน้ต แล้วรอ JSON</p>
-          <div class="ai-prompt-wrap">
-            <textarea class="ai-prompt" id="aiPrompt" readonly rows="8"></textarea>
-            <button type="button" class="btn btn-ghost btn-sm ai-copy" id="aiCopy">⧉ คัดลอกคำสั่ง</button>
+            <details class="ai-keybox" id="aiKeyBox">
+              <summary>🔑 OpenRouter API key ของคุณเอง <span class="ai-keystate" id="aiKeyState"></span></summary>
+              <div class="ai-keybody">
+                <p class="ai-keynote">🔒 เก็บบน<b>เครื่องนี้เท่านั้น</b> · ไม่ส่งเข้าระบบ ไม่ขึ้น repo · ยิงตรงหา OpenRouter เพื่อให้ AI อ่าน/สรุปแล้วกรอกฟอร์มให้ (ทั้ง Pending และ Book 3 สี) · แต่ละคนหา key มาเอง<br><b>⚠️ อย่าใส่บนเครื่องสาธารณะ/เครื่องที่ใช้ร่วมกัน</b></p>
+                <p class="ai-keysaved" id="aiKeySaved" hidden></p>
+                <div class="ai-keyrow">
+                  <input type="password" class="inp" id="aiKeyInput" placeholder="sk-or-v1-…" autocomplete="off" autocapitalize="off" spellcheck="false">
+                  <button type="button" class="btn btn-primary btn-sm" id="aiKeySave">บันทึก key</button>
+                  <button type="button" class="btn btn-ghost btn-sm" id="aiKeyClear">ลบ key</button>
+                </div>
+                <label class="ai-modelrow"><span>โมเดล AI</span>
+                  <select class="inp" id="aiModel">
+                    ${AI_MODELS.map(m => `<option value="${esc(m.id)}">${esc(m.label)}</option>`).join('')}
+                  </select>
+                </label>
+                <p class="ai-modelnote">✅ ทดสอบแล้วใช้ได้จริง: <b>GPT-4o</b> · บางรุ่นผู้ให้บริการอาจปิดชั่วคราว/ไม่รองรับรูป — ถ้าเจอ error ให้สลับไปรุ่นอื่น</p>
+                <a class="ai-keylink" href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer">ขอ API key ที่ openrouter.ai/keys →</a>
+              </div>
+            </details>
           </div>
 
-          <p class="ai-step">3 · วางผล JSON ที่ Claude ตอบกลับมา</p>
-          <textarea class="ai-paste inp" id="aiPaste" rows="6"
-                    placeholder='วางที่นี่ เช่น [{"fields":{"name":"…"},"confidence":{"name":0.9}}]'></textarea>
           <p class="login-err" id="aiErr" role="alert" hidden></p>
-
-          <div class="lg-add-row">
-            <button type="button" class="btn btn-primary" id="aiParse">ตรวจ + เพิ่มเข้ารายการรอตรวจ →</button>
-            <span class="lg-hint">ข้อมูลจะพักในรายการรอตรวจก่อน ยังไม่เข้าระบบจนกว่าจะกดยืนยันทีละรายการ</span>
-          </div>
         </section>
 
         <!-- ── รายการรอตรวจ (staging) ── -->
@@ -505,6 +515,22 @@ export function openAIImport(targetType = 'customer', opts = {}) {
 
   const syncPrompt = () => { q('#aiPrompt').value = promptFor(targetType, source); };
   syncPrompt();
+
+  // ── เลือกวิธี: ฟรี (ก๊อปวางเอง) หรือ API key (อัตโนมัติ) ── จำค่าไว้ · มี key อยู่แล้วเริ่มที่ API
+  let aiMode = '';
+  try { aiMode = localStorage.getItem(AI_MODE_LS) || ''; } catch {}
+  if (aiMode !== 'api' && aiMode !== 'free') aiMode = aiKey.has() ? 'api' : 'free';
+  const setMode = (m) => {
+    aiMode = m;
+    try { localStorage.setItem(AI_MODE_LS, m); } catch {}
+    host.querySelectorAll('#aiModeSeg [data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+    q('#aiModeApi').hidden  = m !== 'api';
+    q('#aiModeFree').hidden = m !== 'free';
+    setErr('');
+  };
+  host.querySelectorAll('#aiModeSeg [data-mode]').forEach(b =>
+    b.addEventListener('click', () => setMode(b.dataset.mode)));
+  setMode(aiMode);
 
   // ── BYO API key (เก็บ localStorage เครื่องนี้เท่านั้น) ──
   const syncKeyState = () => {

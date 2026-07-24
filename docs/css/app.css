@@ -1482,6 +1482,13 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 }
 .ai-pane .ai-step:first-child { margin-top: 4px; }
 
+/* สลับวิธี: ฟรี (ก๊อปวางเอง) / API key (อัตโนมัติ) */
+.ai-modeseg { width: 100%; }
+.ai-modeseg button { flex: 1; }
+.ai-mode { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.ai-hint2 { margin: 0; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+.ai-hint2 b { color: var(--text); }
+
 /* เลือกแหล่ง */
 .ai-src { display: flex; flex-wrap: wrap; gap: 8px; }
 .ai-srcbtn {

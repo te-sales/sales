@@ -438,6 +438,9 @@ async function openDetail(host, id, onSaved, teams) {
   const me = await whoAmI();
   const archived = row?.is_active === false;
 
+  // ลูกค้าใหม่: ตั้งทีมผู้ดูแลเริ่มต้น = ทีมของคนที่ล็อกอิน (เลือกเปลี่ยนได้)
+  const formRow = row || { team_id: me?.team_id || '' };
+
   let soState = { kind: 'none' };
   let soHist  = [];
   if (id) {
@@ -467,7 +470,7 @@ async function openDetail(host, id, onSaved, teams) {
           ${FORM.map(g => `
             <section class="fgroup">
               <h3>${esc(g.group)}</h3>
-              <div class="fgrid">${g.fields.map(f => fieldHtml(f, row, teams)).join('')}</div>
+              <div class="fgrid">${g.fields.map(f => fieldHtml(f, formRow, teams)).join('')}</div>
             </section>`).join('')}
 
           <section class="fgroup">

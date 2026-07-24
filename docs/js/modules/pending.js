@@ -607,6 +607,8 @@ const PRODUCT_SECTION = `
 
 const FORM = [
   { group: 'หัวฟอร์ม', fields: [
+    // ทีมผู้ดูแลไว้บนสุด (ย้ายขึ้นตามคำสั่งเจ้าของ) — ค่าเริ่มต้น = ทีมของคนที่ล็อกอิน (แก้ได้)
+    ['team_id',        'ทีมผู้ดูแล',                          'team'],
     ['pending_no',     'PENDING NO. (Sale code count)',      'text', 'เช่น PD-69-004'],
     ['project_name',   'ชื่องาน/โครงการ *',                   'text', 'เช่น ระบบประปาบาดาล อบต. …'],
     ['customer_name',  'ลูกค้า / หน่วยงาน',                    'text'],
@@ -644,7 +646,7 @@ const FORM = [
     //    ⚠️ ห้ามลบคอลัมน์ product ใน DB — งานเก่าที่กรอกไว้แล้วยังอยู่ในนั้น
     //       ช่องนี้แค่ไม่แสดงบนฟอร์ม ค่าเดิมจึงไม่ถูกเขียนทับ (ไม่อยู่ใน FormData = ไม่ถูกส่งไป PATCH)
     // ['product',     'ผลิตภัณฑ์/ระบบ',     'text'],
-    ['team_id',     'ทีมผู้ดูแล',          'team'],
+    // ทีมผู้ดูแลย้ายไปไว้บนสุด (กลุ่ม "หัวฟอร์ม") แล้ว
   ]},
 ];
 
@@ -700,6 +702,9 @@ async function openDetail(host, id, onSaved, teams) {
   const archived = row?.is_active === false;
   const me       = await whoAmI();
 
+  // งานใหม่: ตั้งทีมผู้ดูแลเริ่มต้น = ทีมของคนที่ล็อกอิน (เลือกเปลี่ยนได้) — ช่องอื่นยังว่างตามปกติ
+  const formRow = row || { team_id: me?.team_id || '' };
+
   // ลายเซ็นหัวหน้า — ยังไม่ได้รัน signoffs.sql ก็ต้องเปิดฟอร์มได้ตามปกติ
   let soState = { kind: 'none' };
   let soHist  = [];
@@ -728,7 +733,7 @@ async function openDetail(host, id, onSaved, teams) {
             ${g.group === 'เงิน & เวลา' ? PRODUCT_SECTION : ''}
             <section class="fgroup">
               <h3>${esc(g.group)}</h3>
-              <div class="fgrid">${g.fields.map(f => fieldHtml(f, row, teams)).join('')}</div>
+              <div class="fgrid">${g.fields.map(f => fieldHtml(f, formRow, teams)).join('')}</div>
             </section>`).join('')}
 
           <section class="fgroup">
