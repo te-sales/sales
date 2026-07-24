@@ -10,6 +10,7 @@ import { signoffState, signoffBarHtml, bindSignoff, canSign,
          signoffHistoryHtml, bindSignoffHistory } from '../ui/signoff.js';
 import { printPending } from '../ui/formprint.js';
 import { openAIImport } from './ai-intake.js';
+import { mountTeamScope } from '../ui/teamscope.js';
 
 // ── ขั้นตอนงานขาย ── ยกจาก prototype v3 แต่เปลี่ยน hex เป็นตัวแปร CSS ตามกติกาธีม
 export const STAGES = [
@@ -98,7 +99,7 @@ function presetRange(kind, now = new Date()) {
 // ── สถานะหน้าจอ (จำไว้ให้กลับมาแล้วเหมือนเดิม) ──
 const DEFAULT_VIEW = {
   sort: 'updated_at', dir: 'desc', search: '', stage: '',
-  from: '', to: '', status: 'active',
+  from: '', to: '', status: 'active', team: '',
 };
 
 function loadView() {
@@ -228,6 +229,7 @@ export default {
         <button class="btn btn-ghost btn-sm" id="pCsv">⭳ CSV</button>
       </div>
 
+      <div id="pScope"></div>
       <div class="sum" id="pSum"></div>
       <div id="pList"><div class="skeleton">กำลังโหลด…</div></div>
       <div id="pPanel"></div>`;
@@ -235,7 +237,16 @@ export default {
     const $ = (id) => root.querySelector('#' + id);
     const listEl = $('pList');
 
-    let rows = [];
+    let rawRows = [];   // ทั้งหมดที่ RLS ให้เห็น
+    let rows = [];      // หลังกรองทีมที่เลือก
+    let scope = null;
+
+    // แถบเลือกทีม (admin/หัวหน้าที่เห็นหลายทีม) — เลือกแล้วกรองในฝั่งเบราว์เซอร์ ไม่ต้องโหลดใหม่
+    scope = mountTeamScope($('pScope'), teams, view.team || '', (id) => {
+      view.team = id; saveView(view);
+      rows = scope.filter(rawRows);
+      paint();
+    });
 
     async function reload() {
       saveView(view);
@@ -244,7 +255,7 @@ export default {
         // ⚠️ Archive = งานที่จบแล้ว — "เดือนคาดปิด" ไม่มีความหมาย จึงไม่กรองเดือน
         //    (ไม่งั้น badge นับงานในคลังทั้งหมด แต่ลิสต์ถูกตัวกรองเดือนซ่อน → เลข 1 แต่ลิสต์ว่าง งง)
         const archived = view.status === 'archived';
-        rows = await adapter.listPending({
+        rawRows = await adapter.listPending({
           status: view.status,
           stage:  view.stage  || undefined,
           from:   archived ? undefined : (view.from || undefined),
@@ -257,6 +268,7 @@ export default {
         $('pSum').textContent = '';
         return;
       }
+      rows = scope ? scope.filter(rawRows) : rawRows;   // กรองตามทีมที่เลือก
       paint();
       refreshArcBadge();   // อัปเดตเลขบนแถบ Archive ทุกครั้ง (กดเก็บ/ปลุกกลับแล้วเลขตามทันที)
     }

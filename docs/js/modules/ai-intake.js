@@ -20,60 +20,71 @@ export const SOURCES = ['namecard', 'form'];
 // BYO API key (ทางเลือก) — เจ้าของขอ "เชื่อม API key ให้ AI เป็นสมองกรอกฟอร์ม" (24 ก.ค. 2569)
 //
 // 🔒 กติกาความปลอดภัย (สำคัญมาก):
-//   • เป็น key ของ "ผู้ใช้เอง" เก็บใน localStorage ของ "เครื่องนี้เท่านั้น"
-//   • ไม่เคยเขียนลง repo / ไม่ส่งเข้า Supabase / ยิงตรงหา Anthropic เท่านั้น
-//     (CLAUDE.md ห้าม hardcode ANTHROPIC_API_KEY ใน repo — ข้อนี้ไม่ละเมิด เพราะ key ไม่อยู่ในโค้ด)
+//   • เป็น key ของ "ผู้ใช้เอง" (OpenRouter · แต่ละคนหามาเอง) เก็บใน localStorage "เครื่องนี้เท่านั้น"
+//   • ไม่เคยเขียนลง repo / ไม่ส่งเข้า Supabase / ยิงตรงหา OpenRouter เท่านั้น
+//     (CLAUDE.md ห้าม hardcode key ใน repo — ข้อนี้ไม่ละเมิด เพราะ key ไม่อยู่ในโค้ด · [[byo-api-key-decision]])
 //   • ไม่ตั้ง key → fallback ไปใช้ Edge Function (adapter.aiExtract) เหมือนเดิม (key อยู่ฝั่งเซิร์ฟเวอร์)
-//   • เตือนผู้ใช้ในหน้าจอ: อย่าใส่บนเครื่องสาธารณะ/เครื่องที่ใช้ร่วมกัน
+//   • เตือนผู้ใช้ในหน้าจอ: อย่าใส่บนเครื่องสาธารณะ/เครื่องที่ใช้ร่วมกัน · เลือก model ได้ (dropdown)
 // ══════════════════════════════════════════════════════════
 
-const AI_KEY_LS = 'te-dashboard:anthropic-key';
-const AI_MODEL  = 'claude-sonnet-5';
+const AI_KEY_LS   = 'te-dashboard:openrouter-key';
+const AI_MODEL_LS = 'te-dashboard:openrouter-model';
+
+// โมเดลแนะนำ (ทั้งหมดรองรับอ่านรูป vision · เป็น model id ของ OpenRouter) — ผู้ใช้เลือกจาก dropdown
+export const AI_MODELS = [
+  { id: 'google/gemini-2.0-flash-001',      label: 'Gemini 2.0 Flash — เร็ว/ถูก (แนะนำ)' },
+  { id: 'anthropic/claude-3.5-sonnet',      label: 'Claude 3.5 Sonnet — อ่านลายมือไทยแม่น' },
+  { id: 'openai/gpt-4o',                    label: 'GPT-4o' },
+  { id: 'openai/gpt-4o-mini',               label: 'GPT-4o mini — ถูก' },
+  { id: 'google/gemini-2.0-flash-lite-001', label: 'Gemini 2.0 Flash Lite — ถูกสุด' },
+];
+const AI_MODEL_IDS = new Set(AI_MODELS.map(m => m.id));
+const DEFAULT_MODEL = AI_MODELS[0].id;
 
 export const aiKey = {
-  get:   () => { try { return localStorage.getItem(AI_KEY_LS) || ''; } catch { return ''; } },
-  set:   (v) => { try { localStorage.setItem(AI_KEY_LS, String(v || '').trim()); } catch {} },
-  clear: () => { try { localStorage.removeItem(AI_KEY_LS); } catch {} },
-  has:   () => !!aiKey.get(),
+  get:      () => { try { return localStorage.getItem(AI_KEY_LS) || ''; } catch { return ''; } },
+  set:      (v) => { try { localStorage.setItem(AI_KEY_LS, String(v || '').trim()); } catch {} },
+  clear:    () => { try { localStorage.removeItem(AI_KEY_LS); } catch {} },
+  has:      () => !!aiKey.get(),
+  model:    () => { try { const m = localStorage.getItem(AI_MODEL_LS); return AI_MODEL_IDS.has(m) ? m : DEFAULT_MODEL; } catch { return DEFAULT_MODEL; } },
+  setModel: (m) => { try { if (AI_MODEL_IDS.has(m)) localStorage.setItem(AI_MODEL_LS, m); } catch {} },
 };
 
-/** ยิงตรงหา Claude ด้วย key ของผู้ใช้เอง · payload {prompt, image?, text?} → { text } */
-async function callClaudeDirect(key, payload) {
-  const content = [];
-  if (payload.image)
-    content.push({ type: 'image', source: {
-      type: 'base64', media_type: payload.image.media_type, data: payload.image.data } });
+/** ยิงตรงหา OpenRouter (OpenAI-compatible) ด้วย key ของผู้ใช้ · payload {prompt, image?, text?} → { text } */
+async function callOpenRouter(key, model, payload) {
+  const content = [{ type: 'text', text: payload.prompt || '' }];
   if (payload.text) content.push({ type: 'text', text: String(payload.text) });
-  content.push({ type: 'text', text: payload.prompt || '' });
+  if (payload.image)
+    content.push({ type: 'image_url', image_url: {
+      url: `data:${payload.image.media_type};base64,${payload.image.data}` } });
 
   let res, data;
   try {
-    res = await fetch('https://api.anthropic.com/v1/messages', {
+    res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        // ต้องมี header นี้ Anthropic ถึงยอมให้เรียกตรงจากเบราว์เซอร์ (CORS)
-        'anthropic-dangerous-direct-browser-access': 'true',
-        'content-type': 'application/json',
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': location.origin,   // OpenRouter แนะนำให้ใส่ (ระบุที่มา)
+        'X-Title': 'TE Sales Dashboard',
       },
-      body: JSON.stringify({ model: AI_MODEL, max_tokens: 2048, messages: [{ role: 'user', content }] }),
+      body: JSON.stringify({ model, max_tokens: 2048, messages: [{ role: 'user', content }] }),
     });
     data = await res.json().catch(() => null);
   } catch {
-    throw new Error('เรียก Claude ไม่สำเร็จ — ตรวจอินเทอร์เน็ต / API key');
+    throw new Error('เรียก AI ไม่สำเร็จ — ตรวจอินเทอร์เน็ต / API key');
   }
-  if (res.status === 401) throw new Error('API key ไม่ถูกต้องหรือหมดสิทธิ์ — ตรวจ key ที่ตั้งไว้');
-  if (!res.ok) throw new Error(data?.error?.message || `Claude ตอบ error (${res.status})`);
-  const text = (data?.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
-  if (!text) throw new Error('Claude ไม่ได้ส่งข้อความกลับมา');
+  if (res.status === 401) throw new Error('API key ไม่ถูกต้องหรือหมดสิทธิ์ — ตรวจ OpenRouter key');
+  if (!res.ok) throw new Error(data?.error?.message || `AI ตอบ error (${res.status})`);
+  const text = data?.choices?.[0]?.message?.content || '';
+  if (!text) throw new Error('AI ไม่ได้ส่งข้อความกลับมา');
   return { text };
 }
 
-/** เรียก AI: มี key ของผู้ใช้ → ยิงตรง · ไม่มี → Edge Function (adapter) */
+/** เรียก AI: มี key ของผู้ใช้ → OpenRouter · ไม่มี → Edge Function (adapter) */
 async function aiExtract(payload) {
   const key = aiKey.get();
-  return key ? callClaudeDirect(key, payload) : adapter.aiExtract(payload);
+  return key ? callOpenRouter(key, aiKey.model(), payload) : adapter.aiExtract(payload);
 }
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m =>
@@ -193,6 +204,7 @@ function promptFor(targetType, source) {
   const srcHint = {
     namecard: 'ฉันจะแนบรูปนามบัตร',
     form:     'ฉันจะแนบรูปฟอร์มกระดาษ/ลายมือ',
+    note:     'ฉันจะวางข้อความบันทึก/โน้ตยาว ๆ',
   }[source] || 'ฉันจะแนบข้อมูล';
 
   return `${srcHint} ช่วยอ่านแล้วแปลงเป็นข้อมูล${DEST_LABEL[targetType]}
@@ -399,25 +411,37 @@ export function openAIImport(targetType = 'customer', opts = {}) {
 
           <div class="ai-auto">
             <div class="ai-auto-l">
-              <strong>📷 ให้ AI อ่านรูปอัตโนมัติ</strong>
-              <span>เลือกรูป/ถ่ายรูป นามบัตร · ฟอร์มกระดาษ · ลายมือ → AI อ่านแล้วกรอกลงฟอร์มในรายการรอตรวจ (ต้องต่อเน็ต + ตั้ง API key หรือ deploy Edge Function)</span>
+              <strong>🧠 ให้ AI อ่าน & กรอกฟอร์มให้อัตโนมัติ</strong>
+              <span>แนบรูป (นามบัตร/ฟอร์ม/ลายมือ) หรือวางข้อความบันทึกยาว ๆ ด้านล่าง → AI สรุปแล้วเลือกส่วนที่เกี่ยวข้องไปกรอกแต่ละช่อง แล้วพักในรายการรอตรวจให้ตรวจ/แก้ก่อนบันทึก (ต้องต่อเน็ต + ตั้ง API key หรือ deploy Edge Function)</span>
             </div>
             <label class="btn btn-primary ai-autobtn" id="aiImgBtn">
-              เลือกรูป
+              📷 เลือกรูป
               <input type="file" id="aiImg" accept="image/*" hidden>
             </label>
           </div>
 
+          <textarea class="ai-paste inp" id="aiNote" rows="5"
+                    placeholder="…หรือวางข้อความบันทึกยาว ๆ ที่นี่ เช่น สรุปการประชุม / โน้ตจากการโทร / ข้อความแชท → AI จะเลือกเฉพาะส่วนที่เกี่ยวข้องไปกรอกแต่ละช่องให้"></textarea>
+          <div class="lg-add-row">
+            <button type="button" class="btn btn-primary" id="aiNoteBtn">🧠 ให้ AI อ่านข้อความนี้ →</button>
+            <span class="lg-hint">AI กรอกลงฟอร์มในรายการรอตรวจ ให้คุณตรวจ/แก้ก่อนบันทึกจริง</span>
+          </div>
+
           <details class="ai-keybox" id="aiKeyBox">
-            <summary>🔑 เชื่อม AI ด้วย API key ของคุณเอง <span class="ai-keystate" id="aiKeyState"></span></summary>
+            <summary>🔑 เชื่อม AI ด้วย OpenRouter API key ของคุณเอง <span class="ai-keystate" id="aiKeyState"></span></summary>
             <div class="ai-keybody">
-              <p class="ai-keynote">🔒 เก็บบน<b>เครื่องนี้เท่านั้น</b> · ไม่ส่งเข้าระบบ ไม่ขึ้น repo · ยิงตรงหา Anthropic เพื่อให้ AI อ่านรูปแล้วกรอกฟอร์มให้ (ทั้ง Pending และ Book 3 สี)<br><b>⚠️ อย่าใส่บนเครื่องสาธารณะ/เครื่องที่ใช้ร่วมกัน</b></p>
+              <p class="ai-keynote">🔒 เก็บบน<b>เครื่องนี้เท่านั้น</b> · ไม่ส่งเข้าระบบ ไม่ขึ้น repo · ยิงตรงหา OpenRouter เพื่อให้ AI อ่าน/สรุปแล้วกรอกฟอร์มให้ (ทั้ง Pending และ Book 3 สี) · แต่ละคนหา key มาเอง<br><b>⚠️ อย่าใส่บนเครื่องสาธารณะ/เครื่องที่ใช้ร่วมกัน</b></p>
               <div class="ai-keyrow">
-                <input type="password" class="inp" id="aiKeyInput" placeholder="sk-ant-…" autocomplete="off" spellcheck="false">
+                <input type="password" class="inp" id="aiKeyInput" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false">
                 <button type="button" class="btn btn-primary btn-sm" id="aiKeySave">บันทึก key</button>
                 <button type="button" class="btn btn-ghost btn-sm" id="aiKeyClear">ลบ key</button>
               </div>
-              <a class="ai-keylink" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">ขอ API key ที่ console.anthropic.com →</a>
+              <label class="ai-modelrow"><span>โมเดล AI</span>
+                <select class="inp" id="aiModel">
+                  ${AI_MODELS.map(m => `<option value="${esc(m.id)}">${esc(m.label)}</option>`).join('')}
+                </select>
+              </label>
+              <a class="ai-keylink" href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer">ขอ API key ที่ openrouter.ai/keys →</a>
             </div>
           </details>
 
@@ -473,6 +497,12 @@ export function openAIImport(targetType = 'customer', opts = {}) {
     aiKey.set(v); q('#aiKeyInput').value = ''; syncKeyState(); setErr('');
   });
   q('#aiKeyClear')?.addEventListener('click', () => { aiKey.clear(); syncKeyState(); });
+  // เลือกโมเดล AI (จำใน localStorage)
+  const modelSel = q('#aiModel');
+  if (modelSel) {
+    modelSel.value = aiKey.model();
+    modelSel.addEventListener('change', () => aiKey.setModel(modelSel.value));
+  }
 
   q('#aiClose').addEventListener('click', close);
   q('#aiDone').addEventListener('click', close);
@@ -543,7 +573,29 @@ export function openAIImport(targetType = 'customer', opts = {}) {
     }
   });
 
-  // ── AI อ่านรูปอัตโนมัติ (Edge Function · 3.8) ──
+  // ── AI อ่านข้อความยาว (วางโน้ต → สรุป → เลือกส่วนที่เกี่ยว → กรอกฟอร์ม) ──
+  q('#aiNoteBtn')?.addEventListener('click', async () => {
+    setErr('');
+    const note = q('#aiNote').value.trim();
+    if (!note) return setErr('วางข้อความก่อนให้ AI อ่าน');
+    const btn = q('#aiNoteBtn');
+    btn.disabled = true; const t0 = btn.textContent; btn.textContent = 'กำลังให้ AI อ่าน…';
+    try {
+      const res = await aiExtract({
+        prompt: promptFor(targetType, 'note'), text: note,
+        source, target_type: targetType,
+      });
+      const records = parsePasted(res?.text || '');
+      await stageRecords(records, note);       // → พักในรายการรอตรวจ (แก้ก่อนบันทึกจริง)
+      q('#aiNote').value = '';
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = t0;
+    }
+  });
+
+  // ── AI อ่านรูปอัตโนมัติ (Edge Function · 3.8 · หรือ OpenRouter ถ้าตั้ง key) ──
   q('#aiImg').addEventListener('change', async (ev) => {
     const file = ev.target.files?.[0];
     ev.target.value = '';                 // เลือกไฟล์เดิมซ้ำได้

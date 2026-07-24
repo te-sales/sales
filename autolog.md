@@ -27,6 +27,21 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-25 · ยังไม่ commit · ตัวกรองทีม + AI OpenRouter/วางข้อความ + หัวบันทึกเน้นสี — v0.30.0
+**step:** — (เจ้าของสั่ง 5 ข้อ) | **ประเภท:** ฟีเจอร์ (หลายหน้า)
+- **แถบเลือกทีม (ใหม่ `docs/js/ui/teamscope.js`)** ใช้ร่วม Pending + Book 3 สี
+  - "กำลังแสดง: <ทีม>" + ชิปเลือก (รวมทุกทีม / รายทีม) · โผล่เมื่อเห็นหลายทีม (admin/หัวหน้า)
+  - กรองฝั่งเบราว์เซอร์จาก rawRows (RLS คัดมาแล้ว) · ให้สิทธิ์ทีมแม่ = เห็นทีมลูก (subtree)
+  - `view.team` จำใน localStorage · เลือกแล้วไม่ต้องโหลดใหม่
+- **AI Import: เปลี่ยน BYO key → OpenRouter** (`ai-intake.js`) [[byo-api-key-decision]]
+  - `callOpenRouter` (OpenAI-compatible) · key `te-dashboard:openrouter-key` (เครื่องนี้เท่านั้น)
+  - **dropdown เลือก model** (`AI_MODELS` 5 ตัว vision · จำ `te-dashboard:openrouter-model`) · แต่ละคนหา key เอง
+- **AI Import: กล่องวางข้อความยาว** (`#aiNote` + ปุ่ม 🧠) — วางโน้ต/สรุปประชุม → AI สรุปเลือกส่วนที่เกี่ยว → กรอกฟอร์ม → พักในรายการรอตรวจ (ตรวจ/แก้ก่อนบันทึกจริง · ใช้ staging เดิม)
+- **หัวโมดัลบันทึก (log) เป็น heading + สีเน้น** (`.q-sub` ใน app.css) — ชื่อโครงการ/ลูกค้า 18px หนา สี accent · มีผลทั้ง Pending + Book 3 สี (ใช้คลาสเดียวกัน)
+- ทดสอบ: batch2 19/19 (team scope filter · log heading · OpenRouter key+model+note) · batch 16/16 · dash-filter 15/15
+- เรนเดอร์ภาพยืนยัน: log heading (accent) + AI OpenRouter modal (note box + model dropdown)
+- bump v0.29.0 → v0.30.0 · +teamscope.js ใน sw precache · DATA_MODE=supabase · ไม่มี key/PII หลุด
+
 ## 2026-07-24 · ยังไม่ commit · งานชุดกลางคืน 7 อย่าง (เจ้าของสั่งก่อนนอน) — v0.29.0
 **step:** — (เจ้าของสั่งรวด 7 ข้อ) | **ประเภท:** ฟีเจอร์ + แก้บั๊ก (หลายหน้า)
 1. **Dashboard: ตาราง "Pending Project ล่าสุด"** (`dashboard.js` `recentPendingSection`) — 8 งานที่อัปเดตล่าสุด + stage pill

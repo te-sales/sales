@@ -11,6 +11,7 @@ import { signoffState, signoffBarHtml, bindSignoff, canSign,
 import { printCustomer } from '../ui/formprint.js';
 import { photoFieldHtml, bindPhotoField } from '../ui/photofield.js';
 import { openAIImport } from './ai-intake.js';
+import { mountTeamScope } from '../ui/teamscope.js';
 
 // ── สี 3 ระดับ ── (ความหมายจากฟอร์มกระดาษ)
 export const COLORS = [
@@ -21,7 +22,7 @@ export const COLORS = [
 const colorOf = (id) => COLORS.find(c => c.id === id) || COLORS[2];
 
 const LS_VIEW = 'te-dashboard:book3-view';
-const DEFAULT_VIEW = { color: '', search: '', status: 'active', sort: 'updated_at', dir: 'desc' };
+const DEFAULT_VIEW = { color: '', search: '', status: 'active', sort: 'updated_at', dir: 'desc', team: '' };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -98,19 +99,29 @@ export default {
         <button class="btn btn-ghost btn-sm" id="bCsv">⭳ CSV</button>
       </div>
 
+      <div id="bScope"></div>
       <div class="sum" id="bSum"></div>
       <div id="bList"><div class="skeleton">กำลังโหลด…</div></div>
       <div id="bPanel"></div>`;
 
     const $ = (id) => root.querySelector('#' + id);
     const listEl = $('bList');
-    let rows = [];
+    let rawRows = [];   // ทั้งหมดที่ RLS ให้เห็น
+    let rows = [];      // หลังกรองทีมที่เลือก
+    let scope = null;
+
+    // แถบเลือกทีม (admin/หัวหน้าที่เห็นหลายทีม) — กรองฝั่งเบราว์เซอร์ ไม่โหลดใหม่
+    scope = mountTeamScope($('bScope'), teams, view.team || '', (id) => {
+      view.team = id; saveView(view);
+      rows = scope.filter(rawRows);
+      paint();
+    });
 
     async function reload() {
       saveView(view);
       listEl.innerHTML = '<div class="skeleton">กำลังโหลด…</div>';
       try {
-        rows = await adapter.listCustomers({
+        rawRows = await adapter.listCustomers({
           status: view.status,
           color:  view.color  || undefined,
           search: view.search || undefined,
@@ -127,6 +138,7 @@ export default {
         $('bSum').textContent = '';
         return;
       }
+      rows = scope ? scope.filter(rawRows) : rawRows;   // กรองตามทีมที่เลือก
       paint();
       refreshCounts();
     }
