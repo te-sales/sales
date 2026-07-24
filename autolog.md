@@ -27,6 +27,19 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-25 · ยังไม่ commit · คอลัมน์ "การติดตามล่าสุด" ตัดสั้น + hover popup เต็ม — v0.31.0
+**step:** 1.4 / 2.2 (ปรับ UI) | **ประเภท:** ฟีเจอร์
+- ข้อความในคอลัมน์ "การติดตามล่าสุด/ความคืบหน้า" ยาวล้นจอ → ตัดเหลือ ≤60 อักขระ เติม …
+- ชี้เมาส์ที่ข้อความ → เด้ง popup แสดงความคืบหน้าเต็ม (RESPONSE + NEXT DOING + วันที่/ผู้บันทึก)
+- ทำเป็นคอมโพเนนต์ร่วม `js/ui/loghover.js` — ใช้ทั้ง Pending (F4) และ Book 3 สี (F5) ตัวเดียว
+- popup เป็น `position:fixed` (เลียน `.dp-pop` datepicker) กันโดน `.tbl-wrap` overflow:auto ตัดหาย
+  + `pointer-events:none` ห้ามกินคลิกปุ่ม (กติกาแถบ PWA · ทดสอบ hit-test จริง)
+- เลิกใช้ native `title` tooltip เดิม (ช้า/สไตล์ไม่ได้) → data-loghover เก็บของเต็ม
+**ไฟล์:** docs/js/ui/loghover.js (ใหม่) · docs/js/modules/pending.js · docs/js/modules/book3.js
+        · docs/css/app.css (.loghover) · docs/sw.js + docs/js/config.js (bump v0.31.0 + SHELL)
+**ทดสอบ:** loghover-test 12/12 ผ่าน (mouse.move จริง + scrollIntoView · ไม่มี JS error/rejection)
+           · ดูภาพ loghover-book3.png / loghover-pending.png ยืนยัน popup แสดงเต็มถูกตำแหน่ง
+
 ## 2026-07-25 · ยังไม่ commit · ตัวกรองทีม + AI OpenRouter/วางข้อความ + หัวบันทึกเน้นสี — v0.30.0
 **step:** — (เจ้าของสั่ง 5 ข้อ) | **ประเภท:** ฟีเจอร์ (หลายหน้า)
 - **แถบเลือกทีม (ใหม่ `docs/js/ui/teamscope.js`)** ใช้ร่วม Pending + Book 3 สี

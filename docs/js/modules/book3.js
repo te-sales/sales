@@ -12,6 +12,7 @@ import { printCustomer } from '../ui/formprint.js';
 import { photoFieldHtml, bindPhotoField } from '../ui/photofield.js';
 import { openAIImport } from './ai-intake.js';
 import { mountTeamScope } from '../ui/teamscope.js';
+import { lastLogSpan, mountLogHover } from '../ui/loghover.js';
 
 // ── สี 3 ระดับ ── (ความหมายจากฟอร์มกระดาษ)
 export const COLORS = [
@@ -50,11 +51,10 @@ const lastLogCell = (r) => {
   const btn = `<button type="button" class="btn-log" data-log="${esc(r.id)}"
                  title="บันทึกการติดตามวันนี้">＋ บันทึก</button>`;
   if (!l) return `<div class="lastlog"><span class="nolog">— ยังไม่มีบันทึก —</span>${btn}</div>`;
-  const text = l.response || l.next_doing || '';
   return `<div class="lastlog">
     <div class="lastlog-txt">
       <span class="lastlog-h">${esc(thaiDate(l.log_date) || l.log_date || '')}${l.by_name ? ' · ' + esc(l.by_name) : ''}</span>
-      <span class="lastlog-t" title="${esc(text)}">${esc(text)}</span>
+      ${lastLogSpan(l)}
     </div>${btn}
   </div>`;
 };
@@ -106,6 +106,7 @@ export default {
 
     const $ = (id) => root.querySelector('#' + id);
     const listEl = $('bList');
+    mountLogHover(listEl);   // ชี้เมาส์ที่ความคืบหน้า → เด้ง popup เต็ม
     let rawRows = [];   // ทั้งหมดที่ RLS ให้เห็น
     let rows = [];      // หลังกรองทีมที่เลือก
     let scope = null;

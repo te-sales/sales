@@ -11,6 +11,7 @@ import { signoffState, signoffBarHtml, bindSignoff, canSign,
 import { printPending } from '../ui/formprint.js';
 import { openAIImport } from './ai-intake.js';
 import { mountTeamScope } from '../ui/teamscope.js';
+import { lastLogSpan, mountLogHover } from '../ui/loghover.js';
 
 // ── ขั้นตอนงานขาย ── ยกจาก prototype v3 แต่เปลี่ยน hex เป็นตัวแปร CSS ตามกติกาธีม
 export const STAGES = [
@@ -143,11 +144,10 @@ function lastLogCell(row) {
                  title="บันทึกความคืบหน้าวันนี้">＋ บันทึก</button>`;
   if (!l) return `<div class="lastlog"><span class="nolog">— ยังไม่มีบันทึก —</span>${btn}</div>`;
 
-  const text = l.response || l.next_doing || '';
   return `<div class="lastlog">
     <div class="lastlog-txt">
       <span class="lastlog-h">${esc(thaiDate(l.log_date) || l.log_date || '')}${l.by_name ? ' · ' + esc(l.by_name) : ''}</span>
-      <span class="lastlog-t" title="${esc(text)}">${esc(text)}</span>
+      ${lastLogSpan(l)}
     </div>${btn}
   </div>`;
 }
@@ -236,6 +236,7 @@ export default {
 
     const $ = (id) => root.querySelector('#' + id);
     const listEl = $('pList');
+    mountLogHover(listEl);   // ชี้เมาส์ที่ความคืบหน้า → เด้ง popup เต็ม
 
     let rawRows = [];   // ทั้งหมดที่ RLS ให้เห็น
     let rows = [];      // หลังกรองทีมที่เลือก
