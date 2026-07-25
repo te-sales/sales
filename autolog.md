@@ -27,6 +27,16 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-25 · ยังไม่ commit · #1 บัญชีทดสอบต่อกลุ่ม — db/test-accounts.sql (เจ้าของเลือก "test account จริง")
+**step:** เครื่องมือทดสอบ | **ประเภท:** เอกสาร/SQL
+- เจ้าของเลือกวิธี "สร้าง test account จริงใน Supabase" (เจอปัญหา RLS จริง) จากที่ผมเสนอ 2 ทาง
+- `db/test-accounts.sql`: คู่มือ 2 ขั้น (สร้าง Auth user ใน Dashboard → รัน SQL ตั้ง role/ทีม/team_access)
+  6 บัญชี: admin · manager สายราชการ (GOV.1 + access GOV.1/3/4) · manager สายเอกชน (TE-IMP → เห็น IMP1/2)
+  · sale GOV.1 · sale IMP1 (ทีมลูก) · sale ไม่มีทีม (เคสกับดัก team_id ว่าง)
+- guard_profile_privilege ปล่อยผ่านเมื่อ auth.uid()=null (รันจาก SQL Editor) → ตั้ง role/ทีมได้ตรง ไม่ต้องปิด trigger
+**ไฟล์:** db/test-accounts.sql (ใหม่)
+**ทดสอบ:** libpg-query parse ผ่าน 9 statements · เจ้าของต้องสร้าง Auth user + รันเองใน Supabase
+
 ## 2026-07-25 · ยังไม่ commit · AI import สลับ API/ฟรี · ทีมผู้ดูแลขึ้นบนสุด + เริ่มต้นตาม account — v0.34.0
 **step:** 3.5 (AI) / 1.4 (Pending) / 2.2 (Book3) | **ประเภท:** ฟีเจอร์/ปรับ UX
 - **#2 AI import แถบสลับวิธี:** segmented "📋 ก๊อปไปวางเอง — ฟรี" / "🔑 ใช้ API key — อัตโนมัติ"
