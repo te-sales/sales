@@ -1560,6 +1560,52 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 .ai-log-preview { margin-top: 14px; border-top: 1px solid var(--border-soft); padding-top: 12px; }
 .ai-log-preview .ai-card { margin-top: 8px; }
 
+/* ⚡ Quick-log (P11) */
+.ql-tabs { margin-bottom: 12px; }
+.ql-search { width: 100%; margin-bottom: 10px; }
+.ql-results { max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; -webkit-overflow-scrolling: touch; }
+.ql-item {
+  display: flex; flex-direction: column; gap: 2px; text-align: left;
+  padding: 10px 12px; border: 1px solid var(--border-soft); border-radius: var(--r-sm);
+  background: var(--bg-elev); color: var(--text); cursor: pointer; min-height: 44px;
+}
+.ql-item:hover { border-color: var(--accent); background: var(--bg-hover); }
+.ql-item-name { font-weight: 600; font-size: 14px; }
+.ql-item-sub  { font-size: 12px; color: var(--text-mute); }
+.ql-empty { color: var(--text-mute); text-align: center; padding: 20px 8px; font-size: 13px; }
+.ql-newwrap { margin-top: 12px; }
+.ql-newbtn { width: 100%; }
+.ql-newform { border: 1px solid var(--border); border-radius: var(--r-sm); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.ql-newh { font-size: 12.5px; color: var(--text-dim); }
+.ql-newfoot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+
+.ql-picked { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border-soft); }
+.ql-picked-txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.35; }
+.ql-picked-txt strong { font-size: 15px; }
+.ql-picked-txt span { font-size: 12px; color: var(--text-mute); }
+.ql-back { flex: none; }
+.ql-full { margin-left: auto; flex: none; font-size: 12.5px; color: var(--accent-text); text-decoration: none; white-space: nowrap; }
+.ql-full:hover { text-decoration: underline; }
+
+.ql-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0; }
+.ql-chips-l { font-size: 12px; color: var(--text-mute); }
+.ql-chip { font-size: 12.5px; padding: 5px 11px; min-height: 32px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-elev); color: var(--text-dim); cursor: pointer; }
+.ql-chip:hover { border-color: var(--text-mute); color: var(--text); }
+.ql-chip.on { background: var(--accent-soft); color: var(--accent-text); border-color: var(--accent); }
+
+.ql-actrow { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: var(--text-dim); margin: 8px 0; cursor: pointer; }
+.ql-actrow input { margin-top: 2px; }
+.ql-logfoot { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+
+.ql-done { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 28px 12px; text-align: center; }
+.ql-done-ic { width: 52px; height: 52px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-text); display: grid; place-items: center; font-size: 26px; font-weight: 700; }
+.ql-done strong { font-size: 16px; }
+.ql-done span { font-size: 13px; color: var(--text-mute); }
+.ql-done-foot { display: flex; gap: 8px; margin-top: 10px; }
+
+/* จุดแตะ ≥44px บนมือถือ (เหมือน .ai-srcbtn) */
+@media (max-width: 430px) { .ql-tabs button, .ql-chip { min-height: 44px; } }
+
 /* แท็บใน modal */
 .ai-tabs { display: flex; gap: 4px; padding: 8px 18px 0; border-bottom: 1px solid var(--border); }
 .ai-tab {

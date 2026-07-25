@@ -27,6 +27,17 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-26 · ยังไม่ commit · P11 Quick-log (⚡ บันทึกเร็ว) MVP — v0.43.0
+**step:** P11 (ใหม่ · นอก roadmap เดิม) | **ประเภท:** ฟีเจอร์
+- โมดูลใหม่ `docs/js/modules/quicklog.js` + ปุ่ม ⚡ บันทึกเร็ว บนแถบหัว (`#quickLogBtn` · app.js)
+- ประตูบันทึกจุดเดียว: แท็บ Book3/Pending → ค้นหาของเดิม (บันทึกต่อ) หรือ + เพิ่มใหม่ (ฟอร์มสั้น) → ลง log จบในหน้าเดียว
+- ชิปช่องทาง (โทร/เข้าพบ/ไลน์…) เติม BY · ติ๊กสร้าง activity(+7 วัน) จาก next_doing · ฝัง 🤖 AI บันทึก (openAILog)
+- "เปิดฟอร์มเต็ม" = jump ผ่าน `sessionStorage 'te:openRecord'` + navigate(view) (render ซ้ำเสมอ กัน hashchange กิน)
+- **ใช้โค้ดเดิมซ้ำหมด ไม่สร้างซ้ำ:** listCustomers/listPending · loglist · addCustomerLog/addFollowLog · saveCustomer/savePending · COLORS/STAGES · openAILog
+- ขอบเขต: **MVP ออนไลน์เท่านั้น** · ออฟไลน์คิว-sync = เฟส 2 (ยังไม่ทำ · UPDATE-PLAN.md)
+**ไฟล์:** quicklog.js(ใหม่) · index.html(ปุ่ม) · app.js(import+bind) · css/app.css(.ql-*) · sw.js(SHELL+v0.43.0) · config.js(v0.43.0) · CLAUDE.md · UPDATE-PLAN.md · WishtoHave.md
+**ทดสอบ:** quicklog-test 19/19 ผ่าน (ปุ่มแถบหัว · แท็บ · ค้นหาเจอ+บันทึกจริง · ชิปเติม BY · activity+7 · สร้างงานใหม่+บันทึก · มือถือเห็นปุ่ม/ไม่ล้นจอ · ไม่มี JS error/rejection)
+
 ## 2026-07-26 · ยังไม่ commit · แผนอัพเดต P1–P11 + ดีไซน์ Quick-log (เอกสาร ยังไม่ลงมือ)
 **step:** — | **ประเภท:** เอกสาร/วางแผน (เจ้าของขอ — ประเมินไฟล์ชุดคำสั่ง P1–P11)
 - ประเมินไฟล์ "ชุดคำสั่ง P1–P11" เทียบของจริง: P1/P2/P4/P6 ทำแล้ว · P3 ถอดถาวร · เหลือใหม่ P5(regex)/P7/P8/P9/P10/P11

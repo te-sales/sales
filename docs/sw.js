@@ -9,7 +9,7 @@
 //
 // สิ่งที่ cache มีไว้ทำอย่างเดียว: เปิดแอปได้ตอนเน็ตล่ม (ลิฟต์ ชั้นใต้ดิน ต่างจังหวัด)
 
-const VERSION = 'v0.42.0';
+const VERSION = 'v0.43.0';
 const CACHE = `te-dashboard-${VERSION}`;
 
 // โหลดล่วงหน้าตอนติดตั้ง — ต้องครบทุกไฟล์ที่แอปต้องใช้ ไม่งั้นเน็ตล่มครั้งแรกจะเปิดไม่ขึ้น
@@ -43,6 +43,7 @@ const SHELL = [
   './js/modules/review.js',
   './js/modules/admin.js',
   './js/modules/ai-intake.js',
+  './js/modules/quicklog.js',
 
   './js/ui/datepicker.js',
   './js/ui/loglist.js',

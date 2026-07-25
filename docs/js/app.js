@@ -16,6 +16,7 @@ import activities from './modules/activities.js';
 import sources    from './modules/sources.js';
 import review     from './modules/review.js';
 import admin      from './modules/admin.js';
+import { openQuickLog } from './modules/quicklog.js';   // ⚡ บันทึกเร็ว (P11) — เปิดจากปุ่มบนแถบหัว
 
 // Supplier (F9) พักไว้ก่อนตามที่เจ้าของสั่ง 23 ก.ค. 2569 — สเปคอยู่ใน CLAUDE.md หัวข้อ "แผนอัปเดตอนาคต"
 // เข้า #suppliers ตรง ๆ จะเด้งกลับหน้าภาพรวมเอง (router ตกกลับ dashboard เมื่อไม่รู้จักชื่อหน้า)
@@ -292,6 +293,11 @@ async function boot() {
   document.getElementById('logoutBtn')?.addEventListener('click', signOut);
   document.getElementById('logoutBtnTop')?.addEventListener('click', signOut);
   document.getElementById('themeBtn')?.addEventListener('click', openThemePicker);
+  // ⚡ บันทึกเร็ว (P11) — บันทึกหลัง refresh หน้าปัจจุบัน · เปิดฟอร์มเต็มผ่าน render(view)
+  document.getElementById('quickLogBtn')?.addEventListener('click', () => openQuickLog({
+    onSaved:  () => { if (current) render(current); },
+    navigate: (v) => render(v),
+  }));
 
   try {
     const info = await initAdapter();

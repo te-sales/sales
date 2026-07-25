@@ -366,6 +366,9 @@ _1.7 ตรวจอัตโนมัติผ่าน 25/25 · เหลื�
 🤖 **AI Intake (3.5): ข้อมูลลง staging (`intake_items`) ก่อนเสมอ ห้ามเขียนตารางจริงตรง ๆ**
    เขียนจริงตอน "บันทึกเข้าระบบ" ผ่าน `savePending`/`saveCustomer` ตัวเดิม (RLS ปกติ) แล้ว `approveIntake` ปิด draft→merged
    · แถว `status='merged'` + `target_id` + `approved_by` = ล็อกการนำเข้าในตัว (หลักฐานว่าอะไรมาจากเอกสารไหน ใครอนุมัติ)
+⚡ **Quick-log (P11 · `docs/js/modules/quicklog.js`) — ปุ่ม "บันทึกเร็ว" บนแถบหัว (`#quickLogBtn` ใน app.js)**
+   ประตูบันทึกจุดเดียว: แท็บ Book3/Pending → ค้นหาของเดิม/สร้างใหม่ (ฟอร์มสั้น) → ลง log · **ใช้โค้ดเดิมซ้ำหมด** (listCustomers/listPending · loglist · addCustomerLog/addFollowLog · saveCustomer/savePending · openAILog · COLORS/STAGES) **ห้ามก๊อปซ้ำ**
+   · "เปิดฟอร์มเต็ม" = jump ผ่าน `sessionStorage 'te:openRecord'` แล้ว navigate · ติ๊กสร้าง activity(+7) จาก next_doing · **MVP ออนไลน์เท่านั้น** (ออฟไลน์คิว-sync = เฟส 2 ใน UPDATE-PLAN.md)
 🧠 **ทุกจุดที่ AI ช่วยบันทึก ใช้ชิ้นส่วนร่วมกันใน `ai-intake.js` — อัปเดตที่เดียว ทุกปุ่มได้เท่ากัน** (เจ้าของสั่ง 25 ก.ค. 2569)
    `SOURCE_LABEL`/`SOURCES_FOR`/`promptFor`/`aiExtract`/`fieldHtml`/`aiKeyBoxHtml`/`bindAIKeyBox` = ส่วนกลาง · **ห้ามก๊อปไปเขียนซ้ำ**
    `openAIImport` = สร้าง record ใหม่ (customer/pending · ผ่าน staging) · `openAILog` = ต่อท้าย "บันทึกติดตาม" (log)
