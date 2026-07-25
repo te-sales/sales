@@ -597,6 +597,15 @@ const PRODUCT_SECTION = `
                   <th>TOTAL</th><th>DISCOUNT</th><th>NET</th><th>NOTE</th><th></th>
                 </tr></thead>
                 <tbody id="prodBody"></tbody>
+                <tfoot><tr class="prodfoot">
+                  <td colspan="3" class="prodfoot-l">มูลค่ารวม
+                    <span class="prodfoot-hint">(NET ถ้ามี · ไม่งั้นใช้ TOTAL)</span></td>
+                  <td colspan="5" class="prodfoot-v">
+                    <b id="prodTotal">—</b>
+                    <button type="button" class="btn btn-ghost btn-sm" id="prodTotalUse" hidden
+                            title="ใส่ยอดรวมนี้ลงช่องมูลค่างาน (value)">→ ใส่เป็นมูลค่างาน</button>
+                  </td>
+                </tr></tfoot>
               </table>
             </div>
             <div class="lg-add-row">
@@ -1003,6 +1012,20 @@ async function openDetail(host, id, onSaved, teams) {
     q('#prodAdd').disabled = n >= MAX_PROD;
   }
 
+  // มูลค่ารวมของตารางสินค้า — บวก NET รายแถว (ถ้าไม่มี NET ใช้ TOTAL แทน) แล้วโชว์ที่ท้ายตาราง
+  function paintProdTotal() {
+    let sum = 0;
+    prodBody.querySelectorAll('.prodrow').forEach(tr => {
+      const val = (k) => Number(tr.querySelector(`[data-f="${k}"]`).value) || 0;
+      sum += val('net') || val('total');
+    });
+    const el = q('#prodTotal');
+    if (el) el.textContent = sum ? Number(sum).toLocaleString('th-TH') + ' บาท' : '—';
+    const useBtn = q('#prodTotalUse');
+    if (useBtn) useBtn.hidden = !sum;
+    return sum;
+  }
+
   /**
    * เปิดฟอร์มมาต้องมีแถวว่างให้กรอกได้เลย 1 แถว ไม่ต้องกด "+ เพิ่มแถว" ก่อน
    * (เจ้าของสั่ง 23 ก.ค. 2569 — กดปุ่มก่อนถึงจะกรอกได้ เป็นขั้นตอนที่ไม่จำเป็น)
@@ -1012,6 +1035,7 @@ async function openDetail(host, id, onSaved, teams) {
     const list = (rows || []).slice(0, MAX_PROD);
     prodBody.innerHTML = (list.length ? list.map(prodRowHtml) : [prodRowHtml()]).join('');
     paintProdHint();
+    paintProdTotal();
   };
 
   if (id) {
@@ -1032,18 +1056,33 @@ async function openDetail(host, id, onSaved, teams) {
     if (!e.target.closest('[data-rm-prod]')) return;
     e.target.closest('.prodrow')?.remove();
     paintProdHint();
+    paintProdTotal();
   });
 
   // คิด TOTAL / NET ให้อัตโนมัติ แต่พิมพ์ทับได้ (ฟอร์มกระดาษยอมให้ตกลงราคาพิเศษ)
   prodBody?.addEventListener('input', (e) => {
     const f = e.target.dataset?.f;
-    if (f !== 'amount' && f !== 'price_unit' && f !== 'discount') return;
-    const tr = e.target.closest('.prodrow');
-    const g  = (k) => Number(tr.querySelector(`[data-f="${k}"]`).value) || 0;
-    const total = g('amount') * g('price_unit');
-    if (total) tr.querySelector('[data-f="total"]').value = total;
-    const net = (Number(tr.querySelector('[data-f="total"]').value) || 0) - g('discount');
-    if (net || total) tr.querySelector('[data-f="net"]').value = net;
+    // ช่องที่กระทบยอดรวม (total/net/amount/price/discount) → คำนวณใหม่แล้วอัปเดตยอดรวมท้ายตาราง
+    if (['amount', 'price_unit', 'discount'].includes(f)) {
+      const tr = e.target.closest('.prodrow');
+      const g  = (k) => Number(tr.querySelector(`[data-f="${k}"]`).value) || 0;
+      const total = g('amount') * g('price_unit');
+      if (total) tr.querySelector('[data-f="total"]').value = total;
+      const net = (Number(tr.querySelector('[data-f="total"]').value) || 0) - g('discount');
+      if (net || total) tr.querySelector('[data-f="net"]').value = net;
+    }
+    if (['amount', 'price_unit', 'discount', 'total', 'net'].includes(f)) paintProdTotal();
+  });
+
+  // กด "ใส่เป็นมูลค่างาน" → ก๊อปยอดรวมสินค้าไปช่อง value (ลดการกรอกซ้ำ · แก้ทับได้)
+  q('#prodTotalUse')?.addEventListener('click', () => {
+    const sum = paintProdTotal();
+    const vb = q('[name="value_baht"]');
+    if (vb && sum) {
+      vb.value = sum;
+      const btn = q('#prodTotalUse'); const t = btn.textContent;
+      btn.textContent = '✓ ใส่แล้ว'; setTimeout(() => { if (btn.isConnected) btn.textContent = t; }, 1500);
+    }
   });
 
   const readProducts = () =>

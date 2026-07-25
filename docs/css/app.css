@@ -1348,6 +1348,16 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 .prodtbl th:nth-child(1), .prodtbl td:nth-child(1) { min-width: 150px; }
 .prodtbl th:last-child,   .prodtbl td:last-child   { width: 34px; }
 
+/* แถวมูลค่ารวมท้ายตารางสินค้า */
+.prodfoot td { padding: 8px 4px 2px; border-top: 1px solid var(--border); }
+.prodfoot-l { color: var(--text-dim); font-size: 12px; white-space: nowrap; }
+.prodfoot-hint { color: var(--text-mute); font-size: 10.5px; font-weight: normal; }
+.prodfoot-v { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.prodfoot-v b { color: var(--text); font-size: 14px; font-variant-numeric: tabular-nums; }
+.prodfoot .prodfoot-v .btn { min-height: 30px; }
+/* กัน .prodtbl td:last-child{width:34px} มาบีบ cell รวม (มี colspan) */
+.prodfoot td:last-child { width: auto; }
+
 @media (max-width: 430px) {
   .prodtbl input { min-height: 44px; }   /* จุดแตะบนมือถือ */
 }
