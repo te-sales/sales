@@ -3,7 +3,8 @@
 // ไม่ใช่หน้าใน router — เป็น modal ที่แถบ Pending และ Book 3 สี เรียกผ่านปุ่ม 🤖 AI Import
 //
 // วิธีทำงาน (3.5 = คัดลอกคำสั่งไปวางใน Claude เอง ฟรี ไม่มีค่า API · 3.8 จะเปลี่ยนเป็น Edge Function):
-//   1. เลือกแหล่ง (นามบัตร / ฟอร์มกระดาษ)   ← ตัด Obsidian/Notion ออกแล้ว (24 ก.ค. 2569)
+//   1. เลือกแหล่ง (นามบัตร / ฟอร์มกระดาษ / ข้อความที่คัดลอก / ข้อความจากเสียงพูด)
+//      ← ตัด Obsidian/Notion ออกแล้ว (24 ก.ค. 2569) · เพิ่มข้อความคัดลอก/เสียงพูด (25 ก.ค. 2569)
 //   2. ก๊อปคำสั่งสำเร็จรูป → วางใน Claude พร้อมรูป/โน้ต → Claude คืน JSON
 //   3. วาง JSON กลับมา → ระบบพักไว้ใน staging (intake_items) ก่อนเสมอ
 //   4. ตรวจ/แก้ (ไฮไลต์เหลืองเฉพาะช่องที่ AI ไม่มั่นใจ) + เช็กว่าซ้ำกับของเดิมไหม
@@ -14,7 +15,7 @@
 
 import { adapter } from '../data/adapter.js';
 
-export const SOURCES = ['namecard', 'form'];
+export const SOURCES = ['namecard', 'form', 'text', 'voice'];
 
 // ══════════════════════════════════════════════════════════
 // BYO API key (ทางเลือก) — เจ้าของขอ "เชื่อม API key ให้ AI เป็นสมองกรอกฟอร์ม" (24 ก.ค. 2569)
@@ -200,12 +201,14 @@ const REQUIRED = { customer: 'name', pending: 'project_name' };
 const DEST_LABEL = { customer: 'ลูกค้าใน Book 3 สี', pending: 'งานใน Pending Project' };
 const SOURCE_LABEL = {
   namecard: '📇 รูปนามบัตร', form: '📄 ฟอร์มกระดาษ / ลายมือ',
+  text: '📋 ข้อความที่คัดลอก', voice: '🎤 ข้อความจากเสียงพูด',
 };
-// แหล่งที่เหมาะกับแต่ละปลายทาง (ฟอร์มกระดาษ → Pending · นามบัตร → ลูกค้า)
-// (ตัด Obsidian / Notion ออกตามคำสั่งเจ้าของ 24 ก.ค. 2569 — เหลือเฉพาะรูป)
+// แหล่งที่เหมาะกับแต่ละปลายทาง — รูปเฉพาะทาง (ฟอร์ม → Pending · นามบัตร → ลูกค้า)
+// + "ข้อความที่คัดลอก / ข้อความจากเสียงพูด" ใช้ได้ทั้งสองปลายทาง (เจ้าของขอ 25 ก.ค. 2569)
+// (ตัด Obsidian / Notion ออกตามคำสั่งเจ้าของ 24 ก.ค. 2569)
 const SOURCES_FOR = {
-  customer: ['namecard'],
-  pending:  ['form'],
+  customer: ['namecard', 'text', 'voice'],
+  pending:  ['form', 'text', 'voice'],
 };
 
 // ══════════════════════════════════════════════════════════
@@ -266,6 +269,8 @@ function promptFor(targetType, source) {
   const srcHint = {
     namecard: 'ฉันจะแนบรูปนามบัตร',
     form:     'ฉันจะแนบรูปฟอร์มกระดาษ/ลายมือ',
+    text:     'ฉันจะวางข้อความที่คัดลอกมา (เช่น จากแชท/ไลน์/อีเมล/โน้ต)',
+    voice:    'ฉันจะวางข้อความที่ถอดจากเสียงพูด — อาจมีคำสะกดผิด เว้นวรรคเพี้ยน หรือเป็นภาษาพูดจากการถอดเสียง ช่วยตีความให้ด้วย',
     note:     'ฉันจะวางข้อความบันทึก/โน้ตยาว ๆ',
   }[source] || 'ฉันจะแนบข้อมูล';
 
@@ -500,7 +505,7 @@ export function openAIImport(targetType = 'customer', opts = {}) {
 
           <!-- โหมด API: แนบรูป/วางข้อความ → AI อ่านให้อัตโนมัติ (ต้องตั้ง key) -->
           <div class="ai-mode" id="aiModeApi" hidden>
-            <div class="ai-auto">
+            <div class="ai-auto" id="aiAutoRow">
               <div class="ai-auto-l">
                 <strong>🧠 ให้ AI อ่าน & กรอกฟอร์มให้อัตโนมัติ</strong>
                 <span>แนบรูป (นามบัตร/ฟอร์ม/ลายมือ) หรือวางข้อความบันทึกยาว ๆ ด้านล่าง → AI สรุปแล้วเลือกส่วนที่เกี่ยวข้องไปกรอกแต่ละช่อง แล้วพักในรายการรอตรวจให้ตรวจ/แก้ก่อนบันทึก (ต้องต่อเน็ต + ตั้ง API key ด้านล่าง)</span>
@@ -511,6 +516,7 @@ export function openAIImport(targetType = 'customer', opts = {}) {
               </label>
             </div>
 
+            <p class="ai-hint2" id="aiTextHint" hidden></p>
             <textarea class="ai-paste inp" id="aiNote" rows="5"
                       placeholder="…หรือวางข้อความบันทึกยาว ๆ ที่นี่ เช่น สรุปการประชุม / โน้ตจากการโทร / ข้อความแชท → AI จะเลือกเฉพาะส่วนที่เกี่ยวข้องไปกรอกแต่ละช่องให้"></textarea>
             <div class="lg-add-row">
@@ -559,8 +565,31 @@ export function openAIImport(targetType = 'customer', opts = {}) {
   const close = () => { host.remove(); };
   const setErr = (m) => { const e = q('#aiErr'); if (!m) { e.hidden = true; return; } e.textContent = m; e.hidden = false; };
 
-  const syncPrompt = () => { q('#aiPrompt').value = promptFor(targetType, source); };
-  syncPrompt();
+  // แหล่งที่เป็น "ข้อความ" (คัดลอก/เสียงพูด) → ไม่มีรูปให้แนบ ใช้ช่องข้อความเป็นหลัก
+  const isTextSrc = (s) => s === 'text' || s === 'voice';
+
+  // อัปเดตทุกอย่างที่ผูกกับ "แหล่งข้อมูล": คำสั่ง (โหมดฟรี) + หน้าตาโหมด API
+  const syncSource = () => {
+    q('#aiPrompt').value = promptFor(targetType, source);      // คำสั่งเปลี่ยนตามแหล่งที่เลือก
+
+    // โหมด API: แหล่งข้อความไม่ต้องแนบรูป → ซ่อนปุ่มเลือกรูป + ปรับ placeholder ช่องข้อความให้ตรงแหล่ง
+    const auto = q('#aiAutoRow');
+    if (auto) auto.hidden = isTextSrc(source);
+    const note = q('#aiNote');
+    if (note) note.placeholder = source === 'voice'
+      ? 'วางข้อความที่ถอดจากเสียงพูดที่นี่ → AI จะตีความ (เผื่อคำสะกดผิด/ภาษาพูด) แล้วกรอกลงแต่ละช่องให้'
+      : source === 'text'
+        ? 'วางข้อความที่คัดลอกมาที่นี่ (แชท/ไลน์/อีเมล/โน้ต) → AI จะสรุปแล้วกรอกลงแต่ละช่องให้'
+        : '…หรือวางข้อความบันทึกยาว ๆ ที่นี่ เช่น สรุปการประชุม / โน้ตจากการโทร / ข้อความแชท → AI จะเลือกเฉพาะส่วนที่เกี่ยวข้องไปกรอกแต่ละช่องให้';
+    const hint = q('#aiTextHint');
+    if (hint) {
+      if (source === 'voice') {
+        hint.innerHTML = '🎤 <b>พิมพ์ด้วยเสียงได้</b> — แตะไอคอนไมค์บนแป้นพิมพ์มือถือแล้วพูด ระบบจะถอดเป็นข้อความให้ จากนั้นค่อยให้ AI อ่าน';
+        hint.hidden = false;
+      } else hint.hidden = true;
+    }
+  };
+  syncSource();
 
   // ── เลือกวิธี: ฟรี (ก๊อปวางเอง) หรือ API key (อัตโนมัติ) ── จำค่าไว้ · มี key อยู่แล้วเริ่มที่ API
   let aiMode = '';
@@ -625,7 +654,7 @@ export function openAIImport(targetType = 'customer', opts = {}) {
     if (!b) return;
     source = b.dataset.src;
     host.querySelectorAll('#aiSrc [data-src]').forEach(x => x.classList.toggle('on', x === b));
-    syncPrompt();
+    syncSource();
   });
 
   // คัดลอกคำสั่ง
@@ -693,7 +722,7 @@ export function openAIImport(targetType = 'customer', opts = {}) {
     btn.disabled = true; const t0 = btn.textContent; btn.textContent = 'กำลังให้ AI อ่าน…';
     try {
       const res = await aiExtract({
-        prompt: promptFor(targetType, 'note'), text: note,
+        prompt: promptFor(targetType, isTextSrc(source) ? source : 'note'), text: note,
         source, target_type: targetType,
       });
       const records = parsePasted(res?.text || '');
