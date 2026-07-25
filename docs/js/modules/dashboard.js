@@ -131,6 +131,24 @@ export function summarize(rows, opt = {}) {
 // ══════════════════════════════════════════════════════════
 
 /** ขยายชุดทีมที่เลือก → รวมทีมลูก-หลานทั้งหมด (กันนับซ้ำเวลาเลือกทีมแม่+ลูกพร้อมกัน) */
+/**
+ * รวมเป้าต่อทีมจากแถว team_targets ทุก period
+ *   • period 'YYYY-MM' ในช่วง [from,to] → บวกเป็นเป้ารายเดือนรวมของทีม (โยงจากหน้าตั้งค่า)
+ *   • ทีมไหนยังไม่มีรายเดือน → ใช้ค่า legacy 'H2-2026' เดิม (ไม่ให้ตัวเลขหายช่วงเปลี่ยนผ่าน)
+ */
+export function rollupTargets(rows, from, to) {
+  const monthly = {}, legacy = {};
+  for (const r of rows || []) {
+    const p = r.period, v = Number(r.target_baht || 0);
+    if (/^\d{4}-\d{2}$/.test(p)) { if (p >= from && p <= to) monthly[r.team_id] = (monthly[r.team_id] || 0) + v; }
+    else if (p === 'H2-2026')   legacy[r.team_id] = v;
+  }
+  const out = {};
+  for (const id of new Set([...Object.keys(monthly), ...Object.keys(legacy)]))
+    out[id] = (id in monthly) ? monthly[id] : legacy[id];
+  return out;
+}
+
 export function expandTeams(teams, ids) {
   const want = new Set(ids || []);
   const out = new Set();
@@ -342,13 +360,16 @@ export default {
     const myTeam = me?.team_id || null;
 
     // เป้ารายทีม + ลำดับชั้น (โหลดก่อนเช็คว่าง เพื่อให้ sale เห็นเป้า "ทีมตัวเอง" ไม่ใช่เป้ารวมบริษัท)
+    //   ⭐ รวมเป้า "รายเดือน" (period 'YYYY-MM' ในช่วงเป้า) ให้เป็นเป้าต่อทีม → โยงมาจากหน้าตั้งค่าอัตโนมัติ
     let teams = [], targetsMap = {};
     try {
       teams = await adapter.listTeams();
-      const tt = await adapter.listTeamTargets();
-      targetsMap = Object.fromEntries((tt || []).map(r => [r.team_id, Number(r.target_baht || 0)]));
+      const tt = await adapter.listAllTeamTargets();
+      targetsMap = rollupTargets(tt, goal.from, goal.to);
     } catch { teams = []; }
 
+    // เป้ารวมองค์กร = ผลรวมเป้ารายเดือนทุกทีม (โยงจากหน้าตั้งค่า) · ยังไม่ตั้ง = ใช้เป้าใน settings
+    const orgTargetBaht = Object.values(targetsMap).reduce((a, v) => a + Number(v || 0), 0);
     const myTeamCode = teams.find(t => t.id === myTeam)?.code || '';
     const myTeamTargetBaht = (isSale && myTeam)
       ? [...expandTeams(teams, [myTeam])].reduce((a, id) => a + Number(targetsMap[id] || 0), 0)
@@ -358,7 +379,7 @@ export default {
     const headNote  = isSale ? (myTeamCode ? `ทีม ${myTeamCode} · ${goal.period}` : goal.period) : goal.period;
     const headValue = isSale
       ? (myTeamTargetBaht ? `${fmtMB(myTeamTargetBaht)} ล้านบาท` : '— ล้านบาท')
-      : `${esc(goal.target_mb)} ล้านบาท`;
+      : (orgTargetBaht ? `${fmtMB(orgTargetBaht)} ล้านบาท` : `${esc(goal.target_mb)} ล้านบาท`);
 
     if (!rows.length) {
       root.innerHTML = `
@@ -410,8 +431,8 @@ export default {
         ? teams.filter(t => selected.has(t.id)).map(t => t.code).join(' + ')
         : 'ทั้งองค์กร';
 
-      // เป้าของขอบเขต: ทั้งองค์กร = เป้ารวม (settings) · เลือกทีม = ผลรวมเป้าทีมในขอบเขต
-      let targetBaht = Number(goal.target_mb || 0) * 1e6;
+      // เป้าของขอบเขต: ทั้งองค์กร = ผลรวมเป้าทุกทีม (โยงจากที่ตั้งรายเดือน · fallback settings) · เลือกทีม = ผลรวมเป้าทีมในขอบเขต
+      let targetBaht = orgTargetBaht || Number(goal.target_mb || 0) * 1e6;
       if (selected.size) { targetBaht = 0; for (const id of exp) targetBaht += Number(targetsMap[id] || 0); }
 
       const s = summarize(scoped, { from: goal.from, to: goal.to, targetMB: targetBaht / 1e6 });

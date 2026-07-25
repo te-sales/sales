@@ -107,6 +107,7 @@ export const adapter = {
 
   // B10 เป้ารายทีม (step 3.10)
   listTeamTargets:   (p)        => need().listTeamTargets(p),
+  listAllTeamTargets:()         => need().listAllTeamTargets(),
   saveTeamTarget:    (t, v, p)  => need().saveTeamTarget(t, v, p),
   saveSetting:       (k, v)    => need().saveSetting(k, v),
 

@@ -602,9 +602,13 @@ const supabaseAdapter = {
    * customers/activities ยังไม่มีตาราง (step 2.1) · ยอดรวม/ยอดปิดต้องใช้ views.sql (step 1.5)
    * คืน null สำหรับตัวที่ยังไม่มี เพื่อให้ UI แสดง "—" ได้ ไม่ใช่พังทั้งหน้า
    */
-  // B10 เป้ารายทีม (step 3.10)
+  // B10 เป้ารายทีม (step 3.10) · เป้ารายเดือน = period เป็น 'YYYY-MM' (ใช้คอลัมน์ period เดิม ไม่ต้อง migration)
   async listTeamTargets(period = 'H2-2026') {
     return rest(`/team_targets?select=team_id,period,target_baht&period=eq.${encodeURIComponent(period)}`);
+  },
+  /** เป้าทุก period (รายเดือน + legacy) — ใช้กับหน้าตั้งเป้ารายเดือน + รวมยอดบน dashboard */
+  async listAllTeamTargets() {
+    return rest('/team_targets?select=team_id,period,target_baht&limit=100000');
   },
   async saveTeamTarget(teamId, targetBaht, period = 'H2-2026') {
     const body = { team_id: teamId, period, target_baht: Number(targetBaht) || 0,

@@ -70,7 +70,7 @@ async function renderAdmin(root) {
         adapter.listTeams(),
         adapter.listTeamAccess(),
         adapter.getSettings().catch(() => ({})),
-        adapter.listTeamTargets().catch(() => []),
+        adapter.listAllTeamTargets().catch(() => []),
       ]);
     } catch (e) {
       const missing = /ยังไม่ได้สร้างตาราง|does not exist|42P01/i.test(e.message);
@@ -107,25 +107,23 @@ async function renderAdmin(root) {
       </div>` : `<p class="sec-foot" style="margin:0 0 4px">คุณเป็น <b>หัวหน้างาน</b> — ตั้งได้เฉพาะเป้าของทีมที่ดูแล · จัดการผู้ใช้/ทีม/สำรองข้อมูล เป็นสิทธิ์ผู้ดูแลระบบ</p>`}
 
       <div class="card sec">
-        <h3 class="sec-h">เป้ารายทีม <span class="sec-sub">ตั้งที่ทีมย่อย · ทีมแม่/องค์กร = ผลรวม</span></h3>
+        <h3 class="sec-h">เป้ารายเดือนต่อทีม <span class="sec-sub">ตั้งรายเดือนที่ทีมย่อย · ทีมแม่/องค์กร = ผลรวม</span></h3>
         <p class="sec-foot" style="margin:0 0 10px">
-          กรอกเป้าของแต่ละทีม (ล้านบาท) — หน้าภาพรวมจะรวมขึ้นเป็นทีมใหญ่และองค์กรให้เอง
+          กด <b>📅 ตั้งเป้ารายเดือน</b> ที่ทีมย่อย — ระบบรวมเป็นไตรมาส/ครึ่งปี/ปี และโยงไปหน้าภาพรวม (เป้าทีม + เป้ารวมบริษัท) ให้อัตโนมัติ
         </p>
         <div class="ttedit" id="ttEdit">
           ${teamTree(teams).map(t => {
-            const cur = teamTargets.find(x => x.team_id === t.id);
             const isParent = teams.some(x => x.parent_team_id === t.id);
-            return `<label class="ttrow ${t.parent_team_id ? 'is-sub' : ''}">
+            return `<div class="ttrow ${t.parent_team_id ? 'is-sub' : ''}">
               <span class="ttrow-name"><b>${esc(t.code)}</b> <span>${esc(t.name || '')}</span>
                 ${isParent ? '<em>= ผลรวมทีมย่อย</em>' : ''}</span>
-              <input type="number" min="0" step="0.1" class="inp inp-sm ttrow-inp"
-                     data-team="${esc(t.id)}" ${isParent ? 'disabled title="เป้าทีมแม่คิดจากผลรวมทีมย่อย"' : ''}
-                     value="${cur ? esc(Number(cur.target_baht) / 1e6) : ''}" placeholder="—">
-            </label>`;
+              <span class="ttrow-val" data-team-total="${esc(t.id)}">—</span>
+              ${isParent ? '' : `<button type="button" class="btn btn-ghost btn-sm" data-month-target="${esc(t.id)}">📅 ตั้งเป้ารายเดือน</button>`}
+            </div>`;
           }).join('')}
         </div>
         <div class="tt-total">
-          <span>รวมทั้งองค์กร (ทุกทีม)</span>
+          <span>รวมทั้งองค์กร (ทุกทีม · ปี ${esc(String(Number((target.from || '2026-07').slice(0, 4)) + 543))})</span>
           <b><span id="ttOrgTotal">0</span> ล้านบาท</b>
         </div>
         <p class="login-err" id="ttErr" role="alert" hidden></p>
@@ -225,47 +223,34 @@ async function renderAdmin(root) {
       btn.disabled = false;
     });
 
-    // ── เป้ารายทีม: บันทึกเมื่อออกจากช่อง (เก็บเป็นบาท · จอกรอกล้านบาท) ──
-    //
-    // ⭐ ทีมแม่ (TE-IMP) แสดง "ผลรวมทีมย่อย" อัตโนมัติ + กล่องรวมทั้งองค์กร — คิดสด ๆ ตอนพิมพ์
-    //    ทีมแม่ input ถูก disabled (ตั้งเป้าที่ทีมใบเท่านั้น) เราแค่เอาผลรวมมาโชว์ในช่องนั้น
+    // ── เป้ารายเดือนต่อทีม: รวมยอดปีของแต่ละทีม (ใบ) + ทีมแม่/องค์กร = ผลรวม ──
+    //    ตั้งค่ารายเดือนในหน้าย่อย (openTeamMonthly) · ที่นี่แค่โชว์ยอดรวมปีของแต่ละทีม
+    const targetYear = Number((target.from || '2026-07').slice(0, 4));
+    const teamYearTotal = (tid) => (teamTargets || [])
+      .filter(r => r.team_id === tid && r.period?.startsWith(`${targetYear}-`) && /^\d{4}-\d{2}$/.test(r.period))
+      .reduce((a, r) => a + Number(r.target_baht || 0), 0);
+
     function recomputeTT() {
-      const val = {};
-      root.querySelectorAll('.ttrow-inp:not([disabled])').forEach(inp => {
-        val[inp.dataset.team] = Number(inp.value) || 0;
-      });
       const sumOf = (id) => {
         const kids = teams.filter(t => t.parent_team_id === id);
-        return kids.length ? kids.reduce((a, k) => a + sumOf(k.id), 0) : (val[id] || 0);
+        return kids.length ? kids.reduce((a, k) => a + sumOf(k.id), 0) : teamYearTotal(id);
       };
-      // ทีมแม่โชว์ผลรวมทีมย่อย (ยังคง disabled ไว้ — แค่แสดง)
-      root.querySelectorAll('.ttrow-inp[disabled]').forEach(inp => {
-        const s = sumOf(inp.dataset.team);
-        inp.value = s ? s : '';
+      root.querySelectorAll('[data-team-total]').forEach(el => {
+        const s = sumOf(el.dataset.teamTotal);
+        el.textContent = s ? (s / 1e6).toLocaleString('th-TH', { maximumFractionDigits: 1 }) + ' ล้าน' : '—';
       });
       const org = teams.filter(t => !t.parent_team_id).reduce((a, t) => a + sumOf(t.id), 0);
       const el = $('#ttOrgTotal');
-      if (el) el.textContent = org.toLocaleString('th-TH');
+      if (el) el.textContent = (org / 1e6).toLocaleString('th-TH', { maximumFractionDigits: 1 });
     }
-
-    root.querySelectorAll('.ttrow-inp').forEach(inp => {
-      // พิมพ์ปุ๊บ ผลรวมทีมแม่/องค์กรอัปเดตทันที (ยังไม่บันทึก)
-      inp.addEventListener('input', recomputeTT);
-      // ออกจากช่อง = บันทึกจริง
-      inp.addEventListener('change', async () => {
-        const mb = Number(inp.value);
-        if (inp.value !== '' && (!Number.isFinite(mb) || mb < 0))
-          return flash($('#ttErr'), 'เป้าต้องเป็นตัวเลขไม่ติดลบ', true);
-        inp.disabled = true;
-        try {
-          await adapter.saveTeamTarget(inp.dataset.team, (Number(inp.value) || 0) * 1e6);
-          flash($('#ttErr'), '✓ บันทึกเป้าทีมแล้ว');
-        } catch (e) { flash($('#ttErr'), e.message, true); }
-        inp.disabled = false;
-        recomputeTT();
-      });
-    });
     recomputeTT();   // คิดผลรวมตอนเปิดหน้า
+
+    // เปิดหน้าย่อยตั้งเป้ารายเดือนของทีม
+    root.querySelectorAll('[data-month-target]').forEach(btn => {
+      btn.addEventListener('click', () =>
+        openTeamMonthly($('#aPanel'), teams.find(t => t.id === btn.dataset.monthTarget),
+                        targetYear, teamTargets, () => renderAdmin(root)));
+    });
 
     // ── ผู้ใช้: เปลี่ยน role / ทีม / สถานะ ──
     root.querySelectorAll('[data-user]').forEach(el => {
@@ -525,5 +510,85 @@ function openAccess(host, user, teams, current, onSaved) {
       q('#acErr').hidden = false;
       btn.disabled = false; btn.textContent = 'บันทึกสิทธิ์';
     }
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+// หน้าย่อย: ตั้งเป้ารายเดือนของทีม + สรุปไตรมาส/ครึ่งปี/ปี
+//   เก็บลง team_targets โดยใช้ period = 'YYYY-MM' (ไม่ต้อง migration)
+//   ปิดหน้าย่อย → renderAdmin ใหม่ → ยอดรวมทีม/องค์กร + หน้าภาพรวมอัปเดตตาม
+// ══════════════════════════════════════════════════════════
+
+function openTeamMonthly(host, team, year, allTargets, onSaved) {
+  if (!team) return;
+  const pad = (n) => String(n).padStart(2, '0');
+  const months = Array.from({ length: 12 }, (_, i) => `${year}-${pad(i + 1)}`);
+  const cur = {};
+  (allTargets || []).filter(r => r.team_id === team.id).forEach(r => { cur[r.period] = Number(r.target_baht || 0); });
+  const mb  = (b) => (b ? String(b / 1e6) : '');
+  const fmt = (v) => Number(v || 0).toLocaleString('th-TH', { maximumFractionDigits: 1 });
+
+  host.innerHTML = `
+    <div class="modal" id="tmtModal">
+      <form class="modal-box modal-sm" id="tmtForm">
+        <div class="modal-head">
+          <strong>เป้ารายเดือน · ${esc(team.code)}
+            <span class="sec-sub">${esc(team.name || '')} · ปี ${year + 543}</span></strong>
+          <button type="button" class="btn btn-ghost btn-sm" id="tmtClose">ปิด</button>
+        </div>
+        <div class="modal-body">
+          <p class="sec-foot" style="margin:0 0 10px">
+            กรอกเป้าแต่ละเดือน (ล้านบาท) — สรุปไตรมาส/ครึ่งปี/ปีคิดให้อัตโนมัติ ·
+            บันทึกเมื่อออกจากช่อง แล้วโยงไปหน้าภาพรวม (เป้าทีม + เป้ารวมบริษัท) ทันที
+          </p>
+          <div class="tmt-grid">
+            ${months.map((p, i) => `<label class="tmt-m"><span>${TH_MON[i]} ${String((year + 543) % 100).padStart(2, '0')}</span>
+              <input type="number" min="0" step="0.1" class="inp inp-sm" data-month="${esc(p)}" value="${esc(mb(cur[p]))}" placeholder="—"></label>`).join('')}
+          </div>
+          <div class="tmt-sum" id="tmtSum"></div>
+          <p class="login-err" id="tmtErr" role="alert" hidden></p>
+        </div>
+        <div class="modal-foot"><span class="spacer"></span>
+          <button type="button" class="btn btn-primary" id="tmtDone">เสร็จ</button>
+        </div>
+      </form>
+    </div>`;
+
+  const q = (s) => host.querySelector(s);
+  const close = () => { host.innerHTML = ''; onSaved && onSaved(); };
+  q('#tmtClose').addEventListener('click', close);
+  q('#tmtDone').addEventListener('click', close);
+  q('#tmtModal').addEventListener('mousedown', (e) => { if (e.target.id === 'tmtModal') close(); });
+
+  function recompSum() {
+    const v = {};
+    host.querySelectorAll('[data-month]').forEach(inp => { v[inp.dataset.month] = Number(inp.value) || 0; });
+    const s = (idxs) => idxs.reduce((a, i) => a + (v[months[i]] || 0), 0);
+    const q1 = s([0, 1, 2]), q2 = s([3, 4, 5]), q3 = s([6, 7, 8]), q4 = s([9, 10, 11]);
+    const h1 = q1 + q2, h2 = q3 + q4, yr = h1 + h2;
+    q('#tmtSum').innerHTML = `
+      <div class="tmt-row"><span>ไตรมาส 1</span><b>${fmt(q1)}</b><span>ไตรมาส 2</span><b>${fmt(q2)}</b>
+        <span>ไตรมาส 3</span><b>${fmt(q3)}</b><span>ไตรมาส 4</span><b>${fmt(q4)}</b></div>
+      <div class="tmt-row"><span>ครึ่งปีแรก</span><b>${fmt(h1)}</b><span>ครึ่งปีหลัง</span><b>${fmt(h2)}</b></div>
+      <div class="tmt-row tmt-year"><span>รวมทั้งปี</span><b>${fmt(yr)} ล้านบาท</b></div>`;
+  }
+  recompSum();
+
+  host.querySelectorAll('[data-month]').forEach(inp => {
+    inp.addEventListener('input', recompSum);
+    inp.addEventListener('change', async () => {
+      const err = q('#tmtErr');
+      const mbv = Number(inp.value);
+      if (inp.value !== '' && (!Number.isFinite(mbv) || mbv < 0)) {
+        err.textContent = 'เป้าต้องเป็นตัวเลขไม่ติดลบ'; err.hidden = false; return;
+      }
+      inp.disabled = true;
+      try {
+        await adapter.saveTeamTarget(team.id, (Number(inp.value) || 0) * 1e6, inp.dataset.month);
+        err.textContent = '✓ บันทึกแล้ว'; err.hidden = false; err.classList.add('ok-msg');
+        setTimeout(() => { err.hidden = true; err.classList.remove('ok-msg'); }, 2000);
+      } catch (e) { err.textContent = e.message; err.hidden = false; err.classList.remove('ok-msg'); }
+      inp.disabled = false;
+    });
   });
 }

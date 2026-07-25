@@ -523,9 +523,12 @@ const localAdapter = {
     return db.team_access.filter(r => r.profile_id === profileId);
   },
 
-  // B10 เป้ารายทีม (step 3.10)
+  // B10 เป้ารายทีม (step 3.10) · เป้ารายเดือน = period เป็น 'YYYY-MM'
   async listTeamTargets(period = 'H2-2026') {
     return (db.team_targets || []).filter(r => r.period === period);
+  },
+  async listAllTeamTargets() {
+    return (db.team_targets || []).map(r => ({ team_id: r.team_id, period: r.period, target_baht: r.target_baht }));
   },
   async saveTeamTarget(teamId, targetBaht, period = 'H2-2026') {
     db.team_targets = db.team_targets || [];
