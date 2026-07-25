@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ข้อเสนอ: ระบบติดตามงานขาย TE — ประหยัดงบ + ปิดรูรั่ว pipeline</title>
+<style>
+  :root {
+    --bg:#f5f7f9; --surface:#ffffff; --surface-2:#eef2f6;
+    --ink:#16202e; --ink-dim:#54637a; --ink-mute:#8494a7;
+    --line:#dae1ea; --line-strong:#c3cdd9;
+    --accent:#17697d; --accent-ink:#0c5063; --accent-bg:rgba(23,105,125,.09);
+    --good:#1f9d63; --good-ink:#177a4c; --good-bg:rgba(31,157,99,.10);
+    --cost:#bd5138; --cost-ink:#9c4029; --cost-bg:rgba(189,81,56,.09);
+    --shadow:0 1px 2px rgba(20,32,46,.04), 0 8px 24px -12px rgba(20,32,46,.12);
+    --sans:"Noto Sans Thai","Sarabun",-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#0f1420; --surface:#161d2b; --surface-2:#1c2434;
+      --ink:#e7ecf3; --ink-dim:#a1afc2; --ink-mute:#6c7b91;
+      --line:#263145; --line-strong:#33415a;
+      --accent:#4cb9d0; --accent-ink:#7ed2e2; --accent-bg:rgba(76,185,208,.12);
+      --good:#37c081; --good-ink:#57cf95; --good-bg:rgba(55,192,129,.14);
+      --cost:#e0785f; --cost-ink:#e88f79; --cost-bg:rgba(224,120,95,.13);
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.55);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg:#f5f7f9; --surface:#ffffff; --surface-2:#eef2f6;
+    --ink:#16202e; --ink-dim:#54637a; --ink-mute:#8494a7;
+    --line:#dae1ea; --line-strong:#c3cdd9;
+    --accent:#17697d; --accent-ink:#0c5063; --accent-bg:rgba(23,105,125,.09);
+    --good:#1f9d63; --good-ink:#177a4c; --good-bg:rgba(31,157,99,.10);
+    --cost:#bd5138; --cost-ink:#9c4029; --cost-bg:rgba(189,81,56,.09);
+    --shadow:0 1px 2px rgba(20,32,46,.04), 0 8px 24px -12px rgba(20,32,46,.12);
+  }
+  :root[data-theme="dark"] {
+    --bg:#0f1420; --surface:#161d2b; --surface-2:#1c2434;
+    --ink:#e7ecf3; --ink-dim:#a1afc2; --ink-mute:#6c7b91;
+    --line:#263145; --line-strong:#33415a;
+    --accent:#4cb9d0; --accent-ink:#7ed2e2; --accent-bg:rgba(76,185,208,.12);
+    --good:#37c081; --good-ink:#57cf95; --good-bg:rgba(55,192,129,.14);
+    --cost:#e0785f; --cost-ink:#e88f79; --cost-bg:rgba(224,120,95,.13);
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.55);
+  }
+
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:var(--sans); font-size:16px; line-height:1.72;
+    -webkit-font-smoothing:antialiased; letter-spacing:.002em;
+  }
+  .wrap { max-width:860px; margin:0 auto; padding:56px 24px 96px; }
+  .num { font-variant-numeric:tabular-nums; }
+
+  .kick {
+    font-family:var(--mono); font-size:12px; font-weight:600;
+    letter-spacing:.14em; text-transform:uppercase; color:var(--accent-ink);
+    display:inline-flex; align-items:center; gap:9px;
+  }
+  .kick::before { content:""; width:22px; height:2px; background:var(--accent); border-radius:2px; }
+
+  .hero { border-bottom:1px solid var(--line); padding-bottom:40px; margin-bottom:52px; }
+  .hero h1 {
+    font-size:clamp(28px,4.6vw,42px); line-height:1.18; font-weight:800;
+    letter-spacing:-.02em; text-wrap:balance; margin:18px 0 0;
+  }
+  .hero h1 .hl { color:var(--accent-ink); }
+  .lede { font-size:clamp(16px,2.2vw,18.5px); color:var(--ink-dim); max-width:64ch; margin:18px 0 0; text-wrap:pretty; }
+  .doc-meta {
+    display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:26px;
+    font-size:13px; color:var(--ink-mute); font-family:var(--mono);
+  }
+  .doc-meta b { color:var(--ink-dim); font-weight:600; }
+
+  .band {
+    display:grid; grid-template-columns:repeat(3,1fr); gap:1px;
+    background:var(--line); border:1px solid var(--line); border-radius:14px;
+    overflow:hidden; margin-top:34px; box-shadow:var(--shadow);
+  }
+  .band .cell { background:var(--surface); padding:22px 20px; }
+  .band .big { font-size:clamp(24px,3.4vw,30px); font-weight:800; letter-spacing:-.02em; line-height:1.1; }
+  .band .cap { font-size:12.5px; color:var(--ink-mute); margin-top:8px; line-height:1.5; }
+  .band .cell.good .big { color:var(--good-ink); }
+  .band .cell.cost .big { color:var(--cost-ink); }
+
+  section { margin-top:64px; }
+  h2 {
+    font-size:clamp(21px,3vw,26px); font-weight:750; letter-spacing:-.015em;
+    line-height:1.28; text-wrap:balance; margin:14px 0 0;
+  }
+  .sec-intro { color:var(--ink-dim); font-size:16px; margin:12px 0 0; max-width:66ch; }
+
+  .chain { display:flex; flex-direction:column; gap:0; margin-top:30px; }
+  .link {
+    position:relative; background:var(--surface); border:1px solid var(--line);
+    border-radius:12px; padding:16px 18px 16px 58px; box-shadow:var(--shadow);
+  }
+  .link + .link { margin-top:26px; }
+  .link + .link::before {
+    content:""; position:absolute; left:28px; top:-22px; width:2px; height:22px;
+    background:linear-gradient(var(--cost),var(--cost)); opacity:.5;
+  }
+  .link .idx {
+    position:absolute; left:14px; top:15px; width:30px; height:30px; border-radius:8px;
+    background:var(--cost-bg); color:var(--cost-ink); font-family:var(--mono);
+    font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:center;
+  }
+  .link h3 { margin:0; font-size:16.5px; font-weight:650; }
+  .link p { margin:5px 0 0; color:var(--ink-dim); font-size:14.5px; }
+  .link.result { border-color:var(--cost); background:var(--cost-bg); }
+  .link.result .idx { background:var(--cost); color:#fff; }
+  .link.result h3 { color:var(--cost-ink); }
+
+  .maps { display:flex; flex-direction:column; gap:12px; margin-top:30px; }
+  .map {
+    display:grid; grid-template-columns:1fr auto 1.15fr; align-items:stretch; gap:0;
+    background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    overflow:hidden; box-shadow:var(--shadow);
+  }
+  .map .pain { padding:15px 18px; }
+  .map .pain .t { font-weight:650; font-size:15px; }
+  .map .pain .d { color:var(--ink-mute); font-size:13px; margin-top:3px; }
+  .map .arw { display:flex; align-items:center; justify-content:center; padding:0 4px;
+              color:var(--accent); font-size:19px; background:var(--surface-2); }
+  .map .fix { padding:15px 18px; background:var(--accent-bg); border-left:1px solid var(--line); }
+  .map .fix .t { font-weight:650; font-size:15px; color:var(--accent-ink); }
+  .map .fix .d { color:var(--ink-dim); font-size:13px; margin-top:3px; }
+
+  .tbl-wrap { overflow-x:auto; margin-top:28px; border:1px solid var(--line);
+              border-radius:12px; box-shadow:var(--shadow); }
+  table { border-collapse:collapse; width:100%; min-width:560px; background:var(--surface); }
+  th, td { text-align:left; padding:14px 16px; border-bottom:1px solid var(--line); font-size:14.5px; vertical-align:top; }
+  thead th { font-size:12.5px; letter-spacing:.02em; color:var(--ink-mute); font-weight:650;
+             background:var(--surface-2); white-space:nowrap; }
+  thead th.hi { color:var(--accent-ink); }
+  tbody tr:last-child td { border-bottom:none; }
+  td.row-h { font-weight:600; color:var(--ink-dim); }
+  td.hi { background:var(--accent-bg); font-weight:600; }
+  .yes { color:var(--good-ink); font-weight:700; }
+  .no  { color:var(--cost-ink); font-weight:700; }
+
+  .callout {
+    margin-top:30px; border-radius:14px; padding:26px 26px;
+    background:var(--good-bg); border:1px solid var(--good);
+  }
+  .callout.warn { background:var(--cost-bg); border-color:var(--cost); }
+  .callout .lbl { font-family:var(--mono); font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                  color:var(--good-ink); font-weight:650; }
+  .callout.warn .lbl { color:var(--cost-ink); }
+  .callout .fig { font-size:clamp(26px,4vw,34px); font-weight:800; letter-spacing:-.02em; margin:8px 0 0; line-height:1.15; }
+  .callout .fig .u { font-size:.5em; font-weight:600; color:var(--ink-dim); letter-spacing:0; }
+  .callout p { margin:10px 0 0; color:var(--ink-dim); font-size:14.5px; max-width:64ch; }
+
+  .vgrid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-top:30px; }
+  .vcard { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px 18px; box-shadow:var(--shadow); }
+  .vcard .vt { font-weight:680; font-size:15.5px; display:flex; gap:9px; align-items:baseline; }
+  .vcard .vt .b { width:7px; height:7px; border-radius:2px; background:var(--accent); flex:none; transform:translateY(-1px); }
+  .vcard p { margin:7px 0 0; color:var(--ink-dim); font-size:14px; }
+
+  .note {
+    margin-top:30px; background:var(--surface-2); border:1px solid var(--line);
+    border-radius:12px; padding:22px 24px;
+  }
+  .note h3 { margin:0 0 10px; font-size:15px; font-weight:700; display:flex; align-items:center; gap:9px; }
+  .note ul { margin:0; padding-left:20px; color:var(--ink-dim); font-size:14px; line-height:1.7; }
+  .note li { margin:6px 0; }
+  .note li b { color:var(--ink); font-weight:650; }
+
+  footer { margin-top:64px; padding-top:24px; border-top:1px solid var(--line);
+           font-size:13px; color:var(--ink-mute); line-height:1.7; }
+  footer b { color:var(--ink-dim); }
+
+  @media (max-width:640px) {
+    .wrap { padding:40px 18px 72px; }
+    .band { grid-template-columns:1fr; }
+    .map { grid-template-columns:1fr; }
+    .map .arw { padding:6px; }
+    .map .fix { border-left:none; border-top:1px solid var(--line); }
+    .vgrid { grid-template-columns:1fr; }
+  }
+  @media print {
+    body { background:#fff; color:#000; }
+    .wrap { max-width:none; padding:0; }
+    .band, .link, .map, .tbl-wrap, .callout, .vcard, .note { box-shadow:none; break-inside:avoid; }
+    section { break-inside:avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- ══════════ HERO ══════════ -->
+  <header class="hero">
+    <span class="kick">ข้อเสนอเพื่อพิจารณา · ฝ่ายขาย</span>
+    <h1>เปลี่ยนการติดตามงานขายจาก <span class="hl">“อยู่ในหัว Sale”</span><br>ให้เป็นระบบที่หัวหน้าเห็นทุกงาน ทุกวัน</h1>
+    <p class="lede">
+      ปัญหาไม่ใช่ Sale ขายไม่เก่ง — แต่คือ <b>งานขายไม่ถูกบันทึก</b> ทำให้ติดตามไม่ทั่วถึง
+      ดีลหลุดโดยไม่มีใครรู้ และหัวหน้าบริหารจาก “ความจำ” แทน “ข้อมูล”
+      ระบบนี้ปิดรูรั่วตรงนั้น โดย<b>ไม่มีค่าใช้จ่ายรายเดือนต่อหัว</b>
+    </p>
+
+    <div class="band">
+      <div class="cell">
+        <div class="big num">80 ล้าน<span style="font-size:.5em;font-weight:600;color:var(--ink-dim)"> บาท</span></div>
+        <div class="cap">เป้ายอดขายครึ่งปีหลัง 2569 ที่ต้องบริหารให้ถึง — เดิมพันที่ระบบนี้ช่วยเฝ้า</div>
+      </div>
+      <div class="cell good">
+        <div class="big num">≈ 0 บาท/ปี</div>
+        <div class="cap">ค่ารันระบบสำหรับ 20 คน (host ฟรี + ฐานข้อมูล free tier)</div>
+      </div>
+      <div class="cell cost">
+        <div class="big num">150,000–400,000</div>
+        <div class="cap">บาท/ปี = ค่า SaaS CRM สำเร็จรูปสำหรับ 20 คน ที่ระบบนี้ประหยัดไป</div>
+      </div>
+    </div>
+
+    <div class="doc-meta">
+      <span><b>จัดทำเพื่อ:</b> ผู้บริหารฝ่ายขาย · Thammasorn Engineering</span>
+      <span><b>สถานะระบบ:</b> พัฒนาเสร็จ รอทดสอบเครื่องจริงก่อน rollout</span>
+      <span><b>ก.ค. 2569</b></span>
+    </div>
+  </header>
+
+  <!-- ══════════ 1. PROBLEM ══════════ -->
+  <section>
+    <span class="kick">The problem</span>
+    <h2>ปัญหาปัจจุบัน: บันทึกไม่เกิด → ผลต่อเนื่องเป็นลูกโซ่</h2>
+    <p class="sec-intro">
+      เมื่อ Sale ไม่บันทึกความคืบหน้าอย่างสม่ำเสมอ ผลไม่ได้จบที่ตัวบันทึก
+      แต่ไหลต่อเป็นชุด จนถึงระดับบริหารจัดการทั้งฝ่าย
+    </p>
+
+    <div class="chain">
+      <div class="link">
+        <span class="idx">1</span>
+        <h3>Sale ไม่ได้บันทึกการติดตามการขาย</h3>
+        <p>จดในกระดาษบ้าง ในหัวบ้าง กระจายอยู่หลายที่ — ไม่มีที่กลางที่เชื่อถือได้</p>
+      </div>
+      <div class="link">
+        <span class="idx">2</span>
+        <h3>หัวหน้าไม่เห็นว่างานแต่ละดีลไปถึงไหน</h3>
+        <p>ต้องเดินไปถามทีละคน หรือรอประชุม กว่าจะรู้ว่าใครค้างงานอะไร</p>
+      </div>
+      <div class="link">
+        <span class="idx">3</span>
+        <h3>ติดตามงานไม่ทั่วถึง — ดีลหล่นหายเงียบ ๆ</h3>
+        <p>งานที่ควรตามวันนี้ถูกลืม ลูกค้าที่รอใบเสนอราคาไม่ถูกตาม โอกาสปิดหลุดมือ</p>
+      </div>
+      <div class="link">
+        <span class="idx">4</span>
+        <h3>พยากรณ์ยอด &amp; วางแผนไม่ได้</h3>
+        <p>ไม่รู้ pipeline จริงมีเท่าไร จะถึงเป้า 80 ล้านไหม ต้องเร่งทีมตรงไหน — ตอบจากความรู้สึก</p>
+      </div>
+      <div class="link result">
+        <span class="idx">!</span>
+        <h3>บริหารจัดการงานขายไม่มีประสิทธิภาพ + เสี่ยงพลาดเป้า</h3>
+        <p>ความรู้เรื่องลูกค้าผูกกับตัวบุคคล — Sale ลาออกเมื่อไร ข้อมูลและโอกาสหายไปด้วย</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 2. SOLUTION ══════════ -->
+  <section>
+    <span class="kick">How it fixes each link</span>
+    <h2>ระบบนี้ตัดลูกโซ่ทีละข้อ — ที่ต้นเหตุ ไม่ใช่ปลายเหตุ</h2>
+    <p class="sec-intro">
+      กุญแจคือ <b>ทำให้การบันทึก “ง่ายจนไม่มีข้ออ้าง”</b> แล้วเปลี่ยนบันทึกนั้นให้เป็นเครื่องมือบริหารของหัวหน้าทันที
+    </p>
+
+    <div class="maps">
+      <div class="map">
+        <div class="pain"><div class="t">Sale ไม่อยากบันทึก</div><div class="d">ฟอร์มยาว เปิดคอมนั่งกรอกไม่ทัน</div></div>
+        <div class="arw">→</div>
+        <div class="fix"><div class="t">บันทึกด่วนบนมือถือ + AI ช่วยแกะ</div><div class="d">ถ่ายรูปนามบัตร/ฟอร์มกระดาษ ระบบแกะเป็นข้อมูลให้ กดบันทึกจากหน้างานได้เลย</div></div>
+      </div>
+      <div class="map">
+        <div class="pain"><div class="t">หัวหน้าไม่เห็นภาพรวม</div><div class="d">ต้องไล่ถามทีละคน</div></div>
+        <div class="arw">→</div>
+        <div class="fix"><div class="t">Dashboard ภาพรวม + งานเลยกำหนดเด้งเตือน</div><div class="d">เห็น pipeline, funnel, top งานใหญ่ และงานที่ค้างเกินกำหนด แบบ real-time</div></div>
+      </div>
+      <div class="map">
+        <div class="pain"><div class="t">ดีลหล่นหาย ไม่มีใครรู้</div><div class="d">ลืมตามลูกค้า</div></div>
+        <div class="arw">→</div>
+        <div class="fix"><div class="t">เตือนงานที่ต้องตาม + เดือนคาดปิด</div><div class="d">ระบบชี้ว่าดีลไหนถึงกำหนดตัดสินใจ งานไม่หลุดออกจากเรดาร์</div></div>
+      </div>
+      <div class="map">
+        <div class="pain"><div class="t">ข้อมูลผูกกับตัวคน</div><div class="d">Sale ออก = ข้อมูลหาย</div></div>
+        <div class="arw">→</div>
+        <div class="fix"><div class="t">ข้อมูลรวมศูนย์ + สิทธิ์ตามทีม</div><div class="d">ลูกค้าและประวัติอยู่ในระบบกลาง ส่งมอบงานต่อได้ ตรวจสอบย้อนหลังได้</div></div>
+      </div>
+      <div class="map">
+        <div class="pain"><div class="t">ตรวจงานไม่เป็นระบบ</div><div class="d">ไม่รู้หัวหน้าเห็นหรือยัง</div></div>
+        <div class="arw">→</div>
+        <div class="fix"><div class="t">หัวหน้าเซ็นรับทราบ (กันแก้ย้อนหลัง)</div><div class="d">มีร่องรอยว่าใครตรวจอะไรเมื่อไร แก้ตัวเลขหลังเซ็นระบบจับได้</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 3. BUDGET ══════════ -->
+  <section>
+    <span class="kick">Budget saving</span>
+    <h2>ประหยัดงบ: จ่ายครั้งเดียว เป็นเจ้าของ ไม่มีค่าหัวรายเดือน</h2>
+    <p class="sec-intro">
+      เทียบ 3 ทางเลือกสำหรับทีม 20 คน — ตัวเลข SaaS อ้างอิงเรตตลาดปี 2569 (คิดตามจำนวนผู้ใช้)
+    </p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>รายการ</th>
+            <th class="hi">ระบบนี้ (สร้างเอง)</th>
+            <th>SaaS CRM สำเร็จรูป</th>
+            <th>สถานะเดิม (กระดาษ/Excel/ในหัว)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="row-h">ค่าใช้จ่ายรายปี (20 คน)</td>
+            <td class="hi num">≈ 0 บาท</td>
+            <td class="num">150,000–400,000 บาท</td>
+            <td>0 บาท <span style="color:var(--ink-mute)">(แต่มีต้นทุนแฝง)</span></td>
+          </tr>
+          <tr>
+            <td class="row-h">รวม 3 ปี</td>
+            <td class="hi num">≈ 0 บาท</td>
+            <td class="num">450,000–1,200,000 บาท</td>
+            <td>— </td>
+          </tr>
+          <tr>
+            <td class="row-h">ตรงกับ workflow จริง<br>(ฟอร์มไทย / ทีม / เป้า)</td>
+            <td class="hi"><span class="yes">✓</span> ออกแบบตรงตั้งแต่ต้น</td>
+            <td><span class="no">✗</span> ต้องจ้าง customize เพิ่ม (แพง)</td>
+            <td>— </td>
+          </tr>
+          <tr>
+            <td class="row-h">เป็นเจ้าของข้อมูล + แก้เองได้</td>
+            <td class="hi"><span class="yes">✓</span></td>
+            <td><span class="no">✗</span> ผูกกับผู้ให้บริการ</td>
+            <td><span class="no">✗</span> กระจัดกระจาย</td>
+          </tr>
+          <tr>
+            <td class="row-h">ข้อมูลรวมศูนย์ ทีมใช้พร้อมกัน</td>
+            <td class="hi"><span class="yes">✓</span></td>
+            <td><span class="yes">✓</span></td>
+            <td><span class="no">✗</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <span class="lbl">งบที่ประหยัดได้ · กรอบ 3 ปี</span>
+      <div class="fig num">450,000 – 1,200,000 <span class="u">บาท</span></div>
+      <p>
+        คือค่า SaaS รายหัวที่ไม่ต้องจ่าย เทียบกับระบบที่รันได้เกือบฟรี —
+        ยังไม่รวมมูลค่าการพัฒนาที่ได้มา (ประเมิน <b>250,000–500,000 บาท</b> ถ้าจ้างทำ)
+        โดยต้นทุนจริงที่ลงไปเป็นเพียงเศษเสี้ยว
+      </p>
+    </div>
+  </section>
+
+  <!-- ══════════ 4. VALUE / ROI ══════════ -->
+  <section>
+    <span class="kick">The real payoff</span>
+    <h2>คุณค่าที่แท้จริง: ไม่ใช่งบที่ประหยัด แต่คือดีลที่ไม่หลุด</h2>
+    <p class="sec-intro">
+      เงินที่ประหยัดจากค่า CRM เป็นแค่ของแถม — มูลค่าจริงอยู่ที่ pipeline 80 ล้านที่ถูกเฝ้าไว้ไม่ให้รั่ว
+    </p>
+
+    <div class="callout warn">
+      <span class="lbl">ต้นทุนแฝงของสถานะเดิม · ตัวอย่างเชิงอนุรักษ์</span>
+      <div class="fig num">~ 800,000 <span class="u">บาท</span></div>
+      <p>
+        แค่ <b>1%</b> ของ pipeline 80 ล้านที่หลุดเพราะลืมติดตาม ก็เท่ากับ 800,000 บาท —
+        มากกว่ามูลค่าการพัฒนาทั้งระบบ <b>กู้คืนแค่ดีลเดียวที่เกือบลืม ก็คุ้มทั้งโครงการหลายเท่า</b>
+        (ตัวเลขสมมติเพื่อให้เห็นสเกล ไม่ใช่สถิติจริงของบริษัท)
+      </p>
+    </div>
+
+    <div class="vgrid">
+      <div class="vcard">
+        <div class="vt"><span class="b"></span>ประชุมขายสั้นลง ตัดสินใจเร็วขึ้น</div>
+        <p>เปิด dashboard เห็นสถานะทุกดีลทันที ไม่ต้องไล่ถามทีละคนในห้องประชุม</p>
+      </div>
+      <div class="vcard">
+        <div class="vt"><span class="b"></span>ไม่มีดีลหล่นออกจากเรดาร์</div>
+        <p>งานเลยกำหนดและเดือนคาดปิดถูกเตือนอัตโนมัติ หัวหน้าเข้าไปดันได้ทัน</p>
+      </div>
+      <div class="vcard">
+        <div class="vt"><span class="b"></span>พยากรณ์ยอดจากข้อมูลจริง</div>
+        <p>เห็น pipeline coverage เทียบเป้า 80 ล้าน รู้ล่วงหน้าว่าต้องเร่งทีมไหน</p>
+      </div>
+      <div class="vcard">
+        <div class="vt"><span class="b"></span>ความรู้ลูกค้าเป็นสมบัติบริษัท</div>
+        <p>ไม่ผูกกับตัว Sale — คนออก งานส่งต่อได้ ประวัติลูกค้ายังอยู่ครบ</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 5. HONESTY / CONDITIONS ══════════ -->
+  <section>
+    <div class="note">
+      <h3>⚖️ เงื่อนไขที่ทำให้คุณค่าเกิดจริง (พูดตามตรง)</h3>
+      <ul>
+        <li><b>ระบบให้ผลก็ต่อเมื่อถูกใช้จริง</b> — ออกแบบให้บันทึกง่ายแล้ว แต่ต้องให้หัวหน้าใช้ dashboard เป็นเครื่องมือประชุมจริง จึงจะเปลี่ยนพฤติกรรมทีม ไม่ใช่แค่ติดตั้งทิ้งไว้</li>
+        <li><b>ยังต้องทดสอบบนเครื่องจริง (iPhone / Samsung / iPad)</b> ก่อนปล่อยให้ทีมทั้ง 20 คนใช้ — เพื่อยืนยันความเสถียรตอนใช้พร้อมกัน</li>
+        <li><b>ตัวเลขประหยัดเป็นการเทียบเรตตลาด</b> ไม่ใช่ใบเสนอราคาจริง และตัวเลขดีลหลุดเป็นภาพประกอบสเกล ไม่ใช่สถิติที่วัดจากบริษัท</li>
+        <li><b>ค่า API ของ AI</b> จ่ายเฉพาะเมื่อใช้ปุ่มอ่านรูปอัตโนมัติ (หลักบาท–สิบบาทต่อครั้ง) และเลี่ยงได้ด้วยวิธีก๊อปคำสั่งวางเอง</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    <b>สรุป:</b> ระบบนี้แก้ที่ต้นเหตุ (ทำให้บันทึกง่าย) แล้วต่อยอดเป็นเครื่องมือบริหารของหัวหน้า —
+    ตัดค่า CRM รายหัว <b>450,000–1,200,000 บาท/3 ปี</b> ขณะที่รันได้เกือบฟรี
+    และเฝ้า pipeline 80 ล้านไม่ให้รั่ว &nbsp;·&nbsp;
+    เอกสารนี้อ้างอิงขนาดงานจริงของระบบ (~11,000 บรรทัดโค้ด · 16 ตาราง · 61 นโยบายความปลอดภัย)
+    และเรตตลาดซอฟต์แวร์ไทยปี 2569
+  </footer>
+
+</div>
+</body>
+</html>

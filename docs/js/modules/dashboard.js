@@ -336,10 +336,34 @@ export default {
       if (st?.target_mb) goal = { ...goal, ...st };
     } catch { /* ใช้ค่าตั้งต้น */ }
 
+    // ── บทบาทผู้ใช้: sale เห็นเฉพาะ "ทีมตัวเอง" · manager/admin/MD เห็นทีมตัวเอง + รวมทั้งบริษัท ──
+    const me = (await adapter.getSession())?.user || null;
+    const isSale = me?.role === 'sale';
+    const myTeam = me?.team_id || null;
+
+    // เป้ารายทีม + ลำดับชั้น (โหลดก่อนเช็คว่าง เพื่อให้ sale เห็นเป้า "ทีมตัวเอง" ไม่ใช่เป้ารวมบริษัท)
+    let teams = [], targetsMap = {};
+    try {
+      teams = await adapter.listTeams();
+      const tt = await adapter.listTeamTargets();
+      targetsMap = Object.fromEntries((tt || []).map(r => [r.team_id, Number(r.target_baht || 0)]));
+    } catch { teams = []; }
+
+    const myTeamCode = teams.find(t => t.id === myTeam)?.code || '';
+    const myTeamTargetBaht = (isSale && myTeam)
+      ? [...expandTeams(teams, [myTeam])].reduce((a, id) => a + Number(targetsMap[id] || 0), 0)
+      : 0;
+    // การ์ดเป้าหัวหน้า: sale → เป้าทีมตัวเอง · อื่น ๆ → เป้ารวมบริษัท
+    const headLabel = isSale ? 'เป้าทีม' : 'เป้ายอดขาย';
+    const headNote  = isSale ? (myTeamCode ? `ทีม ${myTeamCode} · ${goal.period}` : goal.period) : goal.period;
+    const headValue = isSale
+      ? (myTeamTargetBaht ? `${fmtMB(myTeamTargetBaht)} ล้านบาท` : '— ล้านบาท')
+      : `${esc(goal.target_mb)} ล้านบาท`;
+
     if (!rows.length) {
       root.innerHTML = `
         <div class="grid cols-4">
-          ${card('เป้ายอดขาย', `${esc(goal.target_mb)} ล้านบาท`, esc(goal.period))}
+          ${card(headLabel, headValue, esc(headNote))}
         </div>
         <div class="empty" style="margin-top:20px">
           <strong>ยังไม่มีข้อมูลให้สรุป</strong>
@@ -353,18 +377,15 @@ export default {
     // ความกว้างที่กราฟใช้ได้จริง = กว้างของพื้นที่เนื้อหา ลบ padding ของ .card (18px สองข้าง)
     const chartW = Math.max(300, (root.clientWidth || 720) - 40);
 
-    // เป้ารายทีม + ลำดับชั้น + ลูกค้า Book 3 สี (ใช้กับตัวกรองทีมทั้งหน้า) — ไม่มีก็ข้ามเงียบ ๆ
-    let teams = [], targetsMap = {}, custs = [];
-    try {
-      teams = await adapter.listTeams();
-      const tt = await adapter.listTeamTargets();
-      targetsMap = Object.fromEntries((tt || []).map(r => [r.team_id, Number(r.target_baht || 0)]));
-    } catch { teams = []; }
+    // ลูกค้า Book 3 สี (ใช้กับตัวกรองทีมทั้งหน้า) · teams/targetsMap โหลดไปแล้วด้านบน
+    let custs = [];
     try { custs = await adapter.listCustomers({ status: 'active', limit: 2000 }); } catch { custs = []; }
 
     const tops = teams.filter(t => !t.parent_team_id).map(t => t.id);
-    const showFilter = teams.length > 1;   // admin/หัวหน้าที่เห็นหลายทีม
+    // sale: ไม่เห็นตัวกรองข้ามทีม + เริ่มที่ทีมตัวเอง · admin/manager: เห็นตัวกรอง + เริ่มที่รวมทั้งองค์กร
+    const showFilter = teams.length > 1 && !isSale;
     let selected = new Set();               // ว่าง = ทั้งองค์กร (รวม)
+    if (isSale && myTeam) selected = new Set([myTeam]);
 
     // ── โครงหน้า: ตัวกรองทีมบนสุด (รวม/แยก) + เนื้อหาที่กรองได้ ──
     root.innerHTML = `
@@ -399,9 +420,9 @@ export default {
       const pctTxt = targetBaht ? s.pct.toFixed(1) + '%' : '—';
 
       body.innerHTML = `
-        ${selected.size ? `<div class="dash-scope-note">กำลังดูเฉพาะ <b>${esc(picked)}</b> · ตัวเลขด้านล่างนับเฉพาะขอบเขตนี้</div>` : ''}
+        ${selected.size && !isSale ? `<div class="dash-scope-note">กำลังดูเฉพาะ <b>${esc(picked)}</b> · ตัวเลขด้านล่างนับเฉพาะขอบเขตนี้</div>` : ''}
         <div class="grid cols-4">
-          ${card('เป้ายอดขาย', `${targetBaht ? fmtMB(targetBaht) : '—'} ล้านบาท`,
+          ${card(isSale ? 'เป้าทีม' : 'เป้ายอดขาย', `${targetBaht ? fmtMB(targetBaht) : '—'} ล้านบาท`,
                  selected.size ? esc(picked) : esc(goal.period))}
           ${card('ปิดได้แล้ว', `${fmtMB(s.won)} ล้าน`,
                  `${pctTxt} ของเป้า · ขาดอีก ${fmtMB(s.gap)} ล้าน`)}
@@ -424,7 +445,7 @@ export default {
           ${barChart(s.byMonth, chartW)}
         </div>
 
-        ${teams.length > 1 ? teamBreakdownSection(rows, teams, targetsMap, opt) : ''}
+        ${teams.length > 1 && !isSale ? teamBreakdownSection(rows, teams, targetsMap, opt) : ''}
         ${(custs.length || showFilter) ? customerCard(scopedC, picked, selected.size > 0) : ''}
 
         <div class="grid cols-2 sec-grid">
