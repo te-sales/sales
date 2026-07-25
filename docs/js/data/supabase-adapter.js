@@ -610,6 +610,21 @@ const supabaseAdapter = {
   async listAllTeamTargets() {
     return rest('/team_targets?select=team_id,period,target_baht&limit=100000');
   },
+
+  // เป้ารายคน (step 3.13) · period 'YYYY-MM' — ยังไม่รัน phase3-13.sql ก็คืน [] ไม่ให้พัง
+  async listAllSaleTargets() {
+    try { return await rest('/sale_targets?select=profile_id,period,target_baht&limit=100000'); }
+    catch (e) { if (/sale_targets|does not exist|42P01|PGRST20[04]/i.test(e.message || '')) return []; throw e; }
+  },
+  async saveSaleTarget(profileId, targetBaht, period = 'H2-2026') {
+    const body = { profile_id: profileId, period, target_baht: Number(targetBaht) || 0,
+                   updated_by: session?.user?.id || null };
+    return rest('/sale_targets?on_conflict=profile_id,period', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+      body: JSON.stringify(body),
+    });
+  },
   async saveTeamTarget(teamId, targetBaht, period = 'H2-2026') {
     const body = { team_id: teamId, period, target_baht: Number(targetBaht) || 0,
                    updated_by: session?.user?.id || null };

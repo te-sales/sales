@@ -27,6 +27,17 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-25 · ยังไม่ commit · Chunk 3: เป้ารายคน (sale) + มิติรายคนใน drill-down — v0.39.0
+**step:** 3.13 (เป้ารายคน) | **ประเภท:** ฟีเจอร์ (Part 3b+4b — ก้อนสุดท้ายของชุดเป้า)
+- `db/phase3-13.sql` ตาราง `sale_targets` (profile_id, period 'YYYY-MM', target_baht) · RLS select=ทุกคน write=admin
+  · adapter tolerant (ยังไม่รัน migration → คืน [] ไม่พัง) · เพิ่ม listAllSaleTargets/saveSaleTarget ทั้ง facade/2 โหมด + backup
+- **admin:** refactor เป็น `monthlyModal` (ใช้ร่วมทีม/รายคน) · หน้าย่อยทีมเพิ่มส่วน "เป้ารายคนในทีม"
+  → กด 📅 รายคน → `openSaleMonthly` (โมดัลซ้อน z-index สูง) 12 เดือน · ปิดแล้วยอดรวมรายคนอัปเดต
+- **drill-down:** เลือกทีม → เพิ่มตาราง "รายคนในทีม" (เป้า/ปิดจริงต่อ sale ในช่วงเป้า · ปิดจริงนับจาก owner_id)
+- ครบวงจรเป้า: รายเดือน → รายคน/ทีม → รวมบริษัท · ชี้กราฟ/คลิกการ์ดดูรายละเอียดได้
+**ไฟล์:** db/phase3-13.sql(ใหม่) · adapter.js · supabase-adapter.js · local-adapter.js · admin.js(monthlyModal/openSaleMonthly) · dashboard.js(drill รายคน) · app.css · CLAUDE.md · config.js+sw.js (v0.39.0)
+**ทดสอบ:** saletarget-test 9/9 ผ่าน · libpg-query parse phase3-13 ผ่าน (โมดัลซ้อน · เก็บ 6 เดือน · รวม 12 · drill รายคน เป้า12/ปิด5)
+
 ## 2026-07-25 · ยังไม่ commit · Chunk 2: ชี้กราฟดูตัวเลข + คลิกการ์ดเป้า drill-down (Part 4) — v0.38.0
 **step:** 1.5 (Dashboard) | **ประเภท:** ฟีเจอร์
 - **ชี้เมาส์ที่กราฟ → tooltip** (คำขอใหม่): โซนโปร่งใสต่อเดือน (.chart-zone) + `mountChartHover` (fixed tooltip ตามเมาส์)

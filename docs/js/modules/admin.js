@@ -63,14 +63,15 @@ async function renderAdmin(root) {
 
     root.innerHTML = '<div class="skeleton">กำลังโหลด…</div>';
 
-    let profiles = [], teams = [], access = [], settings = {}, teamTargets = [];
+    let profiles = [], teams = [], access = [], settings = {}, teamTargets = [], saleTargets = [];
     try {
-      [profiles, teams, access, settings, teamTargets] = await Promise.all([
+      [profiles, teams, access, settings, teamTargets, saleTargets] = await Promise.all([
         adapter.listProfiles(),
         adapter.listTeams(),
         adapter.listTeamAccess(),
         adapter.getSettings().catch(() => ({})),
         adapter.listAllTeamTargets().catch(() => []),
+        adapter.listAllSaleTargets().catch(() => []),
       ]);
     } catch (e) {
       const missing = /ยังไม่ได้สร้างตาราง|does not exist|42P01/i.test(e.message);
@@ -249,7 +250,7 @@ async function renderAdmin(root) {
     root.querySelectorAll('[data-month-target]').forEach(btn => {
       btn.addEventListener('click', () =>
         openTeamMonthly($('#aPanel'), teams.find(t => t.id === btn.dataset.monthTarget),
-                        targetYear, teamTargets, () => renderAdmin(root)));
+                        targetYear, teamTargets, saleTargets, profiles, teams, () => renderAdmin(root)));
     });
 
     // ── ผู้ใช้: เปลี่ยน role / ทีม / สถานะ ──
@@ -519,76 +520,149 @@ function openAccess(host, user, teams, current, onSaved) {
 //   ปิดหน้าย่อย → renderAdmin ใหม่ → ยอดรวมทีม/องค์กร + หน้าภาพรวมอัปเดตตาม
 // ══════════════════════════════════════════════════════════
 
-function openTeamMonthly(host, team, year, allTargets, onSaved) {
-  if (!team) return;
+const mtFmt = (v) => Number(v || 0).toLocaleString('th-TH', { maximumFractionDigits: 1 });
+const yearTotalOf = (rows, matchFn, year) => (rows || [])
+  .filter(r => matchFn(r) && String(r.period || '').startsWith(`${year}-`) && /^\d{4}-\d{2}$/.test(r.period))
+  .reduce((a, r) => a + Number(r.target_baht || 0), 0);
+
+/**
+ * โมดัลตารางเป้ารายเดือน (12 เดือน + สรุป Q/ครึ่งปี/ปี) — ใช้ร่วมทั้ง "เป้าทีม" และ "เป้ารายคน"
+ * o = { id, title, subtitle, note, year, cur (period→บาท), saveFn(baht,period), onClose, extra, onMount, overlay }
+ */
+function monthlyModal(host, o) {
   const pad = (n) => String(n).padStart(2, '0');
-  const months = Array.from({ length: 12 }, (_, i) => `${year}-${pad(i + 1)}`);
-  const cur = {};
-  (allTargets || []).filter(r => r.team_id === team.id).forEach(r => { cur[r.period] = Number(r.target_baht || 0); });
-  const mb  = (b) => (b ? String(b / 1e6) : '');
-  const fmt = (v) => Number(v || 0).toLocaleString('th-TH', { maximumFractionDigits: 1 });
+  const months = Array.from({ length: 12 }, (_, i) => `${o.year}-${pad(i + 1)}`);
+  const mb = (b) => (b ? String(b / 1e6) : '');
+  const cur = o.cur || {};
 
   host.innerHTML = `
-    <div class="modal" id="tmtModal">
-      <form class="modal-box modal-sm" id="tmtForm">
+    <div class="modal" id="${o.id}"${o.overlay ? ' style="z-index:320"' : ''}>
+      <form class="modal-box modal-sm" onsubmit="return false">
         <div class="modal-head">
-          <strong>เป้ารายเดือน · ${esc(team.code)}
-            <span class="sec-sub">${esc(team.name || '')} · ปี ${year + 543}</span></strong>
-          <button type="button" class="btn btn-ghost btn-sm" id="tmtClose">ปิด</button>
+          <strong>${esc(o.title)} <span class="sec-sub">${esc(o.subtitle || '')}</span></strong>
+          <button type="button" class="btn btn-ghost btn-sm" data-mm-close>ปิด</button>
         </div>
         <div class="modal-body">
-          <p class="sec-foot" style="margin:0 0 10px">
-            กรอกเป้าแต่ละเดือน (ล้านบาท) — สรุปไตรมาส/ครึ่งปี/ปีคิดให้อัตโนมัติ ·
-            บันทึกเมื่อออกจากช่อง แล้วโยงไปหน้าภาพรวม (เป้าทีม + เป้ารวมบริษัท) ทันที
-          </p>
+          <p class="sec-foot" style="margin:0 0 10px">${o.note || 'กรอกเป้าแต่ละเดือน (ล้านบาท) — สรุปไตรมาส/ครึ่งปี/ปีให้อัตโนมัติ · บันทึกเมื่อออกจากช่อง'}</p>
           <div class="tmt-grid">
-            ${months.map((p, i) => `<label class="tmt-m"><span>${TH_MON[i]} ${String((year + 543) % 100).padStart(2, '0')}</span>
+            ${months.map((p, i) => `<label class="tmt-m"><span>${TH_MON[i]} ${String((o.year + 543) % 100).padStart(2, '0')}</span>
               <input type="number" min="0" step="0.1" class="inp inp-sm" data-month="${esc(p)}" value="${esc(mb(cur[p]))}" placeholder="—"></label>`).join('')}
           </div>
-          <div class="tmt-sum" id="tmtSum"></div>
-          <p class="login-err" id="tmtErr" role="alert" hidden></p>
+          <div class="tmt-sum" data-mm-sum></div>
+          <p class="login-err" data-mm-err role="alert" hidden></p>
+          ${o.extra || ''}
         </div>
         <div class="modal-foot"><span class="spacer"></span>
-          <button type="button" class="btn btn-primary" id="tmtDone">เสร็จ</button>
+          <button type="button" class="btn btn-primary" data-mm-close>เสร็จ</button>
         </div>
       </form>
     </div>`;
 
   const q = (s) => host.querySelector(s);
-  const close = () => { host.innerHTML = ''; onSaved && onSaved(); };
-  q('#tmtClose').addEventListener('click', close);
-  q('#tmtDone').addEventListener('click', close);
-  q('#tmtModal').addEventListener('mousedown', (e) => { if (e.target.id === 'tmtModal') close(); });
+  const close = () => { host.innerHTML = ''; o.onClose && o.onClose(); };
+  host.querySelectorAll('[data-mm-close]').forEach(b => b.addEventListener('click', close));
+  q('#' + o.id).addEventListener('mousedown', (e) => { if (e.target.id === o.id) close(); });
 
-  function recompSum() {
+  function recomp() {
     const v = {};
     host.querySelectorAll('[data-month]').forEach(inp => { v[inp.dataset.month] = Number(inp.value) || 0; });
     const s = (idxs) => idxs.reduce((a, i) => a + (v[months[i]] || 0), 0);
     const q1 = s([0, 1, 2]), q2 = s([3, 4, 5]), q3 = s([6, 7, 8]), q4 = s([9, 10, 11]);
     const h1 = q1 + q2, h2 = q3 + q4, yr = h1 + h2;
-    q('#tmtSum').innerHTML = `
-      <div class="tmt-row"><span>ไตรมาส 1</span><b>${fmt(q1)}</b><span>ไตรมาส 2</span><b>${fmt(q2)}</b>
-        <span>ไตรมาส 3</span><b>${fmt(q3)}</b><span>ไตรมาส 4</span><b>${fmt(q4)}</b></div>
-      <div class="tmt-row"><span>ครึ่งปีแรก</span><b>${fmt(h1)}</b><span>ครึ่งปีหลัง</span><b>${fmt(h2)}</b></div>
-      <div class="tmt-row tmt-year"><span>รวมทั้งปี</span><b>${fmt(yr)} ล้านบาท</b></div>`;
+    q('[data-mm-sum]').innerHTML = `
+      <div class="tmt-row"><span>ไตรมาส 1</span><b>${mtFmt(q1)}</b><span>ไตรมาส 2</span><b>${mtFmt(q2)}</b>
+        <span>ไตรมาส 3</span><b>${mtFmt(q3)}</b><span>ไตรมาส 4</span><b>${mtFmt(q4)}</b></div>
+      <div class="tmt-row"><span>ครึ่งปีแรก</span><b>${mtFmt(h1)}</b><span>ครึ่งปีหลัง</span><b>${mtFmt(h2)}</b></div>
+      <div class="tmt-row tmt-year"><span>รวมทั้งปี</span><b>${mtFmt(yr)} ล้านบาท</b></div>`;
   }
-  recompSum();
+  recomp();
 
   host.querySelectorAll('[data-month]').forEach(inp => {
-    inp.addEventListener('input', recompSum);
+    inp.addEventListener('input', recomp);
     inp.addEventListener('change', async () => {
-      const err = q('#tmtErr');
+      const err = q('[data-mm-err]');
       const mbv = Number(inp.value);
       if (inp.value !== '' && (!Number.isFinite(mbv) || mbv < 0)) {
         err.textContent = 'เป้าต้องเป็นตัวเลขไม่ติดลบ'; err.hidden = false; return;
       }
       inp.disabled = true;
       try {
-        await adapter.saveTeamTarget(team.id, (Number(inp.value) || 0) * 1e6, inp.dataset.month);
+        await o.saveFn((Number(inp.value) || 0) * 1e6, inp.dataset.month);
         err.textContent = '✓ บันทึกแล้ว'; err.hidden = false; err.classList.add('ok-msg');
         setTimeout(() => { err.hidden = true; err.classList.remove('ok-msg'); }, 2000);
       } catch (e) { err.textContent = e.message; err.hidden = false; err.classList.remove('ok-msg'); }
       inp.disabled = false;
     });
+  });
+
+  o.onMount && o.onMount(host);
+}
+
+// เป้ารายเดือนของทีม + ส่วน "เป้ารายคนในทีม" (กด 📅 รายคน → openSaleMonthly ซ้อนขึ้นมา)
+function openTeamMonthly(host, team, year, teamTargets, saleTargets, profiles, teams, onSaved) {
+  if (!team) return;
+  const cur = {};
+  (teamTargets || []).filter(r => r.team_id === team.id).forEach(r => { cur[r.period] = Number(r.target_baht || 0); });
+
+  // สมาชิกทีมนี้ (ในทีมใบนี้โดยตรง) — ตั้งเป้ารายคนได้
+  const members = (profiles || []).filter(pf => pf.team_id === team.id && pf.is_active !== false);
+  const saleTotalCell = (pid) => {
+    const t = yearTotalOf(saleTargets, r => r.profile_id === pid, year);
+    return t ? mtFmt(t / 1e6) : '—';
+  };
+  const extra = `
+    <div class="st-sec">
+      <h3 class="q-h3">เป้ารายคนในทีม <span class="sec-sub">รวมทั้งปี · ล้านบาท</span></h3>
+      ${members.length
+        ? members.map(m => `<div class="strow">
+            <span class="strow-name">${esc(m.full_name || m.email || '—')}</span>
+            <span class="strow-val" data-sale-total="${esc(m.id)}">${saleTotalCell(m.id)}</span>
+            <button type="button" class="btn btn-ghost btn-sm" data-sale-month="${esc(m.id)}">📅 รายเดือน</button>
+          </div>`).join('')
+        : '<p class="src-nolink">— ยังไม่มีสมาชิกในทีมนี้ (กำหนดทีมให้ผู้ใช้ในตาราง "ผู้ใช้" ด้านบนก่อน) —</p>'}
+    </div>`;
+
+  monthlyModal(host, {
+    id: 'tmtModal', title: `เป้ารายเดือน · ${esc(team.code)}`,
+    subtitle: `${team.name || ''} · ปี ${year + 543}`,
+    note: 'กรอกเป้าแต่ละเดือน (ล้านบาท) — สรุปไตรมาส/ครึ่งปี/ปีให้อัตโนมัติ · บันทึกเมื่อออกจากช่อง แล้วโยงไปหน้าภาพรวมทันที',
+    year, cur,
+    saveFn: (baht, period) => adapter.saveTeamTarget(team.id, baht, period),
+    onClose: onSaved,
+    extra,
+    onMount: (h) => {
+      h.querySelectorAll('[data-sale-month]').forEach(btn => btn.addEventListener('click', () => {
+        const person = members.find(m => m.id === btn.dataset.saleMonth);
+        openSaleMonthly(person, year, saleTargets, () => {
+          const span = h.querySelector(`[data-sale-total="${CSS.escape(person.id)}"]`);
+          if (span) span.textContent = saleTotalCell(person.id);
+        });
+      }));
+    },
+  });
+}
+
+// เป้ารายเดือนของ sale หนึ่งคน — เปิดซ้อนบนโมดัลทีม (host แยกใน body)
+function openSaleMonthly(person, year, saleTargets, onDone) {
+  if (!person) return;
+  const overlayHost = document.createElement('div');
+  document.body.appendChild(overlayHost);
+  const cur = {};
+  (saleTargets || []).filter(r => r.profile_id === person.id).forEach(r => { cur[r.period] = Number(r.target_baht || 0); });
+
+  monthlyModal(overlayHost, {
+    id: 'smtModal', overlay: true,
+    title: `เป้ารายคน · ${esc(person.full_name || person.email || '')}`,
+    subtitle: `ปี ${year + 543}`,
+    note: 'เป้ารายเดือนของ sale คนนี้ (ล้านบาท) — บันทึกเมื่อออกจากช่อง',
+    year, cur,
+    saveFn: async (baht, period) => {
+      await adapter.saveSaleTarget(person.id, baht, period);
+      // อัปเดตในหน่วยความจำ ให้ยอดรวมของทีมสะท้อนทันทีเมื่อปิด
+      const i = (saleTargets || []).findIndex(r => r.profile_id === person.id && r.period === period);
+      if (i >= 0) saleTargets[i].target_baht = baht;
+      else saleTargets.push({ profile_id: person.id, period, target_baht: baht });
+    },
+    onClose: () => { overlayHost.remove(); onDone && onDone(); },
   });
 }

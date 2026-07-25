@@ -109,6 +109,8 @@ export const adapter = {
   listTeamTargets:   (p)        => need().listTeamTargets(p),
   listAllTeamTargets:()         => need().listAllTeamTargets(),
   saveTeamTarget:    (t, v, p)  => need().saveTeamTarget(t, v, p),
+  listAllSaleTargets:()         => need().listAllSaleTargets(),
+  saveSaleTarget:    (id, v, p) => need().saveSaleTarget(id, v, p),
   saveSetting:       (k, v)    => need().saveSetting(k, v),
 
   // B6 dashboard

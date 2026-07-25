@@ -1489,6 +1489,12 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 .tmt-row.tmt-year { border-top: 1px dashed var(--border); padding-top: 8px; margin-top: 2px; font-size: 13px; }
 .tmt-row.tmt-year b { color: var(--accent-text); font-size: 15px; }
 @media (max-width: 560px) { .tmt-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* เป้ารายคนในทีม (ในหน้าย่อยตั้งเป้าทีม) */
+.st-sec { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+.strow { display: flex; align-items: center; gap: 10px; padding: 5px 2px; border-bottom: 1px solid var(--border-soft); }
+.strow-name { flex: 1 1 auto; min-width: 0; font-size: 12.5px; }
+.strow-val { flex: 0 0 auto; min-width: 70px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); }
 .ttrow.is-sub .ttrow-name b::before { content: "↳ "; color: var(--text-mute); }
 
 /* ── ลืมรหัสผ่าน / ตั้งรหัสใหม่ (step 3.11) ── */

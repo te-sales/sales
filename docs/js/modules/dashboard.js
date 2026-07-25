@@ -368,7 +368,7 @@ function actSection(acts) {
 //   เป้า = ผลรวม team_targets (period 'YYYY-MM') ในขอบเขต · ปิดจริง = งาน stage=won ตาม monthOf()
 // ══════════════════════════════════════════════════════════
 function openTargetDrill(host, ctx) {
-  const { teams, allTargets, rows, from, to } = ctx;
+  const { teams, allTargets, rows, saleTargets, profiles, from, to } = ctx;
   if (!host) return;
   const leafTeams = (teams || []).filter(t => !teams.some(x => x.parent_team_id === t.id));
   const year = Number(String(from).slice(0, 4));
@@ -425,6 +425,24 @@ function openTargetDrill(host, ctx) {
       <td>${esc(monthLabel(m))}</td><td class="num">${tm[i] ? fmtMB(tm[i]) : '—'}</td><td class="num">${wm[i] ? fmtMB(wm[i]) : '—'}</td></tr>`;
     const gRow = (label, g, cls) => `<tr class="${cls}"><td>${label}</td><td class="num">${g.t ? fmtMB(g.t) : '—'}</td><td class="num">${g.w ? fmtMB(g.w) : '—'}</td></tr>`;
 
+    // ── มิติ "รายคน" — เมื่อเลือกทีมใดทีมหนึ่ง แสดงเป้า/ปิดจริงต่อ sale ในทีม (ในช่วงเป้า) ──
+    let saleHtml = '';
+    if (scope !== 'all') {
+      const members = (profiles || []).filter(pf => ids.has(pf.team_id));
+      const stOf = (pid) => (saleTargets || []).filter(r => r.profile_id === pid && r.period >= from && r.period <= to).reduce((a, r) => a + Number(r.target_baht || 0), 0);
+      const swOf = (pid) => (rows || []).filter(r => r.stage === 'won' && r.owner_id === pid && ids.has(r.team_id) && inPeriod(monthOf(r))).reduce((a, r) => a + Number(r.value_baht || 0), 0);
+      if (members.length) saleHtml = `
+        <h3 class="q-h3" style="margin-top:16px">รายคนในทีม <span class="sec-sub">ในช่วงเป้า</span></h3>
+        <div class="tbl-wrap"><table class="tbl drill-tbl">
+          <thead><tr><th>Sale</th><th class="num">เป้า</th><th class="num">ปิดจริง</th></tr></thead>
+          <tbody>${members.map(m => {
+            const t = stOf(m.id), w = swOf(m.id);
+            return `<tr><td>${esc(m.full_name || m.email || '—')}</td><td class="num">${t ? fmtMB(t) : '—'}</td><td class="num">${w ? fmtMB(w) : '—'}</td></tr>`;
+          }).join('')}</tbody>
+        </table></div>
+        <p class="sec-foot" style="margin:6px 0 0">เป้ารายคนตั้งได้ในหน้าตั้งค่า → เป้ารายเดือนต่อทีม → 📅 รายคน</p>`;
+    }
+
     q('#drillBody').innerHTML = `
       <p class="sec-foot" style="margin:8px 0 6px">หน่วย: ล้านบาท · เดือนนอกช่วงเป้า (${esc(monthLabel(from))}–${esc(monthLabel(to))}) แสดงสีจาง</p>
       <div class="tbl-wrap"><table class="tbl drill-tbl">
@@ -435,7 +453,8 @@ function openTargetDrill(host, ctx) {
           ${gRow('ครึ่งปีแรก', H[0], 'drill-sum')}${gRow('ครึ่งปีหลัง', H[1], 'drill-sum')}
           ${gRow('รวมทั้งปี', Y, 'drill-year')}
         </tbody>
-      </table></div>`;
+      </table></div>
+      ${saleHtml}`;
   }
   draw();
 }
@@ -522,6 +541,10 @@ export default {
     // ลูกค้า Book 3 สี (ใช้กับตัวกรองทีมทั้งหน้า) · teams/targetsMap โหลดไปแล้วด้านบน
     let custs = [];
     try { custs = await adapter.listCustomers({ status: 'active', limit: 2000 }); } catch { custs = []; }
+    // เป้ารายคน + รายชื่อ (สำหรับมิติ "รายคน" ในหน้า drill-down) — ไม่มีก็ข้ามเงียบ ๆ
+    let saleTargets = [], profiles = [];
+    try { saleTargets = await adapter.listAllSaleTargets(); } catch { saleTargets = []; }
+    try { profiles = await adapter.listProfiles(); } catch { profiles = []; }
 
     const tops = teams.filter(t => !t.parent_team_id).map(t => t.id);
     // sale: ไม่เห็นตัวกรองข้ามทีม + เริ่มที่ทีมตัวเอง · admin/manager: เห็นตัวกรอง + เริ่มที่รวมทั้งองค์กร
@@ -546,7 +569,7 @@ export default {
     root.addEventListener('click', (e) => {
       if (!e.target.closest('[data-target-drill]')) return;
       openTargetDrill(root.querySelector('#dashDrill'), {
-        teams, allTargets, rows, from: goal.from, to: goal.to,
+        teams, allTargets, rows, saleTargets, profiles, from: goal.from, to: goal.to,
         initialScope: selected.size === 1 ? [...selected][0] : 'all',
       });
     });

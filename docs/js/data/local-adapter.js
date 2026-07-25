@@ -21,6 +21,7 @@ const emptyDb = () => ({
   signoffs: [],
   pending_products: [],
   team_targets: [],
+  sale_targets: [],
   intake_items: [],
   lead_sources: [],
   expo_customers: [],
@@ -530,6 +531,19 @@ const localAdapter = {
   async listAllTeamTargets() {
     return (db.team_targets || []).map(r => ({ team_id: r.team_id, period: r.period, target_baht: r.target_baht }));
   },
+
+  // เป้ารายคน (step 3.13)
+  async listAllSaleTargets() {
+    return (db.sale_targets || []).map(r => ({ profile_id: r.profile_id, period: r.period, target_baht: r.target_baht }));
+  },
+  async saveSaleTarget(profileId, targetBaht, period = 'H2-2026') {
+    db.sale_targets = db.sale_targets || [];
+    const i = db.sale_targets.findIndex(r => r.profile_id === profileId && r.period === period);
+    const row = { profile_id: profileId, period, target_baht: Number(targetBaht) || 0 };
+    if (i >= 0) db.sale_targets[i] = row; else db.sale_targets.push(row);
+    save();
+    return [row];
+  },
   async saveTeamTarget(teamId, targetBaht, period = 'H2-2026') {
     db.team_targets = db.team_targets || [];
     const i = db.team_targets.findIndex(r => r.team_id === teamId && r.period === period);
@@ -614,6 +628,7 @@ const localAdapter = {
       profiles:         clone(db.profiles),
       team_access:      clone(db.team_access),
       team_targets:     clone(db.team_targets),
+      sale_targets:     clone(db.sale_targets),
       pending_projects: clone(db.pending_projects),
       follow_logs:      clone(db.follow_logs),
       project_contacts: clone(db.project_contacts),
@@ -640,6 +655,7 @@ const localAdapter = {
     };
     put('teams_custom',     'teams');
     put('team_targets',     'team_targets');
+    put('sale_targets',     'sale_targets');
     put('pending_projects', 'pending_projects');
     put('follow_logs',      'follow_logs');
     put('project_contacts', 'project_contacts');
