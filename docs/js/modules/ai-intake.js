@@ -14,6 +14,7 @@
 //    ถ่ายรูปหน้างานด้วยมือถือ แต่มานั่งตรวจแก้บนคอมที่ออฟฟิศ ต้องข้ามเครื่องได้ + มีหลักฐานว่าใครอนุมัติ
 
 import { adapter } from '../data/adapter.js';
+import { todayISO } from '../ui/datepicker.js';
 
 export const SOURCES = ['namecard', 'form', 'text', 'voice'];
 
@@ -196,9 +197,16 @@ const FIELDS = {
     ['contact_phone',    'ผู้ติดต่อ 1 — โทร',        'text'],
     ['contact_email',    'ผู้ติดต่อ 1 — อีเมล',      'text'],
   ],
+  // บันทึกติดตาม (log) — ปุ่ม "AI บันทึก" ในหน้า Pending/Book 3 สี · ช่องเดียวกับ loglist.js
+  log: [
+    ['log_date',   'วันที่ (YYYY-MM-DD)',      'text'],
+    ['by_name',    'ใครติดตาม / ช่องทาง',       'text'],
+    ['response',   'ผลที่ได้ / สิ่งที่คุยกัน',    'area'],
+    ['next_doing', 'ทำอะไรต่อ (Next doing)',    'area'],
+  ],
 };
 const REQUIRED = { customer: 'name', pending: 'project_name' };
-const DEST_LABEL = { customer: 'ลูกค้าใน Book 3 สี', pending: 'งานใน Pending Project' };
+const DEST_LABEL = { customer: 'ลูกค้าใน Book 3 สี', pending: 'งานใน Pending Project', log: 'บันทึกติดตามงาน' };
 const SOURCE_LABEL = {
   namecard: '📇 รูปนามบัตร', form: '📄 ฟอร์มกระดาษ / ลายมือ',
   text: '📋 ข้อความที่คัดลอก', voice: '🎤 ข้อความจากเสียงพูด',
@@ -209,6 +217,7 @@ const SOURCE_LABEL = {
 const SOURCES_FOR = {
   customer: ['namecard', 'text', 'voice'],
   pending:  ['form', 'text', 'voice'],
+  log:      ['text', 'voice', 'form'],   // บันทึกความก้าวหน้า: พิมพ์/เสียง เป็นหลัก + รูปโน้ต/ลายมือ
 };
 
 // ══════════════════════════════════════════════════════════
@@ -256,6 +265,12 @@ const PROMPT_HINTS = {
     family:        'ครอบครัว (คู่สมรส/บุตร/อื่น ๆ) — สรุปได้',
     hobby:         'งานอดิเรก',
     favorite:      'ของชอบ/สิ่งที่สนใจ',
+  },
+  log: {
+    log_date:   'วันที่ที่ติดตาม/เกิดเหตุการณ์ — รูปแบบ YYYY-MM-DD (ไม่ระบุให้เว้นว่าง)',
+    by_name:    'ช่องทาง/ผู้ติดตาม เช่น โทร, ไลน์, เข้าพบ, อีเมล',
+    response:   'สรุปสิ่งที่เกิดขึ้น/ผลการติดตาม/สิ่งที่ลูกค้าตอบ — เรียบเรียงจากบันทึกได้',
+    next_doing: 'สิ่งที่ต้องทำต่อ/นัดหมายถัดไป — สรุปให้ชัดเป็นการกระทำ',
   },
 };
 
@@ -354,6 +369,7 @@ function buildPayload(targetType, fields) {
     }
     if (k === 'close_month') { const f = fixYearYM(v);   if (f) out[k] = f; continue; }  // พ.ศ.→ค.ศ. · ผิด = ทิ้ง
     if (k === 'birthday')    { const f = fixYearDate(v); if (f) out[k] = f; continue; }
+    if (k === 'log_date')    { const f = fixYearDate(v); if (f) out[k] = f; continue; }  // บันทึกติดตาม: พ.ศ.→ค.ศ.
     if (k === 'color')       { out[k] = COLOR_IDS.includes(v) ? v : 'red';  continue; }
     if (k === 'stage')       { out[k] = STAGE_IDS.includes(v) ? v : 'lead';  continue; }
     out[k] = v;
@@ -428,6 +444,100 @@ function fileToImagePart(file) {
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('เปิดรูปไม่ได้ — ไฟล์อาจเสียหาย')); };
     img.src = url;
   });
+}
+
+// ══════════════════════════════════════════════════════════
+// ชิ้นส่วน UI ที่ใช้ร่วมกันทุกจุดที่ AI ช่วยบันทึก (AI Import + AI บันทึก)
+// ⭐ อยู่ที่เดียว → อัปเดตความสามารถ AI (เพิ่มโมเดล/แหล่ง/ตรรกะ key) ทีเดียว ทุกปุ่มได้เท่ากันหมด
+// ══════════════════════════════════════════════════════════
+
+/** ช่องกรอก 1 ฟิลด์ในการ์ดพรีวิว — ไฮไลต์เหลืองถ้า AI ไม่มั่นใจ (reqKey = ช่องบังคับ ใส่ *) */
+function fieldHtml([key, label, type], fields, conf, reqKey) {
+  const v = fields[key] ?? '';
+  const c = conf[key];
+  const low = c != null && c < 0.8;
+  const lowCls = low ? ' ai-low' : '';
+  const lowTip = low ? ` title="AI มั่นใจ ${Math.round(c * 100)}% — ตรวจก่อนบันทึก"` : '';
+  const reqMark = key === reqKey ? ' *' : '';
+
+  let control;
+  if (type === 'area')
+    control = `<textarea class="inp${lowCls}" data-f="${key}" rows="2"${lowTip}>${esc(v)}</textarea>`;
+  else if (type === 'color')
+    control = `<select class="inp${lowCls}" data-f="${key}"${lowTip}>
+      ${COLOR_OPTS.map(([id, lb]) => `<option value="${id}" ${v === id ? 'selected' : ''}>${esc(lb)}</option>`).join('')}
+    </select>`;
+  else if (type === 'stage')
+    control = `<select class="inp${lowCls}" data-f="${key}"${lowTip}>
+      ${STAGE_OPTS.map(([id, lb]) => `<option value="${id}" ${v === id ? 'selected' : ''}>${esc(lb)}</option>`).join('')}
+    </select>`;
+  else
+    control = `<input class="inp${lowCls}" data-f="${key}" type="${type === 'number' ? 'number' : 'text'}"
+                 value="${esc(v)}"${type === 'number' ? ' min="0" step="1"' : ''}${lowTip}>`;
+
+  return `<label class="ai-fld ${type === 'area' ? 'ai-wide' : ''}">
+    <span>${esc(label)}${reqMark}${low ? ' <span class="ai-low-dot" title="AI ไม่มั่นใจ">●</span>' : ''}</span>
+    ${control}
+  </label>`;
+}
+
+/** กล่อง BYO OpenRouter key + เลือกโมเดล (markup เดียว ใช้ทั้ง AI Import และ AI บันทึก) */
+function aiKeyBoxHtml() {
+  return `
+    <details class="ai-keybox" data-keybox>
+      <summary>🔑 OpenRouter API key ของคุณเอง <span class="ai-keystate" data-keystate></span></summary>
+      <div class="ai-keybody">
+        <p class="ai-keynote">🔒 เก็บบน<b>เครื่องนี้เท่านั้น</b> · ไม่ส่งเข้าระบบ ไม่ขึ้น repo · ยิงตรงหา OpenRouter เพื่อให้ AI อ่าน/สรุปแล้วกรอกฟอร์มให้ · แต่ละคนหา key มาเอง<br><b>⚠️ อย่าใส่บนเครื่องสาธารณะ/เครื่องที่ใช้ร่วมกัน</b></p>
+        <p class="ai-keysaved" data-keysaved hidden></p>
+        <div class="ai-keyrow">
+          <input type="password" class="inp" data-keyinput placeholder="sk-or-v1-…" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <button type="button" class="btn btn-primary btn-sm" data-keysave>บันทึก key</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-keyclear>ลบ key</button>
+        </div>
+        <label class="ai-modelrow"><span>โมเดล AI</span>
+          <select class="inp" data-model>
+            ${AI_MODELS.map(m => `<option value="${esc(m.id)}">${esc(m.label)}</option>`).join('')}
+          </select>
+        </label>
+        <p class="ai-modelnote">✅ ทดสอบแล้วใช้ได้จริง: <b>GPT-4o</b> · บางรุ่นผู้ให้บริการอาจปิดชั่วคราว/ไม่รองรับรูป — ถ้าเจอ error ให้สลับไปรุ่นอื่น</p>
+        <a class="ai-keylink" href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer">ขอ API key ที่ openrouter.ai/keys →</a>
+      </div>
+    </details>`;
+}
+
+/** ผูกพฤติกรรมกล่อง key ภายใน host (บันทึก/ลบ/สถานะ/เลือกโมเดล) — setErr แสดง error */
+function bindAIKeyBox(host, setErr) {
+  const q = (s) => host.querySelector(s);
+  const syncKeyState = () => {
+    const has = aiKey.has();
+    const st = q('[data-keystate]');
+    if (st) st.textContent = has ? '· ตั้งไว้แล้ว ✓' : '· ยังไม่ได้ตั้ง';
+    // บรรทัดยืนยันชัด ๆ ว่าเก็บ key อันไหนไว้ (ค้างอยู่แม้เปิดใหม่ = พิสูจน์ว่าเซฟติดจริง)
+    const saved = q('[data-keysaved]');
+    if (saved) {
+      if (has) { saved.innerHTML = `✅ บันทึก key ไว้แล้ว: <b>${esc(maskKey(aiKey.get()))}</b>`; saved.hidden = false; }
+      else saved.hidden = true;
+    }
+    const clr = q('[data-keyclear]');
+    if (clr) clr.disabled = !has;
+  };
+  syncKeyState();
+  const box = q('[data-keybox]');
+  if (box) box.open = !aiKey.has();   // ยังไม่มี key → กางให้เห็นช่องกรอกเลย
+  q('[data-keysave]')?.addEventListener('click', () => {
+    const v = q('[data-keyinput]').value.trim();
+    if (!v) return setErr('ใส่ API key ก่อนบันทึก');
+    if (!aiKey.set(v))
+      return setErr('บันทึก key ไม่สำเร็จ — เบราว์เซอร์นี้อาจปิดที่เก็บข้อมูล (เช่นโหมดส่วนตัว/ไม่ระบุตัวตน) ลองปิดโหมดนั้นแล้วบันทึกใหม่');
+    q('[data-keyinput]').value = '';
+    syncKeyState(); setErr('');
+    const b = q('[data-keysave]'); const t = b.textContent;   // ยืนยันบนปุ่มให้เห็นชัด
+    b.textContent = '✓ บันทึกแล้ว';
+    setTimeout(() => { if (b.isConnected) b.textContent = t; }, 1600);
+  });
+  q('[data-keyclear]')?.addEventListener('click', () => { aiKey.clear(); q('[data-keyinput]').value = ''; syncKeyState(); setErr(''); });
+  const modelSel = q('[data-model]');
+  if (modelSel) { modelSel.value = aiKey.model(); modelSel.addEventListener('change', () => aiKey.setModel(modelSel.value)); }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -524,25 +634,7 @@ export function openAIImport(targetType = 'customer', opts = {}) {
               <span class="lg-hint">AI กรอกลงฟอร์มในรายการรอตรวจ ให้คุณตรวจ/แก้ก่อนบันทึกจริง</span>
             </div>
 
-            <details class="ai-keybox" id="aiKeyBox">
-              <summary>🔑 OpenRouter API key ของคุณเอง <span class="ai-keystate" id="aiKeyState"></span></summary>
-              <div class="ai-keybody">
-                <p class="ai-keynote">🔒 เก็บบน<b>เครื่องนี้เท่านั้น</b> · ไม่ส่งเข้าระบบ ไม่ขึ้น repo · ยิงตรงหา OpenRouter เพื่อให้ AI อ่าน/สรุปแล้วกรอกฟอร์มให้ (ทั้ง Pending และ Book 3 สี) · แต่ละคนหา key มาเอง<br><b>⚠️ อย่าใส่บนเครื่องสาธารณะ/เครื่องที่ใช้ร่วมกัน</b></p>
-                <p class="ai-keysaved" id="aiKeySaved" hidden></p>
-                <div class="ai-keyrow">
-                  <input type="password" class="inp" id="aiKeyInput" placeholder="sk-or-v1-…" autocomplete="off" autocapitalize="off" spellcheck="false">
-                  <button type="button" class="btn btn-primary btn-sm" id="aiKeySave">บันทึก key</button>
-                  <button type="button" class="btn btn-ghost btn-sm" id="aiKeyClear">ลบ key</button>
-                </div>
-                <label class="ai-modelrow"><span>โมเดล AI</span>
-                  <select class="inp" id="aiModel">
-                    ${AI_MODELS.map(m => `<option value="${esc(m.id)}">${esc(m.label)}</option>`).join('')}
-                  </select>
-                </label>
-                <p class="ai-modelnote">✅ ทดสอบแล้วใช้ได้จริง: <b>GPT-4o</b> · บางรุ่นผู้ให้บริการอาจปิดชั่วคราว/ไม่รองรับรูป — ถ้าเจอ error ให้สลับไปรุ่นอื่น</p>
-                <a class="ai-keylink" href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer">ขอ API key ที่ openrouter.ai/keys →</a>
-              </div>
-            </details>
+            ${aiKeyBoxHtml()}
           </div>
 
           <p class="login-err" id="aiErr" role="alert" hidden></p>
@@ -607,42 +699,8 @@ export function openAIImport(targetType = 'customer', opts = {}) {
     b.addEventListener('click', () => setMode(b.dataset.mode)));
   setMode(aiMode);
 
-  // ── BYO API key (เก็บ localStorage เครื่องนี้เท่านั้น) ──
-  const syncKeyState = () => {
-    const has = aiKey.has();
-    const st = q('#aiKeyState');
-    if (st) st.textContent = has ? '· ตั้งไว้แล้ว ✓' : '· ยังไม่ได้ตั้ง';
-    // บรรทัดยืนยันชัด ๆ ว่าเก็บ key อันไหนไว้ (ค้างอยู่แม้เปิดใหม่ = พิสูจน์ว่าเซฟติดจริง)
-    const saved = q('#aiKeySaved');
-    if (saved) {
-      if (has) { saved.innerHTML = `✅ บันทึก key ไว้แล้ว: <b>${esc(maskKey(aiKey.get()))}</b>`; saved.hidden = false; }
-      else saved.hidden = true;
-    }
-    const clr = q('#aiKeyClear');
-    if (clr) clr.disabled = !has;
-  };
-  syncKeyState();
-  // มี key แล้ว → พับเก็บ · ยังไม่มี → กางไว้ให้เห็นช่องกรอกเลย (กันหาไม่เจอแล้วนึกว่าไม่มี)
-  q('#aiKeyBox').open = !aiKey.has();
-  q('#aiKeySave')?.addEventListener('click', () => {
-    const v = q('#aiKeyInput').value.trim();
-    if (!v) return setErr('ใส่ API key ก่อนบันทึก');
-    if (!aiKey.set(v))
-      return setErr('บันทึก key ไม่สำเร็จ — เบราว์เซอร์นี้อาจปิดที่เก็บข้อมูล (เช่นโหมดส่วนตัว/ไม่ระบุตัวตน) ลองปิดโหมดนั้นแล้วบันทึกใหม่');
-    q('#aiKeyInput').value = '';
-    syncKeyState();
-    setErr('');
-    const b = q('#aiKeySave'); const t = b.textContent;   // ยืนยันบนปุ่มให้เห็นชัด
-    b.textContent = '✓ บันทึกแล้ว';
-    setTimeout(() => { if (b.isConnected) b.textContent = t; }, 1600);
-  });
-  q('#aiKeyClear')?.addEventListener('click', () => { aiKey.clear(); q('#aiKeyInput').value = ''; syncKeyState(); setErr(''); });
-  // เลือกโมเดล AI (จำใน localStorage)
-  const modelSel = q('#aiModel');
-  if (modelSel) {
-    modelSel.value = aiKey.model();
-    modelSel.addEventListener('change', () => aiKey.setModel(modelSel.value));
-  }
+  // ── BYO API key + เลือกโมเดล (ใช้ร่วมกับ openAILog ผ่าน bindAIKeyBox) ──
+  bindAIKeyBox(host, setErr);
 
   q('#aiClose').addEventListener('click', close);
   q('#aiDone').addEventListener('click', close);
@@ -820,13 +878,13 @@ export function openAIImport(targetType = 'customer', opts = {}) {
         </div>
 
         <div class="ai-fields">
-          ${shown.map(f => fieldHtml(f, fields, conf)).join('')}
+          ${shown.map(f => fieldHtml(f, fields, conf, req)).join('')}
         </div>
 
         ${hiddenCount ? `<details class="ai-more">
           <summary>+ เพิ่มช่องอื่น (${hiddenCount})</summary>
           <div class="ai-fields">
-            ${FIELDS[targetType].filter(([k]) => !hasVal(fields[k]) && k !== req).map(f => fieldHtml(f, fields, conf)).join('')}
+            ${FIELDS[targetType].filter(([k]) => !hasVal(fields[k]) && k !== req).map(f => fieldHtml(f, fields, conf, req)).join('')}
           </div>
         </details>` : ''}
 
@@ -837,35 +895,6 @@ export function openAIImport(targetType = 'customer', opts = {}) {
           <button type="button" class="btn btn-primary btn-sm" data-act="save">บันทึกเข้าระบบ</button>
         </div>
       </div>`;
-  }
-
-  function fieldHtml([key, label, type], fields, conf) {
-    const v = fields[key] ?? '';
-    const c = conf[key];
-    const low = c != null && c < 0.8;
-    const lowCls = low ? ' ai-low' : '';
-    const lowTip = low ? ` title="AI มั่นใจ ${Math.round(c * 100)}% — ตรวจก่อนบันทึก"` : '';
-    const reqMark = key === REQUIRED[targetType] ? ' *' : '';
-
-    let control;
-    if (type === 'area')
-      control = `<textarea class="inp${lowCls}" data-f="${key}" rows="2"${lowTip}>${esc(v)}</textarea>`;
-    else if (type === 'color')
-      control = `<select class="inp${lowCls}" data-f="${key}"${lowTip}>
-        ${COLOR_OPTS.map(([id, lb]) => `<option value="${id}" ${v === id ? 'selected' : ''}>${esc(lb)}</option>`).join('')}
-      </select>`;
-    else if (type === 'stage')
-      control = `<select class="inp${lowCls}" data-f="${key}"${lowTip}>
-        ${STAGE_OPTS.map(([id, lb]) => `<option value="${id}" ${v === id ? 'selected' : ''}>${esc(lb)}</option>`).join('')}
-      </select>`;
-    else
-      control = `<input class="inp${lowCls}" data-f="${key}" type="${type === 'number' ? 'number' : 'text'}"
-                   value="${esc(v)}"${type === 'number' ? ' min="0" step="1"' : ''}${lowTip}>`;
-
-    return `<label class="ai-fld ${type === 'area' ? 'ai-wide' : ''}">
-      <span>${esc(label)}${reqMark}${low ? ' <span class="ai-low-dot" title="AI ไม่มั่นใจ">●</span>' : ''}</span>
-      ${control}
-    </label>`;
   }
 
   function bindCard(card, item) {
@@ -982,4 +1011,252 @@ export function openAIImport(targetType = 'customer', opts = {}) {
   refreshCount().then(list => { if (list && list.length) switchTab('stage'); });
 }
 
-export default { SOURCES, openAIImport };
+// ══════════════════════════════════════════════════════════
+// AI บันทึก — ช่วยสรุปเป็น "บันทึกติดตาม" (log) ให้งาน Pending / ลูกค้า Book 3 สี
+//
+// ใช้ชิ้นส่วนร่วมกับ AI Import ทุกอย่าง (แหล่งข้อมูล/โหมด/prompt/เรียก AI/กล่อง key)
+// → อัปเดตความสามารถ AI ที่ส่วนกลางทีเดียว ปุ่มนี้กับ AI Import ได้เท่ากันเสมอ
+//
+// ต่างจาก AI Import: log เป็นการ "ต่อท้าย" บันทึกสั้น ๆ ให้ record ที่มีอยู่แล้ว
+//   → ไม่ผ่าน staging (intake_items) · โชว์พรีวิวให้ตรวจ/แก้ก่อน แล้วเขียนผ่าน addLogFn (RLS ปกติ + created_by เป็นหลักฐาน)
+//
+// opts: { recordName, defaultBy, addLogFn(logData)=>Promise, onSaved()=>Promise }
+export function openAILog(targetType = 'pending', opts = {}) {
+  const addLogFn = typeof opts.addLogFn === 'function' ? opts.addLogFn : null;
+  const onSaved  = typeof opts.onSaved  === 'function' ? opts.onSaved  : () => {};
+  if (!addLogFn) return;
+  const recordName = opts.recordName || '';
+  const defaultBy  = opts.defaultBy  || '';
+
+  document.getElementById('aiLogModal')?.remove();
+  const host = document.createElement('div');
+  host.className = 'modal';
+  host.id = 'aiLogModal';
+  host.style.zIndex = '320';   // ซ้อนเหนือ modal แก้ไข (แบบเดียวกับโมดัลย่อยในหน้า Admin)
+  document.body.appendChild(host);
+
+  let source = SOURCES_FOR.log[0];             // เริ่มที่ "ข้อความที่คัดลอก"
+  const isTextSrc = (s) => s === 'text' || s === 'voice';
+
+  host.innerHTML = `
+    <form class="modal-box ai-box modal-sm" id="aiLogForm" autocomplete="off">
+      <div class="modal-head">
+        <strong>🤖 AI บันทึก${recordName ? ' — ' + esc(recordName) : ''}</strong>
+        <button type="button" class="btn btn-ghost btn-sm" data-close>ปิด</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="ai-hint2">ช่วยสรุป <b>ความก้าวหน้า/ผลการติดตาม</b> จากข้อความ เสียงพูด หรือรูปโน้ต ให้เป็นบันทึก แล้วให้คุณตรวจ/แก้ก่อนเพิ่ม</p>
+
+        <p class="ai-step">1 · เลือกแหล่งข้อมูล</p>
+        <div class="ai-src" data-src-row>
+          ${SOURCES_FOR.log.map(s =>
+            `<button type="button" class="ai-srcbtn ${s === source ? 'on' : ''}" data-src="${s}">${esc(SOURCE_LABEL[s])}</button>`).join('')}
+        </div>
+
+        <p class="ai-step">2 · เลือกวิธีให้ AI อ่าน</p>
+        <div class="segmented ai-modeseg" data-modeseg role="tablist" aria-label="วิธีให้ AI อ่าน">
+          <button type="button" data-mode="free">📋 ก๊อปไปวางเอง — ฟรี</button>
+          <button type="button" data-mode="api">🔑 ใช้ API key — อัตโนมัติ</button>
+        </div>
+
+        <!-- โหมดฟรี -->
+        <div class="ai-mode" data-mode-free>
+          <p class="ai-hint2">ก๊อปคำสั่งด้านล่างไปวางใน <b>Claude / Gemini / ChatGPT</b> (แนบรูป/ข้อความไปด้วย) แล้วเอา JSON ที่ได้มาวางกลับ</p>
+          <div class="ai-prompt-wrap">
+            <textarea class="ai-prompt" data-prompt readonly rows="7"></textarea>
+            <button type="button" class="btn btn-ghost btn-sm ai-copy" data-copy>⧉ คัดลอกคำสั่ง</button>
+          </div>
+          <p class="ai-step">วางผล JSON ที่ AI ตอบกลับมา</p>
+          <textarea class="ai-paste inp" data-paste rows="5"
+                    placeholder='วางที่นี่ เช่น [{"fields":{"response":"…","next_doing":"…"}}]'></textarea>
+          <div class="lg-add-row">
+            <button type="button" class="btn btn-primary" data-parse>ตรวจ + แสดงตัวอย่าง →</button>
+          </div>
+        </div>
+
+        <!-- โหมด API -->
+        <div class="ai-mode" data-mode-api hidden>
+          <div class="ai-auto" data-auto>
+            <div class="ai-auto-l">
+              <strong>🧠 ให้ AI สรุปเป็นบันทึกให้อัตโนมัติ</strong>
+              <span>แนบรูปโน้ต/ลายมือ หรือวางข้อความ/ถอดเสียง → AI สรุปเป็นบันทึกติดตามให้ แล้วพักให้ตรวจ/แก้ก่อนเพิ่ม (ต้องต่อเน็ต + ตั้ง key)</span>
+            </div>
+            <label class="btn btn-primary ai-autobtn" data-imgbtn>
+              📷 เลือกรูป
+              <input type="file" data-img accept="image/*" hidden>
+            </label>
+          </div>
+          <p class="ai-hint2" data-texthint hidden></p>
+          <textarea class="ai-paste inp" data-note rows="4"
+                    placeholder="วางข้อความ/สรุปการคุย ที่นี่ → AI จะสรุปเป็นบันทึกติดตามให้"></textarea>
+          <div class="lg-add-row">
+            <button type="button" class="btn btn-primary" data-notebtn>🧠 ให้ AI อ่านข้อความนี้ →</button>
+          </div>
+          ${aiKeyBoxHtml()}
+        </div>
+
+        <p class="login-err" data-err role="alert" hidden></p>
+
+        <div class="ai-log-preview" data-preview hidden>
+          <p class="ai-step">ตัวอย่างบันทึก — ตรวจ/แก้ก่อนเพิ่ม</p>
+          <div data-preview-list></div>
+        </div>
+      </div>
+
+      <div class="modal-foot">
+        <span class="ai-note">ช่อง <span class="ai-low-chip">ไฮไลต์เหลือง</span> = AI ไม่มั่นใจ ควรตรวจก่อนเพิ่ม</span>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-ghost" data-done>ปิด</button>
+      </div>
+    </form>`;
+
+  const q = (s) => host.querySelector(s);
+  const close = () => host.remove();
+  const setErr = (m) => { const e = q('[data-err]'); if (!m) { e.hidden = true; return; } e.textContent = m; e.hidden = false; };
+
+  // อัปเดตทุกอย่างที่ผูกกับแหล่งข้อมูล (คำสั่ง + หน้าตาโหมด API) — ตรรกะเดียวกับ AI Import
+  const syncSource = () => {
+    q('[data-prompt]').value = promptFor('log', source);
+    const auto = q('[data-auto]');
+    if (auto) auto.hidden = isTextSrc(source);
+    const note = q('[data-note]');
+    if (note) note.placeholder = source === 'voice'
+      ? 'วางข้อความที่ถอดจากเสียงพูดที่นี่ → AI จะตีความ (เผื่อคำผิด/ภาษาพูด) แล้วสรุปเป็นบันทึกให้'
+      : source === 'text'
+        ? 'วางข้อความที่คัดลอกมาที่นี่ (แชท/ไลน์/โน้ต) → AI จะสรุปเป็นบันทึกให้'
+        : 'วางข้อความ/สรุปการคุย ที่นี่ → AI จะสรุปเป็นบันทึกติดตามให้';
+    const hint = q('[data-texthint]');
+    if (hint) {
+      if (source === 'voice') { hint.innerHTML = '🎤 <b>พิมพ์ด้วยเสียงได้</b> — แตะไมค์บนแป้นพิมพ์มือถือแล้วพูด'; hint.hidden = false; }
+      else hint.hidden = true;
+    }
+  };
+  syncSource();
+
+  // โหมดฟรี/API — จำค่าไว้ (ใช้ localStorage key เดียวกับ AI Import)
+  let aiMode = '';
+  try { aiMode = localStorage.getItem(AI_MODE_LS) || ''; } catch {}
+  if (aiMode !== 'api' && aiMode !== 'free') aiMode = aiKey.has() ? 'api' : 'free';
+  const setMode = (m) => {
+    aiMode = m; try { localStorage.setItem(AI_MODE_LS, m); } catch {}
+    host.querySelectorAll('[data-modeseg] [data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+    q('[data-mode-api]').hidden  = m !== 'api';
+    q('[data-mode-free]').hidden = m !== 'free';
+    setErr('');
+  };
+  host.querySelectorAll('[data-modeseg] [data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  setMode(aiMode);
+
+  bindAIKeyBox(host, setErr);
+
+  q('[data-src-row]').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-src]');
+    if (!b) return;
+    source = b.dataset.src;
+    host.querySelectorAll('[data-src-row] [data-src]').forEach(x => x.classList.toggle('on', x === b));
+    syncSource();
+  });
+
+  q('[data-copy]').addEventListener('click', async () => {
+    const btn = q('[data-copy]');
+    try { await navigator.clipboard.writeText(q('[data-prompt]').value); }
+    catch { q('[data-prompt]').focus(); q('[data-prompt]').select(); }
+    btn.textContent = '✓ คัดลอกแล้ว';
+    setTimeout(() => { btn.textContent = '⧉ คัดลอกคำสั่ง'; }, 1500);
+  });
+
+  q('[data-close]').addEventListener('click', close);
+  q('[data-done]').addEventListener('click', close);
+  host.addEventListener('mousedown', (e) => { if (e.target === host) close(); });
+
+  // ── พรีวิวบันทึกที่ AI สรุปมา (แก้ได้) → กด "เพิ่มบันทึกนี้" ค่อยเขียนจริง ──
+  function showPreview(records) {
+    const wrap = q('[data-preview]');
+    const list = q('[data-preview-list]');
+    list.innerHTML = '';
+    if (!records.length) { setErr('AI ไม่ได้สรุปบันทึกออกมา — ลองใหม่หรือใส่ข้อมูลเพิ่ม'); return; }
+    records.forEach(r => {
+      const fields = { ...r.fields };
+      if (!hasVal(fields.by_name) && defaultBy) fields.by_name = defaultBy;   // เติมชื่อผู้บันทึกให้
+      if (!hasVal(fields.log_date)) fields.log_date = todayISO();             // ไม่ระบุวัน = วันนี้
+      const w = { ...fields };
+      const card = document.createElement('div');
+      card.className = 'ai-card';
+      card.innerHTML = `
+        <div class="ai-fields">
+          ${FIELDS.log.map(f => fieldHtml(f, fields, r.confidence || {}, null)).join('')}
+        </div>
+        <p class="login-err" data-cerr hidden></p>
+        <div class="ai-card-foot">
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-primary btn-sm" data-add>➕ เพิ่มบันทึกนี้</button>
+        </div>`;
+      const cerr = (m) => { const e = card.querySelector('[data-cerr]'); if (!m) { e.hidden = true; return; } e.textContent = m; e.hidden = false; };
+      card.querySelectorAll('[data-f]').forEach(el =>
+        el.addEventListener('input', () => { w[el.dataset.f] = el.value; el.classList.remove('ai-low'); }));
+      card.querySelector('[data-add]').addEventListener('click', async () => {
+        cerr('');
+        const payload = buildPayload('log', w);
+        if (!hasVal(payload.response) && !hasVal(payload.next_doing))
+          return cerr('ต้องมี RESPONSE หรือ NEXT DOING อย่างน้อยหนึ่งช่อง');
+        const btn = card.querySelector('[data-add]');
+        btn.disabled = true; btn.textContent = 'กำลังเพิ่ม…';
+        try {
+          await addLogFn(payload);
+          card.classList.add('ai-saved');
+          card.querySelector('.ai-card-foot').innerHTML = '<span class="ai-ok">✓ เพิ่มบันทึกแล้ว</span>';
+          await onSaved();
+        } catch (e) { cerr(e.message); btn.disabled = false; btn.textContent = '➕ เพิ่มบันทึกนี้'; }
+      });
+      list.appendChild(card);
+    });
+    wrap.hidden = false;
+  }
+
+  // วาง JSON เอง (โหมดฟรี)
+  q('[data-parse]').addEventListener('click', () => {
+    setErr('');
+    let records;
+    try { records = parsePasted(q('[data-paste]').value); }
+    catch (e) { return setErr(e.message); }
+    showPreview(records);
+  });
+
+  // AI อ่านข้อความ (โหมด API)
+  q('[data-notebtn]').addEventListener('click', async () => {
+    setErr('');
+    const note = q('[data-note]').value.trim();
+    if (!note) return setErr('วางข้อความก่อนให้ AI อ่าน');
+    const btn = q('[data-notebtn]');
+    btn.disabled = true; const t0 = btn.textContent; btn.textContent = 'กำลังให้ AI อ่าน…';
+    try {
+      const res = await aiExtract({
+        prompt: promptFor('log', isTextSrc(source) ? source : 'note'), text: note,
+        source, target_type: 'log',
+      });
+      showPreview(parsePasted(res?.text || ''));
+    } catch (e) { setErr(e.message); }
+    finally { btn.disabled = false; btn.textContent = t0; }
+  });
+
+  // AI อ่านรูป (โหมด API)
+  q('[data-img]').addEventListener('change', async (ev) => {
+    const file = ev.target.files?.[0];
+    ev.target.value = '';
+    if (!file) return;
+    setErr('');
+    const btn = q('[data-imgbtn]');
+    const label = btn.childNodes[0];
+    btn.classList.add('is-loading');
+    if (label) label.nodeValue = 'กำลังให้ AI อ่าน… ';
+    try {
+      const image = await fileToImagePart(file);
+      const res = await aiExtract({ prompt: promptFor('log', source), image, source, target_type: 'log' });
+      showPreview(parsePasted(res?.text || ''));
+    } catch (e) { setErr(e.message); }
+    finally { btn.classList.remove('is-loading'); if (label) label.nodeValue = 'เลือกรูป'; }
+  });
+}
+
+export default { SOURCES, openAIImport, openAILog };

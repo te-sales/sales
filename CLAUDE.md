@@ -366,6 +366,10 @@ _1.7 ตรวจอัตโนมัติผ่าน 25/25 · เหลื�
 🤖 **AI Intake (3.5): ข้อมูลลง staging (`intake_items`) ก่อนเสมอ ห้ามเขียนตารางจริงตรง ๆ**
    เขียนจริงตอน "บันทึกเข้าระบบ" ผ่าน `savePending`/`saveCustomer` ตัวเดิม (RLS ปกติ) แล้ว `approveIntake` ปิด draft→merged
    · แถว `status='merged'` + `target_id` + `approved_by` = ล็อกการนำเข้าในตัว (หลักฐานว่าอะไรมาจากเอกสารไหน ใครอนุมัติ)
+🧠 **ทุกจุดที่ AI ช่วยบันทึก ใช้ชิ้นส่วนร่วมกันใน `ai-intake.js` — อัปเดตที่เดียว ทุกปุ่มได้เท่ากัน** (เจ้าของสั่ง 25 ก.ค. 2569)
+   `SOURCE_LABEL`/`SOURCES_FOR`/`promptFor`/`aiExtract`/`fieldHtml`/`aiKeyBoxHtml`/`bindAIKeyBox` = ส่วนกลาง · **ห้ามก๊อปไปเขียนซ้ำ**
+   `openAIImport` = สร้าง record ใหม่ (customer/pending · ผ่าน staging) · `openAILog` = ต่อท้าย "บันทึกติดตาม" (log)
+   · log ไม่ผ่าน staging (ต่อท้ายสั้น ๆ ให้ record เดิม) แต่โชว์พรีวิวให้ตรวจ/แก้ก่อน เขียนผ่าน `addFollowLog`/`addCustomerLog` (RLS + created_by เป็นหลักฐาน)
 🧮 **AI Intake dedup เทียบ "เลขล้วน" กับรายชื่อทั้งชุด ไม่ใช่ `search`** (`matchDuplicate` ใน ai-intake.js)
    เบอร์ที่เก็บมีขีด (081-234-5678) · ที่ AI อ่านมาไม่มีขีด → `ilike` ไม่เจอกัน ต้องดึงมาเทียบ `normDigits` ใน JS
 📅 **AI คืน close_month/birthday เป็นปี พ.ศ. บ่อย → `buildPayload` แปลง ค.ศ. ให้อัตโนมัติ** (ช่วง 2400–2600 = พ.ศ. ลบ 543)

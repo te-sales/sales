@@ -9,7 +9,7 @@ import { logListHtml, bindLogEditing } from '../ui/loglist.js';
 import { signoffState, signoffBarHtml, bindSignoff, canSign,
          signoffHistoryHtml, bindSignoffHistory } from '../ui/signoff.js';
 import { printPending } from '../ui/formprint.js';
-import { openAIImport } from './ai-intake.js';
+import { openAIImport, openAILog } from './ai-intake.js';
 import { mountTeamScope } from '../ui/teamscope.js';
 import { lastLogSpan, mountLogHover } from '../ui/loghover.js';
 
@@ -781,6 +781,7 @@ async function openDetail(host, id, onSaved, teams) {
               </div>
               <div class="lg-add-row">
                 <button type="button" class="btn btn-ghost btn-sm" id="lgAdd">+ เพิ่มบันทึก</button>
+                <button type="button" class="btn btn-ai btn-sm" id="lgAILog" title="ให้ AI ช่วยสรุปความก้าวหน้าจากข้อความ/เสียง/รูป เป็นบันทึกติดตาม">🤖 AI บันทึก</button>
                 <span class="lg-hint">หรือกด "บันทึก" ด้านล่างก็เก็บให้เหมือนกัน</span>
               </div>
 
@@ -1175,6 +1176,14 @@ async function openDetail(host, id, onSaved, teams) {
       await reloadLogs();          // วาดใหม่เฉพาะรายการบันทึก ไม่แตะ 42 ช่องที่กรอกค้างไว้
     } catch (e) { fail(e.message); }
   });
+
+  // 🤖 AI บันทึก — ให้ AI สรุปความก้าวหน้าเป็นบันทึกติดตาม (เขียนผ่าน addFollowLog เดิม + RLS ปกติ)
+  q('#lgAILog')?.addEventListener('click', () => openAILog('pending', {
+    recordName: q('[name="project_name"]')?.value || row?.project_name || '',
+    defaultBy:  me?.full_name || me?.email || '',
+    addLogFn:   (d) => adapter.addFollowLog({ ...d, pending_id: id }),
+    onSaved:    reloadLogs,
+  }));
 }
 
 // ══════════════════════════════════════════════════════════

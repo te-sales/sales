@@ -27,6 +27,19 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-25 · ยังไม่ commit · ปุ่ม "AI บันทึก" (log) + NEXT DOING เน้นสี/หนา — v0.42.0
+**step:** 3.5 (AI Intake) + 1.4/2.2 (log UI) | **ประเภท:** ฟีเจอร์ (คำขอเจ้าของ 2 ข้อ)
+- **① ปุ่ม 🤖 AI บันทึก** บน Pending (`#lgAILog`) + Book 3 สี (`#blAILog`) ข้าง "+ เพิ่มบันทึก"
+  → `openAILog(targetType, {recordName, defaultBy, addLogFn, onSaved})` ช่วยสรุปความก้าวหน้าเป็น "บันทึกติดตาม"
+  รับ text/voice/รูปโน้ต · โหมดฟรี (ก๊อปวาง) + API key · โชว์พรีวิวแก้ได้ (เติมวันนี้/ชื่อผู้บันทึกให้) → เพิ่มผ่าน addFollowLog/addCustomerLog
+- **โครงใช้ร่วม (เจ้าของสั่ง "ทุกจุด AI ต้องเท่ากัน"):** ดึง `fieldHtml`/`aiKeyBoxHtml`/`bindAIKeyBox` ออกเป็นส่วนกลาง
+  + เพิ่ม target `log` ใน `FIELDS`/`PROMPT_HINTS`/`SOURCES_FOR`/`DEST_LABEL` · `buildPayload` แปลงปี พ.ศ.→ค.ศ. ของ log_date
+  → AI Import กับ AI บันทึก ใช้แหล่ง/โมเดล/prompt/กล่อง key ชุดเดียวกัน อัปเดตทีเดียวได้เท่ากันหมด
+- **② NEXT DOING เน้น** (`.log-next`): ตัวหนา + กล่องไฮไลต์ accent + ขอบซ้าย → อ่านปราดเดียวรู้ว่าต้องทำอะไรต่อ
+- log **ไม่ผ่าน staging** (ต่างจาก 3.5) เพราะเป็นการต่อท้ายบันทึกสั้น ๆ ให้ record เดิม · created_by = หลักฐานผู้บันทึก
+**ไฟล์:** ai-intake.js (openAILog + ดึงส่วนกลาง) · book3.js · pending.js · css/app.css (.log-next, .ai-log-preview) · config.js+sw.js (v0.42.0)
+**ทดสอบ:** ailog-test 19/19 ผ่าน (Book3 e2e: สร้างลูกค้า→เปิดแก้ไข→AI บันทึก→วาง JSON→พรีวิว→เพิ่ม→เขียนจริง 1 แถว · NEXT DOING fw600+พื้น+ขอบ · Pending เปิดโมดัลได้) · aisrc-test 13/13 ยังผ่าน (refactor กล่อง key ไม่พัง) · ไม่มี JS error/rejection
+
 ## 2026-07-25 · ยังไม่ commit · เตรียมย้าย repo → org `te-sales` (URL ใหม่ te-sales.github.io/sales/)
 **step:** — | **ประเภท:** เอกสาร / ย้ายโครงสร้าง (เจ้าของตัดสินใจ 25 ก.ค. 2569)
 - เจ้าของจะย้าย repo ไป org `te-sales` แบบ A + เปลี่ยนชื่อ repo เป็น `sales`

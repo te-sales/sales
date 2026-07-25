@@ -10,7 +10,7 @@ import { signoffState, signoffBarHtml, bindSignoff, canSign,
          signoffHistoryHtml, bindSignoffHistory } from '../ui/signoff.js';
 import { printCustomer } from '../ui/formprint.js';
 import { photoFieldHtml, bindPhotoField } from '../ui/photofield.js';
-import { openAIImport } from './ai-intake.js';
+import { openAIImport, openAILog } from './ai-intake.js';
 import { mountTeamScope } from '../ui/teamscope.js';
 import { lastLogSpan, mountLogHover } from '../ui/loghover.js';
 
@@ -511,6 +511,7 @@ async function openDetail(host, id, onSaved, teams) {
               ${logFormHtml('bl')}
               <div class="lg-add-row">
                 <button type="button" class="btn btn-ghost btn-sm" id="blAdd">+ เพิ่มบันทึก</button>
+                <button type="button" class="btn btn-ai btn-sm" id="blAILog" title="ให้ AI ช่วยสรุปความก้าวหน้าจากข้อความ/เสียง/รูป เป็นบันทึกติดตาม">🤖 AI บันทึก</button>
                 <span class="lg-hint">หรือกด "บันทึก" ด้านล่างก็เก็บให้เหมือนกัน</span>
               </div>
               ${soHist.length ? `<div class="so-hist-wrap">
@@ -604,6 +605,14 @@ async function openDetail(host, id, onSaved, teams) {
       await reloadLogs();
     } catch (e) { fail(e.message); }
   });
+
+  // 🤖 AI บันทึก — ให้ AI สรุปความก้าวหน้าเป็นบันทึกติดตาม (เขียนผ่าน addCustomerLog เดิม + RLS ปกติ)
+  q('#blAILog')?.addEventListener('click', () => openAILog('customer', {
+    recordName: q('[name="name"]')?.value || row?.name || '',
+    defaultBy:  me?.full_name || me?.email || '',
+    addLogFn:   (d) => adapter.addCustomerLog({ ...d, customer_id: id }),
+    onSaved:    reloadLogs,
+  }));
 
   q('#bForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
