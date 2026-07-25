@@ -677,27 +677,33 @@ const supabaseAdapter = {
   async saveCustomer(row) {
     const body = fillTeam(cleanRow(row));
     const me = session?.user?.id || null;
-
-    if (body.id) {
-      const id = body.id;
-      delete body.id;
-      body.updated_by = me;
-      const rows = await rest(`/customers?id=eq.${encodeURIComponent(id)}`, {
-        method: 'PATCH',
-        headers: { Prefer: 'return=representation' },
-        body: JSON.stringify(body),
-      });
-      return rows?.[0] || null;
-    }
-
-    body.created_by = me;
+    const isEdit = !!body.id;
+    const id = body.id;
+    if (isEdit) delete body.id;
     body.updated_by = me;
-    const rows = await rest('/customers', {
-      method: 'POST',
-      headers: { Prefer: 'return=representation' },
-      body: JSON.stringify(body),
-    });
-    return rows?.[0] || null;
+    if (!isEdit) body.created_by = me;
+
+    const send = async (b) => {
+      const rows = await rest(
+        isEdit ? `/customers?id=eq.${encodeURIComponent(id)}` : '/customers', {
+          method: isEdit ? 'PATCH' : 'POST',
+          headers: { Prefer: 'return=representation' },
+          body: JSON.stringify(b),
+        });
+      return rows?.[0] || null;
+    };
+
+    try {
+      return await send(body);
+    } catch (e) {
+      // ยังไม่ได้รัน db/phase3-12.sql (คอลัมน์ age ยังไม่มี) → ตัด age ทิ้งแล้วบันทึกส่วนอื่นให้ผ่าน
+      //   ไม่ให้ทั้งฟอร์มลูกค้าพังเพราะ column เดียวที่ยังไม่มี
+      if ('age' in body && /\bage\b.*(column|does not exist)|could not find.*age|PGRST204/i.test(e.message || '')) {
+        const { age, ...rest2 } = body;
+        return await send(rest2);
+      }
+      throw e;
+    }
   },
 
   /** ทางลบปกติของ sale — ลบถาวรได้เฉพาะ admin (กติกาเดียวกับ pending) */

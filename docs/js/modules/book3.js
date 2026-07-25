@@ -4,7 +4,7 @@
 // ใช้คอมโพเนนต์ร่วมกับ Pending Project: ปฏิทิน (ui/datepicker) · รายการบันทึก (ui/loglist)
 
 import { adapter } from '../data/adapter.js';
-import { dateField, thaiDate, initDatePicker, todayISO } from '../ui/datepicker.js';
+import { dateField, thaiDate, initDatePicker } from '../ui/datepicker.js';
 import { logListHtml, bindLogEditing, logFormHtml, readLogForm, clearLogForm } from '../ui/loglist.js';
 import { signoffState, signoffBarHtml, bindSignoff, canSign,
          signoffHistoryHtml, bindSignoffHistory } from '../ui/signoff.js';
@@ -45,17 +45,20 @@ function ageNum(birthday) {
   if (m < 0 || (m === 0 && now.getDate() < b.getDate())) a--;
   return a >= 0 && a < 130 ? a : '';
 }
-/** อายุแบบมีหน่วยไว้โชว์ในตาราง เช่น "45 ปี" */
+/** อายุแบบมีหน่วยไว้โชว์ เช่น "45 ปี" */
 function ageOf(birthday) {
   const n = ageNum(birthday);
   return n === '' ? '' : `${n} ปี`;
 }
-/** ช่อง AGE ↔ BIRTHDAY ผูกกันสองทาง: พิมพ์อายุ → ประมาณปีเกิด (1 ม.ค. ปีนั้น) เก็บลง birthday */
-function birthdayFromAge(age) {
-  const a = parseInt(age, 10);
-  if (!Number.isFinite(a) || a < 0 || a > 130) return '';
-  const y = Number(todayISO().slice(0, 4)) - a;
-  return `${y}-01-01`;
+/**
+ * ข้อความอายุไว้โชว์ในตาราง/พิมพ์
+ * มีวันเกิดจริง → คำนวณจากวันเกิด (แม่นเสมอ) · ไม่มีวันเกิด → ใช้ age ที่กรอกเก็บไว้
+ * (90% ไม่รู้วันเกิดลูกค้า จึงเก็บ "อายุ" แยกไว้ · ไม่สร้างวันเกิดปลอมมาแสดง)
+ */
+function ageText(row) {
+  if (row?.birthday) return ageOf(row.birthday);
+  const a = row?.age;
+  return (a != null && String(a).trim() !== '') ? `${a} ปี` : '';
 }
 
 const lastLogCell = (r) => {
@@ -206,7 +209,7 @@ export default {
               ${rows.map(r => `
                 <tr data-id="${esc(r.id)}" class="${r.is_active === false ? 'is-archived' : ''}">
                   <td><span class="b3dot" title="${esc(colorOf(r.color).label)}">${colorOf(r.color).dot}</span></td>
-                  <td>${esc(r.name)}${r.birthday ? `<div class="t2">${esc(ageOf(r.birthday))}</div>` : ''}</td>
+                  <td>${esc(r.name)}${ageText(r) ? `<div class="t2">${esc(ageText(r))}</div>` : ''}</td>
                   <td>${esc(r.org || '')}</td>
                   <td>${esc(r.position || '')}</td>
                   <td>${esc(r.tel || '')}${r.email ? `<div class="t2">${esc(r.email)}</div>` : ''}</td>
@@ -419,12 +422,19 @@ function fieldHtml([key, label, type], row, teams) {
   if (type === 'date')
     return `<label class="fld"><span>${esc(label)}</span>${dateField(key, v, { label })}</label>`;
 
-  // AGE — ผูกกับ BIRTHDAY (ไม่มี name จึงไม่ถูกส่งเข้า DB · เก็บแค่ birthday) กรอกอายุแล้วประมาณปีเกิดให้
-  if (type === 'age')
+  // AGE — เก็บเป็น field อายุแยกต่างหาก (ไม่สร้างวันเกิดปลอม)
+  //   • มีวันเกิดจริง → คำนวณอายุจากวันเกิดให้ (readonly · ไม่เก็บ age ดิบ)
+  //   • ไม่รู้วันเกิด (90% ของลูกค้า) → กรอกอายุได้ เก็บลงคอลัมน์ age
+  if (type === 'age') {
+    const hasBday = !!row?.birthday;
+    const ageV = hasBday ? ageNum(row.birthday) : (row?.age ?? '');
     return `<label class="fld"><span>${esc(label)}</span>
-      <input type="number" data-age min="0" max="130" inputmode="numeric"
-             value="${esc(ageNum(row?.birthday))}" placeholder="เช่น 45">
-      <small class="fld-hint">พิมพ์อายุ = ประมาณปีเกิดให้ · ถ้ามีวันเกิดจะคำนวณอายุให้เอง</small></label>`;
+      <input type="number" name="age" data-age min="0" max="130" inputmode="numeric"
+             value="${esc(ageV)}" placeholder="เช่น 45"${hasBday ? ' readonly' : ''}>
+      <small class="fld-hint" data-age-hint>${hasBday
+        ? 'คำนวณจากวันเกิดให้อัตโนมัติ'
+        : 'ไม่ทราบวันเกิด — กรอกอายุโดยประมาณได้ (เก็บเป็นอายุ ไม่สร้างวันเกิดปลอม)'}</small></label>`;
+  }
 
   if (type === 'color')
     return `<label class="fld"><span>${esc(label)}</span><select name="${key}">
@@ -543,22 +553,21 @@ async function openDetail(host, id, onSaved, teams) {
   const photoEl = host.querySelector('.photofield');
   if (photoEl) bindPhotoField(photoEl, { onError: fail });
 
-  // ── AGE ↔ BIRTHDAY สองทาง (เก็บแค่ birthday · อายุคำนวณ/ประมาณให้) ──
+  // ── มีวันเกิดจริง → คำนวณอายุให้ (ล็อกช่อง) · ไม่มีวันเกิด → กรอกอายุเองได้ (ไม่สร้างวันเกิดปลอม) ──
   const bdayHidden = host.querySelector('[name="birthday"]');
   const ageInput   = host.querySelector('[data-age]');
+  const ageHint    = host.querySelector('[data-age-hint]');
   if (bdayHidden && ageInput) {
-    const dp = bdayHidden.closest('.dp');
-    // เลือกวันเกิดจากปฏิทิน (ยิง change) หรือกดล้าง → อัปเดตช่องอายุ
-    bdayHidden.addEventListener('change', () => { ageInput.value = ageNum(bdayHidden.value); });
-    // พิมพ์อายุ → ตั้งวันเกิดโดยประมาณ (1 ม.ค. ปีที่คำนวณได้) · ล้างอายุไม่แตะวันเกิด (กันข้อมูลหาย)
-    ageInput.addEventListener('input', () => {
-      const iso = birthdayFromAge(ageInput.value);
-      if (!iso) return;
-      bdayHidden.value = iso;
-      const view = dp?.querySelector('.dp-view');
-      const x    = dp?.querySelector('.dp-x');
-      if (view) view.value = thaiDate(iso);
-      if (x) x.hidden = false;
+    bdayHidden.addEventListener('change', () => {
+      const b = bdayHidden.value;
+      if (b) {
+        ageInput.value = ageNum(b);       // เลือกวันเกิด → คำนวณอายุ + ล็อกไม่ให้พิมพ์
+        ageInput.readOnly = true;
+        if (ageHint) ageHint.textContent = 'คำนวณจากวันเกิดให้อัตโนมัติ';
+      } else {
+        ageInput.readOnly = false;        // ล้างวันเกิด → กรอกอายุเองได้อีกครั้ง
+        if (ageHint) ageHint.textContent = 'ไม่ทราบวันเกิด — กรอกอายุโดยประมาณได้ (เก็บเป็นอายุ ไม่สร้างวันเกิดปลอม)';
+      }
     });
   }
 
@@ -603,6 +612,11 @@ async function openDetail(host, id, onSaved, teams) {
     const payload = Object.fromEntries(new FormData(ev.target).entries());
     if (id) payload.id = id;
     if (!String(payload.name || '').trim()) return fail('กรอกชื่อลูกค้าก่อน');
+
+    // AGE: มีวันเกิดจริง → คำนวณเอา ไม่เก็บอายุดิบ (null) · ไม่มีวันเกิด → เก็บอายุที่กรอก
+    payload.age = String(payload.birthday || '').trim()
+      ? null
+      : (String(payload.age ?? '').trim() === '' ? null : Number(payload.age));
 
     const btn = q('#bSave');
     btn.disabled = true; btn.textContent = 'กำลังบันทึก…';

@@ -208,7 +208,8 @@ export function customerFormHtml(row, logs) {
       <div class="pf-row"><span class="pf-l">หน่วยงาน / บริษัท</span> ${V(row.org)}</div>
 
       <div class="pf-row"><span class="pf-l">BIRTHDAY</span> ${V(thaiDate(row.birthday))}
-        <span class="pf-l">AGE</span> ${V(ageOf(row.birthday))}</div>
+        <span class="pf-l">AGE</span> ${V(row.birthday ? ageOf(row.birthday)
+            : (row.age != null && String(row.age).trim() !== '' ? String(row.age) : ''))}</div>
       <div class="pf-row"><span class="pf-l">POSITION</span> ${V(row.position)}</div>
 
       <div class="pf-row"><span class="pf-l">CONTACT</span>
