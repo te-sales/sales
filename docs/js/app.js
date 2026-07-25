@@ -98,9 +98,9 @@ function paintUser(user) {
 
   // ซ่อนแถบที่ใช้ไม่ได้ — แค่ไม่ให้รก ไม่ใช่มาตรการความปลอดภัย
   // ของจริงบังคับที่ DB (RLS + trigger) ต่อให้พิมพ์ #admin เองก็แก้อะไรไม่ได้
-  // ตั้งค่าระบบ: admin (จัดการทั้งหมด) + manager (เห็นเป้ารายทีมของตัวเอง) · sale ไม่เห็น
+  // ตั้งค่าระบบ: "ผู้ดูแลระบบเท่านั้น" (เจ้าของสั่ง 25 ก.ค. 2569) · manager/sale ไม่เห็น
   document.querySelectorAll('[data-view="admin"]').forEach(b => {
-    b.hidden = !(user.role === 'admin' || user.role === 'manager');
+    b.hidden = user.role !== 'admin';
   });
   // "รอตรวจ" เป็นงานของหัวหน้า — sale เห็นผลการตรวจได้ในหน้ารายละเอียดอยู่แล้ว
   document.querySelectorAll('[data-view="review"]').forEach(b => {

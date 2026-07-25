@@ -1381,6 +1381,8 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 .tmlist .is-sub b::before { content: "↳ "; color: var(--text-mute); }
 .tmlist em { font-size: 11px; color: var(--text-mute); margin-left: 6px; font-style: normal; }
 
+.u-name-row { display: flex; align-items: center; gap: 6px; }
+.u-name { font-weight: 600; width: 100%; max-width: 200px; }
 .u-title { margin-top: 4px; font-size: 11.5px; width: 100%; max-width: 200px; }
 
 .ac-quick { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }

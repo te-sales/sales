@@ -48,13 +48,15 @@ export default {
  */
 async function renderAdmin(root) {
     const me = (await adapter.getSession())?.user || null;
-    // admin = จัดการทั้งหมด · manager = เห็นเฉพาะเป้ารายทีม (แก้ทีมตัวเองได้) · sale = ไม่เข้า
+    // ⭐ ตั้งค่าระบบ = "ผู้ดูแลระบบเท่านั้น" (เจ้าของสั่ง 25 ก.ค. 2569)
+    //    จัดการชื่อ/สิทธิ์/role/การมองเห็น/ทีม/เป้า/สำรองข้อมูล ครบในหน้านี้ ไม่ต้องกลับไปตั้งที่ Supabase
+    //    (ความปลอดภัยจริงบังคับที่ DB อยู่แล้ว — RLS + guard_profile_privilege)
     const isAdmin = me?.role === 'admin';
 
-    if (me?.role !== 'admin' && me?.role !== 'manager') {
+    if (!isAdmin) {
       root.innerHTML = `<div class="empty">
-          <strong>หน้านี้สำหรับผู้ดูแลระบบและหัวหน้างานเท่านั้น</strong>
-          บัญชีของคุณเป็น "${esc(roleOf(me?.role).label)}" — ถ้าต้องการสิทธิ์เพิ่ม ให้ติดต่อผู้ดูแลระบบ
+          <strong>หน้าตั้งค่าระบบ สำหรับผู้ดูแลระบบเท่านั้น</strong>
+          บัญชีของคุณเป็น "${esc(roleOf(me?.role).label)}" — ถ้าต้องการสิทธิ์ ให้ติดต่อผู้ดูแลระบบ
         </div>`;
       return;
     }
@@ -132,8 +134,9 @@ async function renderAdmin(root) {
       ${isAdmin ? `<div class="card sec">
         <h3 class="sec-h">ผู้ใช้ <span class="sec-sub">${profiles.length} บัญชี</span></h3>
         <p class="sec-foot" style="margin:0 0 10px">
-          เพิ่มบัญชีใหม่ทำที่ Supabase → Authentication → Users → Invite user
-          (ระบบปิดรับสมัครสาธารณะไว้) พอเชิญแล้วชื่อจะมาโผล่ที่นี่เอง แล้วค่อยตั้ง role/ทีมให้
+          <b>สร้างบัญชีใหม่ครั้งแรกที่ Supabase</b> → Authentication → Users → Invite/Add user (ระบบปิดรับสมัครสาธารณะ)
+          พอเชิญแล้วชื่อจะมาโผล่ที่นี่ · <b>จากนั้นแก้ชื่อ · ตั้ง role · ทีม · สิทธิ์การมองเห็น ได้ครบที่นี่เลย
+          ไม่ต้องกลับไปตั้งที่ Supabase อีก</b>
         </p>
         <div class="tbl-wrap">
           <table class="tbl">
@@ -383,7 +386,12 @@ function userRow(u, teams, myAccess, me) {
   return `
     <tr data-uid="${esc(u.id)}" class="${u.is_active === false ? 'is-archived' : ''}">
       <td>
-        <div>${esc(u.full_name || '(ยังไม่ตั้งชื่อ)')}${isMe ? ' <span class="tag-me">คุณ</span>' : ''}</div>
+        <div class="u-name-row">
+          <input class="inp inp-sm u-name" data-user="${esc(u.id)}" data-field="full_name"
+                 value="${esc(u.full_name || '')}" placeholder="ชื่อ-สกุล"
+                 title="แก้ชื่อผู้ใช้ได้ที่นี่ (บันทึกเมื่อออกจากช่อง)">
+          ${isMe ? '<span class="tag-me">คุณ</span>' : ''}
+        </div>
         <input class="inp inp-sm u-title" data-user="${esc(u.id)}" data-field="title"
                value="${esc(u.title || '')}" placeholder="ตำแหน่ง เช่น ผู้จัดการส่วน IMP1"
                title="ตำแหน่งตาม org chart — แสดงบนหน้าทีมขาย">
