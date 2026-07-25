@@ -4,7 +4,7 @@
 // ใช้คอมโพเนนต์ร่วมกับ Pending Project: ปฏิทิน (ui/datepicker) · รายการบันทึก (ui/loglist)
 
 import { adapter } from '../data/adapter.js';
-import { dateField, thaiDate, initDatePicker } from '../ui/datepicker.js';
+import { dateField, thaiDate, initDatePicker, todayISO } from '../ui/datepicker.js';
 import { logListHtml, bindLogEditing, logFormHtml, readLogForm, clearLogForm } from '../ui/loglist.js';
 import { signoffState, signoffBarHtml, bindSignoff, canSign,
          signoffHistoryHtml, bindSignoffHistory } from '../ui/signoff.js';
@@ -34,8 +34,8 @@ function loadView() {
 }
 const saveView = (v) => { try { localStorage.setItem(LS_VIEW, JSON.stringify(v)); } catch {} };
 
-/** อายุจากวันเกิด — ฟอร์มกระดาษมีช่อง AGE แต่ไม่ต้องเก็บ คำนวณเอาตอนแสดง */
-function ageOf(birthday) {
+/** อายุ (ตัวเลข) จากวันเกิด — ไม่เก็บอายุลง DB (เปลี่ยนทุกปีจะเพี้ยน) คำนวณจาก birthday เสมอ */
+function ageNum(birthday) {
   if (!birthday) return '';
   const b = new Date(birthday);
   if (isNaN(b)) return '';
@@ -43,7 +43,19 @@ function ageOf(birthday) {
   let a = now.getFullYear() - b.getFullYear();
   const m = now.getMonth() - b.getMonth();
   if (m < 0 || (m === 0 && now.getDate() < b.getDate())) a--;
-  return a >= 0 && a < 130 ? `${a} ปี` : '';
+  return a >= 0 && a < 130 ? a : '';
+}
+/** อายุแบบมีหน่วยไว้โชว์ในตาราง เช่น "45 ปี" */
+function ageOf(birthday) {
+  const n = ageNum(birthday);
+  return n === '' ? '' : `${n} ปี`;
+}
+/** ช่อง AGE ↔ BIRTHDAY ผูกกันสองทาง: พิมพ์อายุ → ประมาณปีเกิด (1 ม.ค. ปีนั้น) เก็บลง birthday */
+function birthdayFromAge(age) {
+  const a = parseInt(age, 10);
+  if (!Number.isFinite(a) || a < 0 || a > 130) return '';
+  const y = Number(todayISO().slice(0, 4)) - a;
+  return `${y}-01-01`;
 }
 
 const lastLogCell = (r) => {
@@ -375,6 +387,7 @@ const FORM = [
     ['position', 'POSITION (ตำแหน่ง)', 'text'],
     ['org',      'หน่วยงาน / บริษัท',  'text'],
     ['birthday', 'BIRTHDAY (วันเกิด)', 'date'],
+    ['age',      'AGE (อายุ)',         'age'],
     ['tel',      'TELEPHONE',         'tel'],
     ['email',    'EMAIL',             'email'],
   ]},
@@ -405,6 +418,13 @@ function fieldHtml([key, label, type], row, teams) {
 
   if (type === 'date')
     return `<label class="fld"><span>${esc(label)}</span>${dateField(key, v, { label })}</label>`;
+
+  // AGE — ผูกกับ BIRTHDAY (ไม่มี name จึงไม่ถูกส่งเข้า DB · เก็บแค่ birthday) กรอกอายุแล้วประมาณปีเกิดให้
+  if (type === 'age')
+    return `<label class="fld"><span>${esc(label)}</span>
+      <input type="number" data-age min="0" max="130" inputmode="numeric"
+             value="${esc(ageNum(row?.birthday))}" placeholder="เช่น 45">
+      <small class="fld-hint">พิมพ์อายุ = ประมาณปีเกิดให้ · ถ้ามีวันเกิดจะคำนวณอายุให้เอง</small></label>`;
 
   if (type === 'color')
     return `<label class="fld"><span>${esc(label)}</span><select name="${key}">
@@ -522,6 +542,25 @@ async function openDetail(host, id, onSaved, teams) {
   // ช่องรูปลูกค้า (step 3.9+) — bindPhotoField จัดการเลือก/ย่อ/ลบ + เก็บลง input[name=photo_url]
   const photoEl = host.querySelector('.photofield');
   if (photoEl) bindPhotoField(photoEl, { onError: fail });
+
+  // ── AGE ↔ BIRTHDAY สองทาง (เก็บแค่ birthday · อายุคำนวณ/ประมาณให้) ──
+  const bdayHidden = host.querySelector('[name="birthday"]');
+  const ageInput   = host.querySelector('[data-age]');
+  if (bdayHidden && ageInput) {
+    const dp = bdayHidden.closest('.dp');
+    // เลือกวันเกิดจากปฏิทิน (ยิง change) หรือกดล้าง → อัปเดตช่องอายุ
+    bdayHidden.addEventListener('change', () => { ageInput.value = ageNum(bdayHidden.value); });
+    // พิมพ์อายุ → ตั้งวันเกิดโดยประมาณ (1 ม.ค. ปีที่คำนวณได้) · ล้างอายุไม่แตะวันเกิด (กันข้อมูลหาย)
+    ageInput.addEventListener('input', () => {
+      const iso = birthdayFromAge(ageInput.value);
+      if (!iso) return;
+      bdayHidden.value = iso;
+      const view = dp?.querySelector('.dp-view');
+      const x    = dp?.querySelector('.dp-x');
+      if (view) view.value = thaiDate(iso);
+      if (x) x.hidden = false;
+    });
+  }
 
   q('#bClose').addEventListener('click', close);
   q('#bCancel').addEventListener('click', close);
