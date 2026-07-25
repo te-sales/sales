@@ -6,8 +6,8 @@
 > v3 (21 ก.ค. 2026) เพิ่ม: Backup (**ไม่ทำ rollback**) · role หัวหน้างาน + team_access · หัวหน้าเซ็นรับทราบ · AI Intake อัตโนมัติผ่าน Edge Function · Pending กรอง/เรียงตามเดือนที่คาดปิด
 
 **พิกัดโปรเจกต์ (ของจริง):**
-- repo: `Sales-dashboard-TE` — <https://github.com/theerasaku/Sales-dashboard-TE> (public)
-- เว็บ: <https://theerasaku.github.io/Sales-dashboard-TE/> (GitHub Pages เสิร์ฟจาก `docs/`)
+- repo: `sales` — <https://github.com/te-sales/sales> (public) · ย้ายมาจาก `theerasaku/Sales-dashboard-TE` (25 ก.ค. 2569)
+- เว็บ: <https://te-sales.github.io/sales/> (GitHub Pages เสิร์ฟจาก `docs/`) — root `te-sales.github.io/` สงวนไว้ให้แอปอื่น (ข่าว/ประมูล/supplier) วางใต้ path
 - ⚠️ prototype v3 ที่มีข้อมูลลูกค้าจริงเก็บที่ `_local/` ซึ่ง gitignore ไว้ — **ห้าม commit**
 
 **⚠️ กับดักภาษาไทยบนเครื่องนี้ (เคยทำข้อมูลใน DB พังมาแล้ว):**
@@ -371,7 +371,7 @@ _1.7 ตรวจอัตโนมัติผ่าน 25/25 · เหลื�
 📅 **AI คืน close_month/birthday เป็นปี พ.ศ. บ่อย → `buildPayload` แปลง ค.ศ. ให้อัตโนมัติ** (ช่วง 2400–2600 = พ.ศ. ลบ 543)
    ⚠️ regex `\d{4}-\d{2}` + check constraint ของ DB **ปล่อยปี พ.ศ. (2569) ผ่านหมด** ต้องดักที่ชั้นแอปก่อนบันทึก
 _เสร็จแล้ว: 0.1 · 0.2 · 1.1–1.6 · 2.1–2.6 · 3.1–3.3 · 3.5–3.10 ✅ **ครบทุก step แล้ว** — เหลือแค่ 1.7 ทดสอบบนเครื่องจริง (iPhone/S24/iPad)_
-🚀 **สิ่งที่เจ้าของต้องทำให้ครบ:** ① รัน `db/phase3-5.sql` (staging AI Intake) ② ตั้ง Supabase Site URL/Redirect URLs = `.../Sales-dashboard-TE/**` (ลืมรหัสผ่าน) ③ deploy Edge Function + ตั้ง `ANTHROPIC_API_KEY` (ดู `supabase/functions/ai-intake/README.md` — ทำก็ต่อเมื่ออยากใช้ปุ่มอ่านรูปอัตโนมัติ ไม่ทำก็ก๊อปคำสั่งวางเองได้)
+🚀 **สิ่งที่เจ้าของต้องทำให้ครบ:** ① รัน `db/phase3-5.sql` (staging AI Intake) ② ตั้ง Supabase Site URL = `https://te-sales.github.io/sales/` + Redirect URLs = `https://te-sales.github.io/sales/**` (ลืมรหัสผ่าน) ③ deploy Edge Function + ตั้ง `ANTHROPIC_API_KEY` (ดู `supabase/functions/ai-intake/README.md` — ทำก็ต่อเมื่ออยากใช้ปุ่มอ่านรูปอัตโนมัติ ไม่ทำก็ก๊อปคำสั่งวางเองได้)
 ⚠️ ต้องรัน `db/phase3-5.sql` ใน Supabase — ไม่งั้นปุ่ม 🤖 AI Import วางผลแล้วบันทึก staging ไม่ได้ (ตาราง `intake_items` ยังไม่มี)
 ⚠️ ต้องรัน `db/phase3-9.sql` + `db/phase3-10.sql` ใน Supabase — ไม่งั้นตารางสินค้า/ทีมย่อย/เป้ารายทีมยังไม่มี
 ⚠️ ต้องรัน `db/phase3-13.sql` ใน Supabase — ตาราง `sale_targets` (เป้ารายเดือน "รายคน") · ไม่รันก็ยังใช้ได้ (adapter คืน [] ถ้าตารางยังไม่มี · เป้ารายทีมยังทำงานปกติ)

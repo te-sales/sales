@@ -58,8 +58,8 @@ repo นี้เป็น **public** → ไฟล์นี้อยู่ใ�
 
 ## ✅ 0.1 เสร็จแล้ว
 
-- repo: <https://github.com/theerasaku/Sales-dashboard-TE> (public)
-- เว็บ: <https://theerasaku.github.io/Sales-dashboard-TE/> — ทดสอบด้วย headless Chrome แล้ว โหลดผ่าน ไม่มี JS error
+- repo: <https://github.com/te-sales/sales> (public · ย้ายมาจาก theerasaku/Sales-dashboard-TE 25 ก.ค. 2569)
+- เว็บ: <https://te-sales.github.io/sales/> — ทดสอบด้วย headless Chrome แล้ว โหลดผ่าน ไม่มี JS error
 - ข้อค้างเล็กน้อย: `manifest.json` ชี้ไปที่ `icons/icon-192.png` / `icon-512.png` ซึ่งยังไม่มีไฟล์
   → ขึ้น warning ตอนติดตั้ง PWA แต่ไม่กระทบการใช้งาน · **แก้ใน step 3.3 (F8 PWA)**
 
@@ -1260,7 +1260,7 @@ unique (pending_id, line_no)
 
 **เจ้าของต้องทำให้ครบ (setup ฝั่ง Supabase):**
 1. รัน `db/phase3-5.sql` (ตาราง staging ของ AI Intake)
-2. ตั้ง Supabase → Authentication → URL Configuration: Site URL + Redirect URLs = `https://theerasaku.github.io/Sales-dashboard-TE/**` (แก้ลืมรหัสผ่านเด้ง 404)
+2. ตั้ง Supabase → Authentication → URL Configuration: Site URL = `https://te-sales.github.io/sales/` + Redirect URLs = `https://te-sales.github.io/sales/**` (แก้ลืมรหัสผ่านเด้ง 404)
 3. (ถ้าอยากใช้ปุ่มอ่านรูปอัตโนมัติ) deploy Edge Function + ตั้ง `ANTHROPIC_API_KEY` — ดู `supabase/functions/ai-intake/README.md`
    ไม่ทำก็ยังใช้ AI Intake ได้ด้วยวิธีก๊อปคำสั่งไปวางใน Claude เอง (ฟรี)
 

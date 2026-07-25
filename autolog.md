@@ -27,6 +27,19 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-25 · ยังไม่ commit · เตรียมย้าย repo → org `te-sales` (URL ใหม่ te-sales.github.io/sales/)
+**step:** — | **ประเภท:** เอกสาร / ย้ายโครงสร้าง (เจ้าของตัดสินใจ 25 ก.ค. 2569)
+- เจ้าของจะย้าย repo ไป org `te-sales` แบบ A + เปลี่ยนชื่อ repo เป็น `sales`
+  → URL ใหม่ `https://te-sales.github.io/sales/` · สงวน root `te-sales.github.io/` ไว้ให้แอปอื่น (ข่าว/ประมูล/supplier)
+- **แอปใช้ path relative ทั้งหมด** (manifest `scope:"./"`, sw SHELL `./`, ไม่มี hardcode ชื่อ repo) → ย้ายแล้วไม่ต้องแก้โค้ด
+- อัปเดตพิกัดในเอกสาร: CLAUDE.md · README.md · PROGRESS.md · Workflow/index.html (autolog เก็บประวัติเดิมไว้)
+**ไฟล์:** CLAUDE.md · README.md · PROGRESS.md · Workflow/index.html
+**ค้าง (เจ้าของต้องทำใน GitHub/Supabase เอง):**
+  ① สร้าง org `te-sales` (ฟรี) ② Transfer repo เข้า org ③ Rename repo เป็น `sales` ④ Pages: Deploy from branch `main` /docs + Enforce HTTPS
+  ⑤ **git remote set-url origin https://github.com/te-sales/sales.git** (ไม่งั้น push ต่อไม่ได้ — ทำหลัง ①–③)
+  ⑥ Supabase → Auth → URL Configuration: Site URL `https://te-sales.github.io/sales/` + Redirect `https://te-sales.github.io/sales/**`
+  ⑦ ทีมที่ติดตั้ง PWA ไว้ ลบไอคอนเก่า ติดตั้งใหม่จาก URL ใหม่ (PWA ผูกกับ origin)
+
 ## 2026-07-25 · ยังไม่ commit · AI Import: เพิ่มแหล่ง "ข้อความที่คัดลอก / ข้อความจากเสียงพูด" — v0.41.0
 **step:** 3.5 (AI Intake) | **ประเภท:** ฟีเจอร์ (คำขอเจ้าของ — เพิ่มแหล่งข้อความ + prompt เปลี่ยนตามแหล่ง)
 - เพิ่ม 2 แหล่งในหัวข้อ "1 · เลือกแหล่งข้อมูล": `text` (📋 ข้อความที่คัดลอก) · `voice` (🎤 ข้อความจากเสียงพูด)

@@ -2,8 +2,8 @@
 
 ระบบ dashboard งานขาย Thammasorn Engineering — Pending Project, Book 3 สี, กิจกรรมลูกค้า, แหล่งงาน, Supplier
 
-- **Repo:** `Sales-dashboard-TE` ([github.com/theerasaku/Sales-dashboard-TE](https://github.com/theerasaku/Sales-dashboard-TE))
-- **เว็บใช้งานจริง:** <https://theerasaku.github.io/Sales-dashboard-TE/> ✅ เปิดใช้แล้ว
+- **Repo:** `sales` ([github.com/te-sales/sales](https://github.com/te-sales/sales))
+- **เว็บใช้งานจริง:** <https://te-sales.github.io/sales/> ✅ เปิดใช้แล้ว
 - **พิมพ์เขียวโปรเจกต์:** [`CLAUDE.md`](./CLAUDE.md) · **สถานะงาน:** [`PROGRESS.md`](./PROGRESS.md)
 
 - **Frontend:** static HTML/CSS/JS (module) host บน GitHub Pages จากโฟลเดอร์ `docs/`
@@ -39,7 +39,7 @@ python3 -m http.server 8080 --directory docs
 
 ## GitHub Pages
 
-เปิดใช้แล้วที่ <https://theerasaku.github.io/Sales-dashboard-TE/>
+เปิดใช้แล้วที่ <https://te-sales.github.io/sales/>
 
 (ตั้งค่าไว้ที่ Settings → Pages → Source: `Deploy from a branch` → Branch: `main` / โฟลเดอร์ `/docs`)
 
