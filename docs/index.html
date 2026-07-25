@@ -157,6 +157,11 @@
       <div class="topbar-right">
         <span class="pill" id="statusPill">กำลังโหลด…</span>
         <span class="pill" id="verPill" title="เวอร์ชันของโค้ดที่เบราว์เซอร์กำลังใช้">—</span>
+        <!-- ชื่อผู้ใช้ที่ล็อกอิน — โผล่ทุกขนาดจอ (ที่ sidebar-foot ถูกซ่อน ≤1024px) -->
+        <span class="topuser" id="topUser" title="—" hidden>
+          <span class="topuser-avatar" id="topUserAvatar">—</span>
+          <span class="topuser-name" id="topUserName">—</span>
+        </span>
         <button class="btn btn-ghost btn-sm" id="themeBtn" title="ธีม & สี" aria-label="ธีม & สี">🎨</button>
         <!-- iPad/มือถือซ่อน sidebar-foot → ต้องมีทางออกจากระบบตรงนี้ด้วย -->
         <button class="btn btn-ghost btn-sm only-compact" id="logoutBtnTop">ออกจากระบบ</button>

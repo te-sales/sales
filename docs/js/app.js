@@ -43,6 +43,10 @@ const el = {
   whoName:    document.getElementById('whoName'),
   whoMeta:    document.getElementById('whoMeta'),
 
+  topUser:       document.getElementById('topUser'),
+  topUserName:   document.getElementById('topUserName'),
+  topUserAvatar: document.getElementById('topUserAvatar'),
+
   // ลืมรหัสผ่าน / ตั้งรหัสใหม่ (step 3.11)
   forgotLink:  document.getElementById('forgotLink'),
   resetForm:   document.getElementById('resetForm'),
@@ -95,6 +99,15 @@ function paintUser(user) {
 
   const roleLabel = { admin: 'ผู้ดูแลระบบ', manager: 'หัวหน้างาน' }[user.role] || 'ฝ่ายขาย';
   el.whoMeta.textContent = user.team ? `${roleLabel} · ${user.team}` : roleLabel;
+
+  // ชิปชื่อบนแถบหัว — เห็นได้ทุกขนาดจอ (sidebar-foot ถูกซ่อน ≤1024px)
+  if (el.topUser) {
+    el.topUserName.textContent   = name;
+    el.topUserAvatar.textContent = (name.trim()[0] || '?').toUpperCase();
+    el.topUser.title = [name, user.email, user.team ? `${roleLabel} · ${user.team}` : roleLabel]
+      .filter(Boolean).join(' · ');
+    el.topUser.hidden = false;
+  }
 
   // ซ่อนแถบที่ใช้ไม่ได้ — แค่ไม่ให้รก ไม่ใช่มาตรการความปลอดภัย
   // ของจริงบังคับที่ DB (RLS + trigger) ต่อให้พิมพ์ #admin เองก็แก้อะไรไม่ได้

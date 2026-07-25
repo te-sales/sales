@@ -27,6 +27,15 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-25 · ยังไม่ commit · แสดงชื่อผู้ใช้ที่ล็อกอินบนแถบหัว — v0.40.0
+**step:** 1.2 (App Shell) | **ประเภท:** ฟีเจอร์ (คำขอเจ้าของ — "ให้รู้ว่าอยู่ account ของใคร")
+- เพิ่มชิปชื่อผู้ใช้บน topbar (`#topUser` = อวาตาร์อักษรแรก + ชื่อ) · โผล่ทุกขนาดจอ
+  (เดิมชื่ออยู่แค่ sidebar-foot ซึ่งถูกซ่อน ≤1024px → iPad/มือถือไม่เห็นว่าล็อกอินเป็นใคร)
+- `paintUser` เติมชื่อ/อวาตาร์/title (ชื่อ·อีเมล·role·ทีม) · ซ่อนก่อนล็อกอิน โผล่หลังล็อกอิน
+- แก้ `.topbar-right` เป็น flex-wrap (ชิปยาวเกิน → ห่อลงบรรทัด ไม่ล้นจอมือถือ)
+**ไฟล์:** index.html · css/app.css (.topuser + topbar-right wrap) · js/app.js (el + paintUser) · config.js+sw.js (v0.40.0)
+**ทดสอบ:** topuser-test 9/9 ผ่าน (ซ่อนก่อน/โผล่หลังล็อกอิน · ชื่อ+อวาตาร์+title · เห็นบนมือถือ · ไม่มีแถบเลื่อนแนวนอน · ไม่มี JS error/rejection) · desktop+mobile screenshot ผ่านตา
+
 ## 2026-07-25 · ยังไม่ commit · Chunk 3: เป้ารายคน (sale) + มิติรายคนใน drill-down — v0.39.0
 **step:** 3.13 (เป้ารายคน) | **ประเภท:** ฟีเจอร์ (Part 3b+4b — ก้อนสุดท้ายของชุดเป้า)
 - `db/phase3-13.sql` ตาราง `sale_targets` (profile_id, period 'YYYY-MM', target_baht) · RLS select=ทุกคน write=admin
