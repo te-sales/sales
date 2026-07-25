@@ -27,6 +27,17 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-25 · ยังไม่ commit · Chunk 2: ชี้กราฟดูตัวเลข + คลิกการ์ดเป้า drill-down (Part 4) — v0.38.0
+**step:** 1.5 (Dashboard) | **ประเภท:** ฟีเจอร์
+- **ชี้เมาส์ที่กราฟ → tooltip** (คำขอใหม่): โซนโปร่งใสต่อเดือน (.chart-zone) + `mountChartHover` (fixed tooltip ตามเมาส์)
+  โชว์ แผน(เป้า)/ปิดได้จริง/คาดปิด ของเดือนที่ชี้ · ไฮไลต์คอลัมน์
+- **คลิกการ์ดเป้า → drill-down** (Part 4): `openTargetDrill` — ตาราง 12 เดือน + ไตรมาส 1-4 + ครึ่งปี×2 + รวมทั้งปี
+  · คอลัมน์ เป้า/ปิดจริง · สลับขอบเขต บริษัท/รายทีม (chips) · เดือนนอกช่วงเป้าแสดงสีจาง
+  · เป้า = ผลรวม team_targets รายเดือน · ปิดจริง = งาน won ตาม monthOf()
+- ⏳ **ก้อนถัดไป:** เป้ารายคน (sale · ต้อง migration ตาราง sale_targets) + เพิ่มมิติ "รายคน" ใน drill-down
+**ไฟล์:** docs/js/modules/dashboard.js (mountChartHover/openTargetDrill) · docs/css/app.css · config.js+sw.js (v0.38.0)
+**ทดสอบ:** hoverdrill-test 10/10 ผ่าน (tooltip โชว์ ก.ย. แผน5/ปิด8 · drill 19 แถว เดือน/Q/H/ปี · สลับทีม)
+
 ## 2026-07-25 · ยังไม่ commit · Chunk 1: เป้ารายเดือนต่อทีม + สรุป Q/ครึ่งปี/ปี + โยงไปภาพรวม — v0.37.0
 **step:** 3.10 (เป้ารายทีม) | **ประเภท:** ฟีเจอร์ (Part 3+4 — ก้อนที่ 1)
 - ⭐ **ไม่ต้อง migration** — `team_targets.period` เดิม (unique team_id,period) ใช้เก็บ 'YYYY-MM' ได้เลย

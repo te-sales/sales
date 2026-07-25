@@ -802,6 +802,35 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 
 /* กราฟ */
 .chart { max-width: 100%; height: auto; display: block; }
+/* โซนชี้เมาส์บนกราฟ (โปร่งใส · ไฮไลต์คอลัมน์ตอนชี้) */
+.chart-zone { fill: transparent; cursor: crosshair; }
+.chart-zone:hover { fill: var(--accent); opacity: .07; }
+/* tooltip ตามเมาส์บนกราฟ (fixed กันโดน .card ตัด) */
+.charttip {
+  position: fixed; z-index: 130; pointer-events: none;
+  min-width: 168px; padding: 9px 11px;
+  background: var(--bg-elev); border: 1px solid var(--border);
+  border-radius: var(--r-md); box-shadow: 0 12px 32px #00000066;
+  font-size: 12px; color: var(--text); line-height: 1.5;
+}
+.charttip-h { font-size: 11px; color: var(--text-mute); margin-bottom: 5px; }
+.charttip-r { display: flex; align-items: center; gap: 7px; }
+.charttip-r i { width: 9px; height: 9px; border-radius: 2px; flex: 0 0 auto; }
+.charttip-r span { flex: 1; color: var(--text-dim); }
+.charttip-r b { font-variant-numeric: tabular-nums; }
+
+/* การ์ดเป้า คลิกได้ → drill-down */
+.stat-clickable { cursor: pointer; transition: border-color .12s, transform .06s; }
+.stat-clickable:hover { border-color: var(--accent); }
+.stat-clickable:active { transform: translateY(1px); }
+.stat-more { font-size: 11px; color: var(--accent-text); font-weight: 400; }
+
+/* หน้ารายละเอียดเป้า (drill) */
+.drill-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.drill-tbl td, .drill-tbl th { padding: 5px 10px; }
+.drill-tbl .drill-out td { opacity: .45; }
+.drill-tbl .drill-sum td { border-top: 1px solid var(--border-soft); font-weight: 600; color: var(--text-dim); }
+.drill-tbl .drill-year td { border-top: 2px solid var(--border); font-weight: 700; color: var(--accent-text); }
 .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 11.5px; color: var(--text-dim); }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 

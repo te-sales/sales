@@ -223,6 +223,43 @@ export function teamBreakdown(rows, teams, targetsMap, opt = {}) {
  *    (เคยวัดได้ 4.4px บน iPhone อ่านไม่ออก · 18.7px บน desktop ใหญ่เกิน)
  *    ทำแบบนี้แล้วสเกล = 1 เสมอ ตัวหนังสือเป็น px จริงทุกจอ
  */
+// ── tooltip ตามเมาส์บนกราฟ ── โชว์ แผน/ปิดจริง/คาดปิด ของเดือนที่ชี้
+let chartTip = null;
+function chartTooltip() {
+  if (chartTip) return chartTip;
+  chartTip = document.createElement('div');
+  chartTip.className = 'charttip';
+  chartTip.hidden = true;
+  document.body.appendChild(chartTip);
+  return chartTip;
+}
+/** ผูกครั้งเดียวที่ root (คงอยู่แม้ paintBody วาดกราฟใหม่) — ใช้ event delegation */
+function mountChartHover(root) {
+  if (!root || root.__chHover) return;
+  root.__chHover = true;
+  const hide = () => { if (chartTip) chartTip.hidden = true; };
+  root.addEventListener('mousemove', (e) => {
+    const z = e.target.closest?.('.chart-zone');
+    if (!z) return hide();
+    let d;
+    try { d = JSON.parse(decodeURIComponent(z.dataset.ch || '')); } catch { return hide(); }
+    const tip = chartTooltip();
+    tip.innerHTML = `<div class="charttip-h">${esc(d.label)}</div>
+      <div class="charttip-r"><i style="background:var(--chart-6)"></i><span>แผน (เป้า)</span><b>${fmtMB(d.plan)}</b></div>
+      <div class="charttip-r"><i style="background:var(--chart-3)"></i><span>ปิดได้จริง</span><b>${fmtMB(d.won)}</b></div>
+      <div class="charttip-r"><i style="background:var(--chart-1)"></i><span>คาดปิด</span><b>${fmtMB(d.open)}</b></div>`;
+    tip.hidden = false;
+    const pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+    let left = e.clientX + pad, top = e.clientY + pad;
+    if (left + w > innerWidth - 8) left = e.clientX - w - pad;
+    if (top + h > innerHeight - 8) top = e.clientY - h - pad;
+    tip.style.left = Math.max(8, left) + 'px';
+    tip.style.top = Math.max(8, top) + 'px';
+  });
+  root.addEventListener('mouseleave', hide);
+  window.addEventListener('scroll', hide, true);
+}
+
 function barChart(byMonth, width) {
   const W = Math.round(Math.min(900, Math.max(300, width)));
   const H = 220, PAD_L = 44, PAD_B = 34, PAD_T = 12;
@@ -256,10 +293,17 @@ function barChart(byMonth, width) {
             fill="var(--text-mute)">${esc(m.label)}</text>`;
   }).join('');
 
+  // โซนโปร่งใสคลุมทั้งคอลัมน์ของแต่ละเดือน — ชี้เมาส์แล้วโชว์ตัวเลข แผน/ปิดจริง/คาดปิด (mountChartHover)
+  const zones = byMonth.map((m, i) => {
+    const zx = PAD_L + step * i;
+    const d = encodeURIComponent(JSON.stringify({ label: m.label, plan: m.plan, won: m.won, open: m.open }));
+    return `<rect class="chart-zone" x="${zx}" y="${PAD_T}" width="${step}" height="${innerH}" data-ch="${d}"></rect>`;
+  }).join('');
+
   return `
     <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" class="chart" role="img"
          aria-label="กราฟเปรียบเทียบแผนกับยอดปิดจริงรายเดือน หน่วยล้านบาท">
-      ${grid}${bars}
+      ${grid}${bars}${zones}
     </svg>
     <div class="legend">
       <span><i style="background:var(--chart-6)"></i>แผน</span>
@@ -319,6 +363,83 @@ function actSection(acts) {
     </div>`;
 }
 
+// ══════════════════════════════════════════════════════════
+// คลิกการ์ดเป้า → รายละเอียดเป้ารายเดือน/ไตรมาส/ครึ่งปี/ปี (บริษัท/ทีม)
+//   เป้า = ผลรวม team_targets (period 'YYYY-MM') ในขอบเขต · ปิดจริง = งาน stage=won ตาม monthOf()
+// ══════════════════════════════════════════════════════════
+function openTargetDrill(host, ctx) {
+  const { teams, allTargets, rows, from, to } = ctx;
+  if (!host) return;
+  const leafTeams = (teams || []).filter(t => !teams.some(x => x.parent_team_id === t.id));
+  const year = Number(String(from).slice(0, 4));
+  const pad = (n) => String(n).padStart(2, '0');
+  const months = Array.from({ length: 12 }, (_, i) => `${year}-${pad(i + 1)}`);
+  const inPeriod = (m) => m >= from && m <= to;
+  let scope = ctx.initialScope || 'all';
+
+  const scopeIds = () => scope === 'all'
+    ? new Set(leafTeams.map(t => t.id))
+    : expandTeams(teams, [scope]);
+  const scopeName = () => scope === 'all' ? 'ทั้งบริษัท' : (teams.find(t => t.id === scope)?.code || scope);
+
+  host.innerHTML = `
+    <div class="modal" id="drillModal">
+      <div class="modal-box modal-sm" id="drillBox">
+        <div class="modal-head"><strong>รายละเอียดเป้าหมาย <span class="sec-sub" id="drillScopeName"></span></strong>
+          <button type="button" class="btn btn-ghost btn-sm" id="drillClose">ปิด</button></div>
+        <div class="modal-body">
+          <div class="drill-chips" id="drillChips">
+            <button type="button" class="chip" data-ds="all">ทั้งบริษัท</button>
+            ${leafTeams.map(t => `<button type="button" class="chip ${t.parent_team_id ? 'chip-sub' : ''}" data-ds="${esc(t.id)}">${esc(t.code)}</button>`).join('')}
+          </div>
+          <div id="drillBody"></div>
+        </div>
+        <div class="modal-foot"><span class="spacer"></span><button type="button" class="btn btn-primary" id="drillDone">เสร็จ</button></div>
+      </div>
+    </div>`;
+
+  const q = (s) => host.querySelector(s);
+  const close = () => { host.innerHTML = ''; };
+  q('#drillClose').addEventListener('click', close);
+  q('#drillDone').addEventListener('click', close);
+  q('#drillModal').addEventListener('mousedown', (e) => { if (e.target.id === 'drillModal') close(); });
+  q('#drillChips').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-ds]'); if (!b) return; scope = b.dataset.ds; draw();
+  });
+
+  function draw() {
+    const ids = scopeIds();
+    const tOf = (m) => (allTargets || []).filter(r => r.period === m && ids.has(r.team_id)).reduce((a, r) => a + Number(r.target_baht || 0), 0);
+    const wOf = (m) => (rows || []).filter(r => r.stage === 'won' && ids.has(r.team_id) && monthOf(r) === m).reduce((a, r) => a + Number(r.value_baht || 0), 0);
+    const tm = months.map(tOf), wm = months.map(wOf);
+    const sum = (a) => a.reduce((x, y) => x + y, 0);
+    const grp = (idxs) => ({ t: sum(idxs.map(i => tm[i])), w: sum(idxs.map(i => wm[i])) });
+    const Q = [grp([0,1,2]), grp([3,4,5]), grp([6,7,8]), grp([9,10,11])];
+    const H = [grp([0,1,2,3,4,5]), grp([6,7,8,9,10,11])];
+    const Y = grp([0,1,2,3,4,5,6,7,8,9,10,11]);
+
+    q('#drillScopeName').textContent = scopeName();
+    host.querySelectorAll('#drillChips .chip').forEach(c => c.classList.toggle('on', c.dataset.ds === scope));
+
+    const mRow = (m, i) => `<tr class="${inPeriod(m) ? '' : 'drill-out'}">
+      <td>${esc(monthLabel(m))}</td><td class="num">${tm[i] ? fmtMB(tm[i]) : '—'}</td><td class="num">${wm[i] ? fmtMB(wm[i]) : '—'}</td></tr>`;
+    const gRow = (label, g, cls) => `<tr class="${cls}"><td>${label}</td><td class="num">${g.t ? fmtMB(g.t) : '—'}</td><td class="num">${g.w ? fmtMB(g.w) : '—'}</td></tr>`;
+
+    q('#drillBody').innerHTML = `
+      <p class="sec-foot" style="margin:8px 0 6px">หน่วย: ล้านบาท · เดือนนอกช่วงเป้า (${esc(monthLabel(from))}–${esc(monthLabel(to))}) แสดงสีจาง</p>
+      <div class="tbl-wrap"><table class="tbl drill-tbl">
+        <thead><tr><th>ช่วง</th><th class="num">เป้า</th><th class="num">ปิดจริง</th></tr></thead>
+        <tbody>
+          ${months.map(mRow).join('')}
+          ${gRow('ไตรมาส 1', Q[0], 'drill-sum')}${gRow('ไตรมาส 2', Q[1], 'drill-sum')}${gRow('ไตรมาส 3', Q[2], 'drill-sum')}${gRow('ไตรมาส 4', Q[3], 'drill-sum')}
+          ${gRow('ครึ่งปีแรก', H[0], 'drill-sum')}${gRow('ครึ่งปีหลัง', H[1], 'drill-sum')}
+          ${gRow('รวมทั้งปี', Y, 'drill-year')}
+        </tbody>
+      </table></div>`;
+  }
+  draw();
+}
+
 const card = (label, value, note, cls = '') => `
   <div class="card ${cls}">
     <div class="stat-label">${label}</div>
@@ -361,11 +482,11 @@ export default {
 
     // เป้ารายทีม + ลำดับชั้น (โหลดก่อนเช็คว่าง เพื่อให้ sale เห็นเป้า "ทีมตัวเอง" ไม่ใช่เป้ารวมบริษัท)
     //   ⭐ รวมเป้า "รายเดือน" (period 'YYYY-MM' ในช่วงเป้า) ให้เป็นเป้าต่อทีม → โยงมาจากหน้าตั้งค่าอัตโนมัติ
-    let teams = [], targetsMap = {};
+    let teams = [], targetsMap = {}, allTargets = [];
     try {
       teams = await adapter.listTeams();
-      const tt = await adapter.listAllTeamTargets();
-      targetsMap = rollupTargets(tt, goal.from, goal.to);
+      allTargets = await adapter.listAllTeamTargets();
+      targetsMap = rollupTargets(allTargets, goal.from, goal.to);
     } catch { teams = []; }
 
     // เป้ารวมองค์กร = ผลรวมเป้ารายเดือนทุกทีม (โยงจากหน้าตั้งค่า) · ยังไม่ตั้ง = ใช้เป้าใน settings
@@ -416,9 +537,19 @@ export default {
         ${teams.map(t => `<button type="button" class="chip ${t.parent_team_id ? 'chip-sub' : ''}"
                             data-scope="team" data-team="${esc(t.id)}">${esc(t.code)}</button>`).join('')}
       </div>` : ''}
-      <div id="dashBody"></div>`;
+      <div id="dashBody"></div>
+      <div id="dashDrill"></div>`;
 
     const body = root.querySelector('#dashBody');
+    mountChartHover(root);   // ชี้เมาส์ที่กราฟ → โชว์ตัวเลขเป้า/ยอดขายของเดือนที่ชี้
+    // คลิกการ์ดเป้า → หน้ารายละเอียดเป้ารายเดือน/ไตรมาส/ครึ่งปี/ปี (บริษัท/ทีม)
+    root.addEventListener('click', (e) => {
+      if (!e.target.closest('[data-target-drill]')) return;
+      openTargetDrill(root.querySelector('#dashDrill'), {
+        teams, allTargets, rows, from: goal.from, to: goal.to,
+        initialScope: selected.size === 1 ? [...selected][0] : 'all',
+      });
+    });
 
     // วาดเนื้อหาทั้งหมดตาม "ขอบเขตทีม" ที่เลือก — เลือกทีมไหน ทุกส่วน (KPI/กราฟ/funnel/top3/
     // เลยกำหนด/ลูกค้า Book 3 สี) นับเฉพาะทีมนั้น · ไม่เลือก = รวมทั้งองค์กร
@@ -443,8 +574,12 @@ export default {
       body.innerHTML = `
         ${selected.size && !isSale ? `<div class="dash-scope-note">กำลังดูเฉพาะ <b>${esc(picked)}</b> · ตัวเลขด้านล่างนับเฉพาะขอบเขตนี้</div>` : ''}
         <div class="grid cols-4">
-          ${card(isSale ? 'เป้าทีม' : 'เป้ายอดขาย', `${targetBaht ? fmtMB(targetBaht) : '—'} ล้านบาท`,
-                 selected.size ? esc(picked) : esc(goal.period))}
+          <div class="card stat-clickable" data-target-drill role="button" tabindex="0"
+               title="คลิกดูรายละเอียดเป้ารายเดือน/ไตรมาส/ครึ่งปี/ปี">
+            <div class="stat-label">${isSale ? 'เป้าทีม' : 'เป้ายอดขาย'} <span class="stat-more">รายละเอียด ›</span></div>
+            <div class="stat-value">${targetBaht ? fmtMB(targetBaht) : '—'} ล้านบาท</div>
+            <div class="stat-note">${selected.size ? esc(picked) : esc(goal.period)}</div>
+          </div>
           ${card('ปิดได้แล้ว', `${fmtMB(s.won)} ล้าน`,
                  `${pctTxt} ของเป้า · ขาดอีก ${fmtMB(s.gap)} ล้าน`)}
           ${card('Pipeline ถ่วงน้ำหนัก', `${fmtMB(s.weighted)} ล้าน`,
