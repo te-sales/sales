@@ -516,8 +516,8 @@ async function openQuickLog(host, pendingId, onSaved) {
           <div class="fgrid">
             <label class="fld"><span>DATE — วันที่</span>
               ${dateField('log_date', new Date().toISOString().slice(0, 10), { label: 'วันที่บันทึก' })}</label>
-            <label class="fld"><span>BY — ใครติดตาม</span>
-              <input type="text" name="by_name"></label>
+            <label class="fld"><span>BY — ช่องทางติดต่อ</span>
+              <input type="text" name="by_name" placeholder="เช่น โทร / เข้าพบ / ไลน์"></label>
             <label class="fld fld-wide"><span>RESPONSE — ผลที่ได้</span>
               <textarea name="response" rows="3" placeholder="เช่น เข้าพบ ผอ. แล้ว ขอให้ส่งสเปกเพิ่ม"></textarea></label>
             <label class="fld fld-wide"><span>NEXT DOING — ทำอะไรต่อ</span>
@@ -773,7 +773,7 @@ async function openDetail(host, id, onSaved, teams) {
               <div class="fgrid">
                 <label class="fld"><span>วันที่</span>
                   ${dateField('', new Date().toISOString().slice(0, 10), { id: 'lgDate', label: 'วันที่บันทึก' })}</label>
-                <label class="fld"><span>BY (ใคร)</span><input type="text" id="lgBy"></label>
+                <label class="fld"><span>BY — ช่องทางติดต่อ</span><input type="text" id="lgBy" placeholder="เช่น โทร / เข้าพบ / ไลน์"></label>
                 <label class="fld fld-wide"><span>RESPONSE — ผลที่ได้</span>
                   <textarea id="lgRes" rows="2"></textarea></label>
                 <label class="fld fld-wide"><span>NEXT DOING — ทำอะไรต่อ</span>

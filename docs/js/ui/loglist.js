@@ -76,8 +76,8 @@ export function bindLogEditing(host, logs, updateFn, onSaved) {
         <div class="fgrid">
           <label class="fld"><span>DATE</span>
             ${dateField('', l.log_date, { cls: 'dp-log-date', label: 'วันที่บันทึก' })}</label>
-          <label class="fld"><span>BY</span>
-            <input type="text" data-f="by_name" value="${esc(l.by_name || '')}"></label>
+          <label class="fld"><span>BY — ช่องทางติดต่อ</span>
+            <input type="text" data-f="by_name" value="${esc(l.by_name || '')}" placeholder="เช่น โทร / เข้าพบ / ไลน์"></label>
           <label class="fld fld-wide"><span>RESPONSE</span>
             <textarea data-f="response" class="ta-grow" rows="4">${esc(l.response || '')}</textarea></label>
           <label class="fld fld-wide"><span>NEXT DOING</span>
@@ -132,8 +132,8 @@ export function logFormHtml(idPrefix = 'lg') {
     <div class="fgrid">
       <label class="fld"><span>DATE — วันที่</span>
         ${dateField('', todayISO(), { id: idPrefix + 'Date', label: 'วันที่บันทึก' })}</label>
-      <label class="fld"><span>BY — ใครติดตาม</span>
-        <input type="text" id="${idPrefix}By"></label>
+      <label class="fld"><span>BY — ช่องทางติดต่อ</span>
+        <input type="text" id="${idPrefix}By" placeholder="เช่น โทร / เข้าพบ / ไลน์"></label>
       <label class="fld fld-wide"><span>RESPONSE — ผลที่ได้</span>
         <textarea id="${idPrefix}Res" class="ta-grow" rows="3"></textarea></label>
       <label class="fld fld-wide"><span>NEXT DOING — ทำอะไรต่อ</span>

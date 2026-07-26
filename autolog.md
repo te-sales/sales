@@ -27,6 +27,16 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-26 · ยังไม่ commit · เปลี่ยน label BY: "ใครติดตาม" → "ช่องทางติดต่อ" — v0.44.0
+**step:** — | **ประเภท:** แก้ UI (คำขอเจ้าของ — ช่อง BY คือวิธี/ช่องทางติดต่อ ไม่ใช่ชื่อคนติดตาม)
+- เปลี่ยน label ทุกจุด: `BY — ใครติดตาม` / `BY (ใคร)` → **`BY — ช่องทางติดต่อ`** + placeholder "เช่น โทร / เข้าพบ / ไลน์"
+  - loglist.js (ฟอร์มเพิ่ม + กล่องแก้ไข) → คลุม Book 3 สี, Quick-log, quick-log popover
+  - pending.js (ฟอร์มเต็ม + quick log)
+  - ai-intake.js: FIELDS.log label → `ช่องทางติดต่อ (BY)` · PROMPT_HINTS เอา "ผู้ติดตาม" ออก
+- **"BY" ในฟอร์มพิมพ์ (formprint/print) คงไว้** ตามฟอร์มกระดาษต้นฉบับ · คอลัมน์ DB `by_name` ไม่เปลี่ยน
+**ไฟล์:** ui/loglist.js · modules/pending.js · modules/ai-intake.js · config.js+sw.js (v0.44.0)
+**ทดสอบ:** quicklog-test 19/19 + ailog-test 19/19 ผ่าน · grep ยืนยันไม่เหลือ "ใครติดตาม"/"BY (ใคร)" ในฟอร์ม
+
 ## 2026-07-26 · ยังไม่ commit · P11 Quick-log (⚡ บันทึกเร็ว) MVP — v0.43.0
 **step:** P11 (ใหม่ · นอก roadmap เดิม) | **ประเภท:** ฟีเจอร์
 - โมดูลใหม่ `docs/js/modules/quicklog.js` + ปุ่ม ⚡ บันทึกเร็ว บนแถบหัว (`#quickLogBtn` · app.js)
