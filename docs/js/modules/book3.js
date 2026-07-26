@@ -92,6 +92,8 @@ export default {
     // แก้ sale_id (บัญชี) → ชื่อจากโปรไฟล์ปัจจุบัน · เปลี่ยนชื่อในตั้งค่าระบบแล้วอัปเดตตามทันที (ไม่ก๊อปชื่อลงแถว)
     const peopleById = new Map((people || []).map(p => [p.id, p]));
     const ownerName  = (id) => { const p = peopleById.get(id); return p ? (p.full_name || p.email || '') : ''; };
+    // ค่าเริ่มต้นตัวกรอง "ดูของ" = ตัวเอง (แสดงลูกค้าของ user ที่ล็อกอิน) — ถ้ายังไม่ได้เลือกเจาะจงคนอื่น
+    if (!view.person && meId && people.some(p => p.id === meId)) view.person = meId;
 
     root.innerHTML = `
       <div class="toolbar">
