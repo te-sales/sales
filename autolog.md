@@ -27,6 +27,13 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-26 · ✅ task 5 สำเร็จจริง · daily-backup อัปขึ้น Google Drive + ยืนยัน UTF-8
+**step:** — (task 5 ปิดจ๊อบ) | **ประเภท:** ยืนยันผล/แก้บั๊กจบ
+- เจ้าของทำครบ: grant-service-role.sql + OAuth refresh token (drive.file, publish app) + ตั้ง 3 secret GOOGLE_OAUTH_* + re-deploy → กด "สำรองเดี๋ยวนี้" **สำเร็จ** ได้ไฟล์ `te-backup-2026-07-26.json` (474KB) เจ้าของ theerasaku@gmail.com (OAuth = ไฟล์เป็นของ user มีพื้นที่ ไม่ใช่ SA)
+- **เจ้าของกังวลว่าไฟล์ไทยเพี้ยน (mojibake `à¸à¸²à¸`)** → ผมโหลด byte จริงจาก Drive ผ่าน MCP + ถอดด้วย Python (คนละ decode path) → **ไฟล์ UTF-8 ถูกต้อง 100%** (teams[0].description="งานราชการ / ประมูล e-bidding", customers[0].name="ดร.อนพัทย์ พูลสวัสดิ์")
+- 🔑 **บทเรียน: พรีวิว .json ของ Google Drive แสดงผลเป็น Latin-1 เอง (ไม่ตั้ง charset) → โชว์ mojibake ทั้งที่ไฟล์ดี** · อย่าวินิจฉัยไฟล์เสียจากพรีวิว Drive · เช็กด้วยการโหลด byte จริง (ตรงกับกฎ "เครื่องมือตรวจต้องไม่ใช่ตัวที่อาจเป็นต้นเหตุ")
+- **เหลือขั้นเดียว:** เจ้าของตั้ง pg_cron (secret BACKUP_CRON_SECRET + cron.schedule '0 19 * * *' ยิง /functions/v1/daily-backup) → สำรองอัตโนมัติทุกวันตี 2
+
 ## 2026-07-26 · ยังไม่ commit · daily-backup รองรับ OAuth (แก้ storageQuotaExceeded ของ service account)
 **step:** — (แก้บั๊ก task 5 ต่อ) | **ประเภท:** ฟีเจอร์/แก้บั๊ก (Edge Function)
 - หลัง grant service_role → อ่านข้อมูล+ขอ token ผ่านหมด → ติดตอนอัป Drive: `Service Accounts do not have storage quota (storageQuotaExceeded)` — service account อัปลง My Drive (Gmail ส่วนตัว) ไม่ได้ (ตามที่เตือนไว้)
