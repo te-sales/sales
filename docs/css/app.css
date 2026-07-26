@@ -669,6 +669,18 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 .pcard-bot { display: flex; justify-content: space-between; color: var(--text-mute); font-size: 12px; }
 .pcard-due { font-size: 12px; color: var(--text-mute); }
 
+/* ---------- มุมมองการ์ดที่ผู้ใช้เลือก (laptop / iPad) — 2 คอลัมน์ ----------
+   ปกติ laptop/iPad เห็นเป็นตาราง · กดปุ่ม "การ์ด" (.viewmode) → ใส่คลาส .list-cards
+   ให้กล่องรายการ แล้วสลับมาโชว์การ์ดเรียง 2 คอลัมน์แทน (เหมือนที่เคยเห็นบน iPad)
+   ปุ่มสลับซ่อนบนมือถือ (≤430px) เพราะบังคับการ์ดอยู่แล้ว — ดู media query ด้านล่าง */
+.list-cards .tbl-wrap { display: none; }
+.list-cards .cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
 /* ---------- แผงรายละเอียด ---------- */
 .modal {
   position: fixed; inset: 0; z-index: 100;
@@ -733,7 +745,9 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 /* ---------- มือถือ ≤430px: ตาราง → การ์ด ---------- */
 @media (max-width: 430px) {
   .tbl-wrap { display: none; }
-  .cards { display: flex; }
+  /* มือถือบังคับการ์ด 1 คอลัมน์เสมอ — ล้าง grid ของโหมด .list-cards ทิ้ง (ไม่งั้นการ์ดเบียดเป็น 2 คอลัมน์บนจอเล็ก) */
+  .cards, .list-cards .cards { display: flex; grid-template-columns: none; }
+  .segmented.viewmode { display: none; } /* มือถือบังคับการ์ดอยู่แล้ว ไม่ต้องมีปุ่มเลือก (specificity ต้องชนะ .segmented) */
   .colpick { display: none; }            /* ไม่มีตารางแล้ว ไม่ต้องเลือกคอลัมน์ */
   .toolbar .btn, .toolbar-sub .btn { min-height: 44px; }   /* จุดแตะ ≥44px */
   .chk { min-height: 44px; }

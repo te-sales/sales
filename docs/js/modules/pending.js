@@ -12,6 +12,7 @@ import { printPending } from '../ui/formprint.js';
 import { openAIImport, openAILog } from './ai-intake.js';
 import { mountTeamScope } from '../ui/teamscope.js';
 import { lastLogSpan, mountLogHover } from '../ui/loghover.js';
+import { listViewHtml, bindListView, applyListView } from '../ui/listview.js';
 
 // ── ขั้นตอนงานขาย ── ยกจาก prototype v3 แต่เปลี่ยน hex เป็นตัวแปร CSS ตามกติกาธีม
 export const STAGES = [
@@ -231,6 +232,7 @@ export default {
           </div>
         </details>
 
+        ${listViewHtml()}
         <button class="btn btn-ghost btn-sm" id="pCsv">⭳ CSV</button>
       </div>
 
@@ -242,6 +244,7 @@ export default {
     const $ = (id) => root.querySelector('#' + id);
     const listEl = $('pList');
     mountLogHover(listEl);   // ชี้เมาส์ที่ความคืบหน้า → เด้ง popup เต็ม
+    bindListView(root, listEl);   // ปุ่มสลับ ตาราง/การ์ด (laptop/iPad)
 
     let rawRows = [];      // ทั้งหมดที่ RLS ให้เห็น
     let rows = [];         // หลังกรองทีม + เดือน
@@ -372,6 +375,7 @@ export default {
               <div class="pcard-log">${lastLogCell(r)}</div>
             </div>`).join('')}
         </div>`;
+      applyListView(listEl);   // คงมุมมองที่เลือกไว้หลัง render ใหม่
     }
 
     // ── เหตุการณ์ ──

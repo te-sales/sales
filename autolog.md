@@ -27,6 +27,17 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-26 · ยังไม่ commit · ปุ่มสลับมุมมอง ตาราง/การ์ด บน laptop+iPad — v0.46.0
+**step:** — (คำขอเจ้าของ) | **ประเภท:** ฟีเจอร์
+- เจ้าของอยากให้ Pending + Book 3 สี บน laptop เลือกดูเป็นการ์ด 2 คอลัมน์ได้ (เหมือน iPad)
+- คอมโพเนนต์ร่วมใหม่ `js/ui/listview.js` — ปุ่ม "☰ ตาราง / ▤ การ์ด" (ใช้ .segmented เดิม) จำค่าใน localStorage `te:listView` ค่าเดียวใช้ร่วม 2 หน้า
+- CSS: `.list-cards .cards` = grid 2 คอลัมน์ · มือถือ ≤430px บังคับการ์ด 1 คอลัมน์ + ซ่อนปุ่ม (`.segmented.viewmode`)
+- default = ตาราง (คงพฤติกรรมเดิม) · สลับทันทีไม่โหลดข้อมูลใหม่ (การ์ด+ตารางอยู่ใน DOM แล้ว)
+- bump VERSION 0.45.0 → 0.46.0 (config.js + sw.js) · เพิ่ม listview.js ใน SHELL
+- 🪲 เจอ 1 บั๊กตอนเทสต์: `.viewmode{display:none}` โดน `.segmented` ทับ (specificity เท่า + มาทีหลัง) → แก้เป็น `.segmented.viewmode`
+**ไฟล์:** js/ui/listview.js · css/app.css · js/modules/pending.js · js/modules/book3.js · sw.js · js/config.js
+**ทดสอบ:** listview-test 15/15 ผ่าน (laptop สลับได้ · จำข้ามหน้า · reload จำได้ · grid 2 คอลัมน์ · มือถือ 1 คอลัมน์+ซ่อนปุ่ม · ไม่มี error)
+
 ## 2026-07-26 · ยังไม่ commit · เช็กลิสต์เตรียมขึ้น v1.0 (.md + .html)
 **step:** — | **ประเภท:** เอกสาร
 - เจ้าของรัน SQL ครบทุกไฟล์แล้ว (verification ผ่านทุกข้อ) → สร้างเช็กลิสต์ก้าวสู่ 1.0
