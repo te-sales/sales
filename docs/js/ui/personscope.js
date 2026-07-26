@@ -27,6 +27,8 @@ export function mountPersonScope(host, opt = {}, onChange = () => {}) {
   if (!host) return { selected: () => '', filter: (r) => r || [] };
   const teams = opt.teams || [];
   const meId  = opt.meId || null;
+  // ฟิลด์เจ้าของแถว: Pending = owner_id · Book 3 สี = sale_id (คนละชื่อคอลัมน์)
+  const ownerField = opt.ownerField || 'owner_id';
 
   // เฉพาะคนที่ยัง active · ตัวเองขึ้นบนสุด แล้วเรียงตามชื่อไทย (เหมือนหน้าภาพรวม)
   const people = (opt.people || [])
@@ -53,7 +55,36 @@ export function mountPersonScope(host, opt = {}, onChange = () => {}) {
 
   return {
     selected: () => selected,
-    // กรองตามเจ้าของแถว (owner_id) — ว่าง = ไม่กรอง = ทุกคน
-    filter: (rows) => selected ? (rows || []).filter(r => r.owner_id === selected) : (rows || []),
+    // กรองตามเจ้าของแถว (owner_id / sale_id) — ว่าง = ไม่กรอง = ทุกคน
+    filter: (rows) => selected ? (rows || []).filter(r => r[ownerField] === selected) : (rows || []),
   };
+}
+
+/**
+ * <select> เลือก "SALE NAME (sale ผู้ดูแล)" สำหรับฟอร์ม — ใช้ร่วม Pending (owner_id) + Book 3 สี (sale_id)
+ * เก็บเป็น id ของบัญชี (FK) ไม่ใช่ข้อความ → เปลี่ยนชื่อในตั้งค่าระบบแล้วชื่ออัปเดตตามทุกที่
+ *   • ค่าเริ่มต้น = คนที่ล็อกอิน (ตั้งจาก formRow ก่อนเรียก)
+ *   • บัญชีถูกปิดใช้งาน/ลบ → ยังคงค่าเดิมไว้ให้เห็น + ชวนให้เลือกผู้ดูแลใหม่ (แอดมินมากรอกต่อ)
+ * @param currentId ค่าปัจจุบัน (owner_id/sale_id ของแถว · ว่าง = ยังไม่ระบุ)
+ */
+export function ownerSelectHtml(key, label, currentId, people, meId, hint) {
+  const cur = currentId ?? '';
+  const list = (people || []).filter(p => p && p.is_active !== false)
+    .sort((a, b) => (a.id === meId ? -1 : b.id === meId ? 1 : 0)
+                 || String(a.full_name || a.email || '').localeCompare(String(b.full_name || b.email || ''), 'th'));
+  const known = new Set(list.map(p => p.id));
+  const opt = (p, inactive) =>
+    `<option value="${esc(p.id)}" ${cur === p.id ? 'selected' : ''}>${esc(p.full_name || p.email || '—')}${p.id === meId ? ' (ฉัน)' : ''}${inactive ? ' (ปิดใช้งาน)' : ''}</option>`;
+  // เจ้าของปัจจุบันที่ถูกปิดใช้งาน/ไม่อยู่ในลิสต์ → ต้องคงค่าไว้ให้เห็น ไม่งั้น dropdown เด้งไปโชว์คนอื่นเงียบ ๆ
+  const orphan  = cur && !known.has(cur);
+  const orphanP = orphan ? (people || []).find(p => p.id === cur) : null;
+  return `<label class="fld"><span>${esc(label)}</span>
+    <select name="${esc(key)}">
+      <option value="" ${!cur ? 'selected' : ''}>— ยังไม่ระบุผู้ดูแล —</option>
+      ${list.map(p => opt(p, false)).join('')}
+      ${orphanP ? opt(orphanP, true)
+                : (orphan ? `<option value="${esc(cur)}" selected>(บัญชีถูกลบแล้ว — เลือกผู้ดูแลใหม่)</option>` : '')}
+    </select>
+    ${hint === false ? '' : `<small class="fld-hint">${esc(hint || 'เลือกจากบัญชีผู้ใช้ · ค่าเริ่มต้น = คนที่ล็อกอิน · เปลี่ยนชื่อบัญชีในตั้งค่าระบบแล้วชื่ออัปเดตตามทุกที่')}</small>`}
+  </label>`;
 }

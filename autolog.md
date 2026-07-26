@@ -27,6 +27,19 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-26 · ยังไม่ commit · field "SALE NAME (ผู้ดูแล)" เป็น dropdown บัญชี · Pending + Book 3 สี
+**step:** — (เจ้าของขอเพิ่ม) | **ประเภท:** ฟีเจอร์
+- เจ้าของขอ: field SALE NAME กรอกด้วย dropdown ชื่อตามบัญชีที่มี · default = คนที่ล็อกอิน · เปลี่ยนชื่อในตั้งค่า→เปลี่ยนตามใน DB · sale ถูกลบ→blank รอ admin เลือกผู้ดูแลใหม่
+- **ไม่ต้อง migration** — คอลัมน์ FK มีอยู่แล้ว: `pending_projects.owner_id` · `customers.sale_id` (ทั้งคู่ `on delete set null` → บัญชีถูกลบ = FK เป็น null อัตโนมัติ = ข้อกำหนด "blank รอ admin" ทำได้ที่ระดับ DB อยู่แล้ว)
+- **เก็บ FK ไม่เก็บข้อความ** → ชื่อ resolve จากโปรไฟล์ปัจจุบันตอนแสดงผล · เปลี่ยนชื่อบัญชีในตั้งค่าระบบแล้วอัปเดตทุกที่ทันที (ไม่มีชื่อค้าง)
+- คอมโพเนนต์ร่วมใหม่ `ownerSelectHtml()` ใน personscope.js — dropdown บัญชี (active ก่อน · ตัวเอง (ฉัน) · บัญชีปิด/ถูกลบยังโชว์ค่าเดิม + ชวนเลือกใหม่) · ใช้ทั้ง Pending (owner_id) + Book3 (sale_id)
+- Pending: เพิ่ม field ในฟอร์ม + คอลัมน์ "SALE (ผู้ดูแล)" ในตาราง (migrate เผยคอลัมน์ครั้งเดียว) + การ์ดมือถือ + CSV · Book3: **แทนช่องพิมพ์ sale_name อิสระด้วย dropdown sale_id** (คงคอลัมน์ sale_name ไว้เป็น fallback ข้อมูลเก่า) + ตาราง/การ์ด/CSV resolve จาก sale_id
+- default คนล็อกอิน: form preselect + adapter fallback (`savePending`/`saveCustomer` insert เติม owner_id/sale_id = me · ครอบ AI import/quick/ยกจาก Book3)
+- 🔧 แถมแก้บั๊กที่เจอระหว่างทาง: personscope Book3 + dashboard (มุมมองรายคน) เดิมกรองลูกค้าด้วย `owner_id` ผิด → customers ไม่มีคอลัมน์นั้น (ใช้ `sale_id`) · แก้เป็น sale_id แล้ว · และ pending owner_id เดิมไม่เคยถูกเซ็ตตอน insert → per-person filter เลยว่างมาตลอด ตอนนี้เซ็ต default แล้ว
+- bump VERSION 0.54.0 → 0.55.0 (config.js + sw.js)
+**ไฟล์:** docs/js/ui/personscope.js · docs/js/modules/pending.js · docs/js/modules/book3.js · docs/js/modules/dashboard.js · docs/js/data/supabase-adapter.js · docs/js/data/local-adapter.js · docs/js/config.js · docs/sw.js
+**ทดสอบ:** Chrome จริงผ่าน CDP (seed 3 บัญชี + งาน/ลูกค้า owner ต่างกัน + งานเจ้าของถูกลบ) → **15/15 ผ่าน · ไม่มี JS error** (คอลัมน์ SALE resolve ชื่อถูก · dropdown default = me · บัญชีถูกลบโชว์ "ยังไม่ระบุ" + ตัวเลือกให้เลือกใหม่ · Book3 ไม่มีช่องพิมพ์อิสระแล้ว · กรองรายคน sale_id · แก้ชื่อบัญชี→ตารางอัปเดตตาม)
+
 ## 2026-07-26 · ยังไม่ commit · ดรอปดาวน์ "ดูของ (รายบุคคล)" หน้า Pending + Book 3 สี
 **step:** — (เจ้าของขอเพิ่ม) | **ประเภท:** ฟีเจอร์
 - เจ้าของขอ: เลือกแสดง Pending / Book 3 สี ของ sale แต่ละคนเป็น dropdown

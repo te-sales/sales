@@ -601,10 +601,10 @@ export default {
       let scoped, scopedC, picked, targetBaht;
 
       if (isPerson) {
-        // มุมมองรายคน: นับเฉพาะงาน/ลูกค้าที่ owner_id = คนนี้ · เป้า = sale_targets ของคนนี้
+        // มุมมองรายคน: นับเฉพาะงาน (owner_id) / ลูกค้า (sale_id — Book3 ใช้คนละคอลัมน์) ของคนนี้
         picked  = personName(person);
         scoped  = rows.filter(r => r.owner_id === person);
-        scopedC = custs.filter(c => c.owner_id === person);
+        scopedC = custs.filter(c => c.sale_id === person);
         targetBaht = personTargetBaht(person);
       } else {
         const ids = selected.size ? [...selected] : tops;

@@ -492,6 +492,8 @@ const supabaseAdapter = {
 
     body.created_by = me;
     body.updated_by = me;
+    // งานใหม่: ค่าเริ่มต้น SALE ผู้ดูแล = คนที่ล็อกอิน (ครอบทุกทาง — AI import / quick-log / ยกจาก Book3)
+    if (!body.owner_id) body.owner_id = me;
     const rows = await rest('/pending_projects', {
       method: 'POST',
       headers: { Prefer: 'return=representation' },
@@ -712,6 +714,8 @@ const supabaseAdapter = {
     if (isEdit) delete body.id;
     body.updated_by = me;
     if (!isEdit) body.created_by = me;
+    // ลูกค้าใหม่: ค่าเริ่มต้น SALE ผู้ดูแล = คนที่ล็อกอิน (Book 3 สี ใช้ sale_id ไม่ใช่ owner_id)
+    if (!isEdit && !body.sale_id) body.sale_id = me;
 
     const send = async (b) => {
       const rows = await rest(

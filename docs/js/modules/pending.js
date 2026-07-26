@@ -11,7 +11,7 @@ import { signoffState, signoffBarHtml, bindSignoff, canSign,
 import { printPending } from '../ui/formprint.js';
 import { openAIImport, openAILog } from './ai-intake.js';
 import { mountTeamScope } from '../ui/teamscope.js';
-import { mountPersonScope } from '../ui/personscope.js';
+import { mountPersonScope, ownerSelectHtml } from '../ui/personscope.js';
 import { lastLogSpan, mountLogHover } from '../ui/loghover.js';
 import { listViewHtml, bindListView, applyListView } from '../ui/listview.js';
 
@@ -35,6 +35,7 @@ const COLUMNS = [
   { key: 'value_baht',    label: 'มูลค่า (บาท)', w: 130, num: true },
   { key: 'stage',         label: 'ขั้นตอน',      w: 150 },
   { key: 'close_month',   label: 'คาดปิด',       w: 100 },
+  { key: 'sale',          label: 'SALE (ผู้ดูแล)', w: 130, nosort: true },
   { key: 'team',          label: 'ทีม',          w: 90  },
   { key: 'next_date',     label: 'ทำภายใน',      w: 110 },
   { key: 'last_log',      label: 'ความคืบหน้าล่าสุด', w: 240, nosort: true },
@@ -119,10 +120,19 @@ function loadView() {
 }
 const saveView = (v) => { try { localStorage.setItem(LS_VIEW, JSON.stringify(v)); } catch {} };
 
+const LS_COLS_MIG = 'te-dashboard:pending-cols-mig-sale';
 function loadCols() {
   try {
     const saved = JSON.parse(localStorage.getItem(LS_COLS) || 'null');
-    if (Array.isArray(saved)) return new Set(saved);
+    if (Array.isArray(saved)) {
+      const set = new Set(saved);
+      // คอลัมน์ 'sale' เพิ่มภายหลัง — เผยให้ผู้ใช้เดิมเห็นครั้งเดียว แล้วเคารพการปิดของเขาต่อไป
+      if (!localStorage.getItem(LS_COLS_MIG)) {
+        set.add('sale');
+        try { localStorage.setItem(LS_COLS, JSON.stringify([...set])); localStorage.setItem(LS_COLS_MIG, '1'); } catch {}
+      }
+      return set;
+    }
   } catch {}
   return new Set(COLUMNS.map(c => c.key));
 }
@@ -159,7 +169,7 @@ function lastLogCell(row) {
   </div>`;
 }
 
-function cellOf(row, key) {
+function cellOf(row, key, ownerName) {
   switch (key) {
     case 'value_baht':  return baht(row.value_baht);
     case 'stage':       return stagePill(row.stage);
@@ -167,6 +177,9 @@ function cellOf(row, key) {
     case 'team':        return esc(row.teams?.code || '');
     case 'next_date':   return dueCell(row.next_date);
     case 'last_log':    return lastLogCell(row);
+    // SALE (ผู้ดูแล) — แก้ชื่อจากบัญชี · null = ยังไม่ระบุ/บัญชีถูกลบ → รอแอดมินกรอก
+    case 'sale':        return esc(ownerName ? ownerName(row.owner_id) : '')
+                          || '<span class="nolog">— ยังไม่ระบุ —</span>';
     default:            return esc(row[key]);
   }
 }
@@ -185,6 +198,9 @@ export default {
     let people = [], meId = null;
     try { people = await adapter.listProfiles(); } catch { /* เห็นคนเดียว/ไม่มีสิทธิ์ = ไม่โชว์ดรอปดาวน์ */ }
     try { meId = (await adapter.getSession())?.user?.id || null; } catch { /* ไม่รู้ว่าเป็นใครก็ยังใช้ได้ */ }
+    // แก้ owner_id (บัญชี) → ชื่อจากโปรไฟล์ปัจจุบัน · เปลี่ยนชื่อในตั้งค่าระบบแล้วอัปเดตตามทันที (ไม่ก๊อปชื่อลงแถว)
+    const peopleById = new Map((people || []).map(p => [p.id, p]));
+    const ownerName  = (id) => { const p = peopleById.get(id); return p ? (p.full_name || p.email || '') : ''; };
 
     root.innerHTML = `
       <div class="toolbar">
@@ -366,7 +382,7 @@ export default {
             <tbody>
               ${rows.map(r => `
                 <tr data-id="${esc(r.id)}" class="${r.is_active === false ? 'is-archived' : ''}">
-                  ${show.map(c => `<td class="${c.num ? 'num' : ''}">${cellOf(r, c.key)}</td>`).join('')}
+                  ${show.map(c => `<td class="${c.num ? 'num' : ''}">${cellOf(r, c.key, ownerName)}</td>`).join('')}
                 </tr>`).join('')}
             </tbody>
           </table>
@@ -384,6 +400,7 @@ export default {
                 <span>${mbaht(r.value_baht)} บาท</span>
                 <span>${esc(monthLabel(r.close_month) || 'ยังไม่ระบุเดือน')}</span>
               </div>
+              ${ownerName(r.owner_id) ? `<div class="pcard-sale">👤 ${esc(ownerName(r.owner_id))}</div>` : ''}
               ${r.next_date ? `<div class="pcard-due">ทำภายใน ${dueCell(r.next_date)}</div>` : ''}
               <div class="pcard-log">${lastLogCell(r)}</div>
             </div>`).join('')}
@@ -466,7 +483,7 @@ export default {
         return reload();
       }
       const hit = e.target.closest('[data-id]');
-      if (hit) openDetail(root.querySelector('#pPanel'), hit.dataset.id, reload, teams);
+      if (hit) openDetail(root.querySelector('#pPanel'), hit.dataset.id, reload, teams, people);
     });
 
     // การ์ดเป็น div (ไม่ใช่ button — จะซ้อนปุ่มบันทึกข้างในไม่ได้)
@@ -476,13 +493,13 @@ export default {
       const card = e.target.closest('.pcard');
       if (!card) return;
       e.preventDefault();
-      openDetail(root.querySelector('#pPanel'), card.dataset.id, reload, teams);
+      openDetail(root.querySelector('#pPanel'), card.dataset.id, reload, teams, people);
     });
 
     $('pNew').addEventListener('click', () =>
-      openDetail(root.querySelector('#pPanel'), null, reload, teams));
+      openDetail(root.querySelector('#pPanel'), null, reload, teams, people));
     $('pAI').addEventListener('click', () => openAIImport('pending', { onSaved: reload }));
-    $('pCsv').addEventListener('click', () => exportCsv(rows));
+    $('pCsv').addEventListener('click', () => exportCsv(rows, ownerName));
 
     await reload();
 
@@ -491,7 +508,7 @@ export default {
     const jump = sessionStorage.getItem('te:openRecord');
     if (jump) {
       sessionStorage.removeItem('te:openRecord');
-      openDetail(root.querySelector('#pPanel'), jump, reload, teams);
+      openDetail(root.querySelector('#pPanel'), jump, reload, teams, people);
     }
 
   },
@@ -635,6 +652,8 @@ const FORM = [
   { group: 'หัวฟอร์ม', fields: [
     // ทีมผู้ดูแลไว้บนสุด (ย้ายขึ้นตามคำสั่งเจ้าของ) — ค่าเริ่มต้น = ทีมของคนที่ล็อกอิน (แก้ได้)
     ['team_id',        'ทีมผู้ดูแล',                          'team'],
+    // SALE ผู้ดูแล = บัญชีผู้ใช้ (dropdown) · ค่าเริ่มต้น = คนที่ล็อกอิน · เก็บ owner_id ไม่ใช่ข้อความ
+    ['owner_id',       'SALE NAME (sale ผู้ดูแล)',            'owner'],
     ['pending_no',     'PENDING NO. (Sale code count)',      'text', 'เช่น PD-69-004'],
     ['project_name',   'ชื่องาน/โครงการ *',                   'text', 'เช่น ระบบประปาบาดาล อบต. …'],
     ['customer_name',  'ลูกค้า / หน่วยงาน',                    'text'],
@@ -676,9 +695,12 @@ const FORM = [
   ]},
 ];
 
-function fieldHtml([key, label, type, ph], row, teams) {
+function fieldHtml([key, label, type, ph], row, teams, people, meId) {
   const v = row?.[key] ?? '';
   const p = ph ? ` placeholder="${esc(ph)}"` : '';
+
+  if (type === 'owner')
+    return ownerSelectHtml(key, label, v, people, meId);
 
   if (type === 'area')
     return `<label class="fld fld-wide"><span>${esc(label)}</span>
@@ -710,7 +732,7 @@ function fieldHtml([key, label, type, ph], row, teams) {
     <input type="${t}" name="${key}" value="${esc(v)}"${p}${type === 'number' ? ' min="0" step="1"' : ''}></label>`;
 }
 
-async function openDetail(host, id, onSaved, teams) {
+async function openDetail(host, id, onSaved, teams, people) {
   let row = null;
   if (id) {
     host.innerHTML = '<div class="modal"><div class="modal-box"><div class="skeleton">กำลังโหลด…</div></div></div>';
@@ -728,8 +750,8 @@ async function openDetail(host, id, onSaved, teams) {
   const archived = row?.is_active === false;
   const me       = await whoAmI();
 
-  // งานใหม่: ตั้งทีมผู้ดูแลเริ่มต้น = ทีมของคนที่ล็อกอิน (เลือกเปลี่ยนได้) — ช่องอื่นยังว่างตามปกติ
-  const formRow = row || { team_id: me?.team_id || '' };
+  // งานใหม่: ตั้งทีม + SALE ผู้ดูแลเริ่มต้น = ทีม/บัญชีของคนที่ล็อกอิน (เลือกเปลี่ยนได้) — ช่องอื่นว่างตามปกติ
+  const formRow = row || { team_id: me?.team_id || '', owner_id: me?.id || '' };
 
   // ลายเซ็นหัวหน้า — ยังไม่ได้รัน signoffs.sql ก็ต้องเปิดฟอร์มได้ตามปกติ
   let soState = { kind: 'none' };
@@ -759,7 +781,7 @@ async function openDetail(host, id, onSaved, teams) {
             ${g.group === 'เงิน & เวลา' ? PRODUCT_SECTION : ''}
             <section class="fgroup">
               <h3>${esc(g.group)}</h3>
-              <div class="fgrid">${g.fields.map(f => fieldHtml(f, formRow, teams)).join('')}</div>
+              <div class="fgrid">${g.fields.map(f => fieldHtml(f, formRow, teams, people, me?.id)).join('')}</div>
             </section>`).join('')}
 
           <section class="fgroup">
@@ -1207,11 +1229,11 @@ async function openDetail(host, id, onSaved, teams) {
 // CSV
 // ══════════════════════════════════════════════════════════
 
-function exportCsv(rows) {
+function exportCsv(rows, ownerName) {
   const cols = [
     ['pending_no', 'PENDING NO.'], ['project_name', 'ชื่องาน'], ['customer_name', 'ลูกค้า'],
     ['site', 'SITE'], ['value_baht', 'มูลค่า'], ['stage', 'ขั้นตอน'],
-    ['close_month', 'เดือนคาดปิด'], ['decision_day', 'DECISION DAY'],
+    ['close_month', 'เดือนคาดปิด'], ['sale', 'SALE ผู้ดูแล'], ['decision_day', 'DECISION DAY'],
     ['purchased_day', 'PURCHASED DAY'], ['next_action', 'Next action'], ['next_date', 'ทำภายใน'],
   ];
 
@@ -1219,7 +1241,9 @@ function exportCsv(rows) {
   const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const head = cols.map(c => cell(c[1])).join(',');
   const body = rows.map(r => cols.map(([k]) =>
-    cell(k === 'stage' ? stageOf(r.stage).label : r[k])).join(',')).join('\r\n');
+    cell(k === 'stage' ? stageOf(r.stage).label
+       : k === 'sale'  ? (ownerName ? ownerName(r.owner_id) : '')
+       : r[k])).join(',')).join('\r\n');
 
   // ﻿ = BOM · ไม่ใส่แล้ว Excel บน Windows จะอ่านภาษาไทยเป็นตัวยึกยือ
   const blob = new Blob(['﻿' + head + '\r\n' + body], { type: 'text/csv;charset=utf-8;' });

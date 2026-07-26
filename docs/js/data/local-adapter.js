@@ -177,7 +177,11 @@ const localAdapter = {
       pending_products: (db.pending_products || []).filter(p => p.pending_id === id),
     };
   },
-  async savePending(r)  { return upsert('pending_projects', r); },
+  async savePending(r)  {
+    // งานใหม่: ค่าเริ่มต้น SALE ผู้ดูแล = คนที่ล็อกอิน (ให้ตรงกับ supabase-adapter)
+    if (!r.id && !r.owner_id) r = { ...r, owner_id: db.session?.user?.id || null };
+    return upsert('pending_projects', r);
+  },
 
   async archivePending(id, archived = true) {
     const row = db.pending_projects.find(r => r.id === id);
@@ -293,7 +297,11 @@ const localAdapter = {
     return { ...row, customer_logs: db.customer_logs.filter(l => l.customer_id === id) };
   },
 
-  async saveCustomer(r) { return upsert('customers', r); },
+  async saveCustomer(r) {
+    // ลูกค้าใหม่: ค่าเริ่มต้น SALE ผู้ดูแล = คนที่ล็อกอิน (Book 3 สี ใช้ sale_id)
+    if (!r.id && !r.sale_id) r = { ...r, sale_id: db.session?.user?.id || null };
+    return upsert('customers', r);
+  },
 
   async archiveCustomer(id, archived = true) {
     const row = db.customers.find(r => r.id === id);

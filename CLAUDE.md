@@ -304,8 +304,12 @@ _ถอดออกจากแผน 23 ก.ค. 2569 โดยเจ้าข�
    · `js/ui/signoff.js` (แถบลายเซ็น + ตรรกะ "ลายเซ็นค้าง")
    **ห้ามก๊อปโค้ดสองส่วนนี้ไปไว้ที่อื่น ให้ import ใช้** (เคยมีบั๊ก 2 ตัวในนั้น)
 🔎 **ตัวกรองขอบเขต Pending/Book3 = คอมโพเนนต์ร่วม 2 ตัว ใช้ต่อกัน (ทีม → คน) ห้ามก๊อป**
-   `js/ui/teamscope.js` (`mountTeamScope` · กรอง `team_id` + subtree) · `js/ui/personscope.js` (`mountPersonScope` · ดรอปดาวน์ กรอง **owner_id**)
-   ทั้งคู่คืน `{selected(), filter(rows)}` · โผล่เฉพาะเมื่อเห็น >1 ทีม/คน · เลือกรายคน **ห้ามใช้ `sale_name` (free text จับคู่พลาด)** — ใช้ owner_id เหมือนดรอปดาวน์เป้ารายคนบนหน้าภาพรวม
+   `js/ui/teamscope.js` (`mountTeamScope` · กรอง `team_id` + subtree) · `js/ui/personscope.js` (`mountPersonScope` · ดรอปดาวน์ กรองเจ้าของแถว + `ownerSelectHtml` = dropdown SALE ผู้ดูแลในฟอร์ม)
+   ทั้งคู่คืน `{selected(), filter(rows)}` · โผล่เฉพาะเมื่อเห็น >1 ทีม/คน · เลือกรายคน **ห้ามใช้ `sale_name` (free text จับคู่พลาด)** — ใช้ FK บัญชี เหมือนดรอปดาวน์เป้ารายคนบนหน้าภาพรวม
+👤 **"SALE ผู้ดูแล" = FK บัญชี คนละชื่อคอลัมน์ 2 ตาราง (กับดัก): Pending = `owner_id` · Book 3 สี = `sale_id`**
+   `mountPersonScope`/`fieldHtml` ต้องส่ง `ownerField:'sale_id'` ให้ Book3 (default 'owner_id') · dashboard มุมมองรายคน: งานกรอง owner_id · ลูกค้ากรอง sale_id
+   เก็บ **FK ไม่เก็บชื่อ** → resolve ชื่อจากโปรไฟล์ตอนแสดง (แก้ชื่อในตั้งค่า→อัปเดตทุกที่) · ทั้งคู่ `on delete set null` = บัญชีถูกลบ→FK เป็น null→โชว์ "ยังไม่ระบุ" รอ admin เลือกใหม่
+   ค่าเริ่มต้นงาน/ลูกค้าใหม่ = คนล็อกอิน (form preselect + `savePending`/`saveCustomer` insert เติมให้ · **ไม่ต้อง migration**) · `customers.sale_name` (text) เหลือไว้เป็น fallback ข้อมูลเก่าที่ยังไม่มี sale_id
 _1.7 ตรวจอัตโนมัติผ่าน 25/25 · เหลือทดสอบบนเครื่องจริง (iPhone/S24/iPad)_
 🔎 ตรวจ SQL ก่อนส่งด้วย `libpg-query` (parser ตัวจริงของ PostgreSQL) — เครื่องนี้ไม่มี Postgres
 📅 ทุกช่องวันที่ใช้ `docs/js/ui/datepicker.js` — **แสดง พ.ศ. · เก็บ ค.ศ.** ห้ามกลับไปใช้ `<input type="date">`
