@@ -406,5 +406,11 @@ _เสร็จแล้ว: 0.1 · 0.2 · 1.1–1.6 · 2.1–2.6 · 3.1–3.3 
    สเปคเก็บไว้ที่หัวข้อ "📦 แผนอัปเดตอนาคต" · **ห้ามดึงกลับเข้า roadmap เองโดยไม่ถามเจ้าของ**
 ⚠️ ต้องรัน `db/phase3-2.sql` ใน Supabase — ไม่งั้นแถบกลยุทธ์ยังไม่มีเนื้อหา และหน้าทีมขายเห็นสมาชิกแค่ทีมตัวเอง
 ⚠️ 1.4 ทดสอบด้วยโหมด local เท่านั้น — **ให้เจ้าของลองเพิ่มงานจริงบน Supabase เป็นอย่างแรก**
-⚠️ ต้องรัน `db/policies.sql` ใน Supabase ซ้ำ 1 รอบ เพื่อให้ `pending_delete` = admin เท่านั้นมีผลจริง
+🔴 **สิทธิ์อ่านข้ามทีม (team_access) เคยพังเพราะรัน `db/policies.sql` ซ้ำ (แก้ 27 ก.ค. 2569)**
+   `policies.sql` มี `can_access_team()` เวอร์ชันเก่า (เช็กแค่ `= my_team_id()` ไม่อ่าน team_access) · รันซ้ำ **ทับ** เวอร์ชันเต็มจาก phase3-10 → หัวหน้า (เช่น nanthawan) อ่านข้ามทีมไม่ได้ (เห็นได้เฉพาะเปลี่ยน role เป็น admin)
+   • **แก้แล้ว:** `policies.sql` ใส่ guard (`to_regclass('public.team_access')`) — ติดตั้งเวอร์ชันง่ายเฉพาะตอน team_access ยังไม่มี → รันซ้ำหลังตั้งระบบแล้ว **ไม่ทับอีก** (ทดสอบ PGlite 16/16)
+   • **ถ้าเจออาการนี้:** รัน **`db/fix-cross-team-access.sql`** 1 รอบใน Supabase → คืน can_access_team/can_edit_team + policy อ่าน(can_access_team)/เขียน(can_edit_team) ให้ถูก (idempotent)
+   • บทเรียน: `create or replace function` ในไฟล์ base ที่ถูก "ยกระดับ" ทีหลัง = กับดัก re-run · เวอร์ชันหลังต้องกันถูกทับ
+   • 🧪 ทดสอบ RLS ด้วย PGlite ต้อง shim `auth.uid()` + สร้าง role `authenticated` + `set role`/`set_config('request.jwt.claim.sub',...)` + ตัด `create extension pgcrypto` (PG16 มี gen_random_uuid ใน core)
+⚠️ ต้องรัน `db/policies.sql` (ครั้งแรกตามลำดับ) เพื่อให้ `pending_delete` = admin เท่านั้นมีผลจริง — รันซ้ำได้ปลอดภัยแล้ว
 _(เมื่อทำ step เสร็จ ให้อัปเดตบรรทัดนี้ เช่น "ล่าสุด: 1.3 เสร็จ, ถัดไป 1.4" แล้ว commit ไฟล์นี้)_

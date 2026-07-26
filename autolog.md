@@ -27,6 +27,18 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-27 · ยังไม่ commit · 🔴 แก้บั๊กสิทธิ์อ่านข้ามทีม (team_access) พัง — ต้องเป็น admin เท่านั้น
+**step:** — (เจ้าของแจ้งบั๊ก) | **ประเภท:** แก้บั๊ก (RLS/DB)
+- อาการ: ติ๊กให้หัวหน้า (nanthawan.s@dos.co.th) อ่านข้ามทีมได้ แต่กลับอ่านไม่ได้ · เห็นได้เฉพาะเปลี่ยน role เป็น admin
+- **ต้นเหตุ:** `db/policies.sql` (~บรรทัด 51) มี `can_access_team()` เวอร์ชันเก่า (เช็กแค่ `= my_team_id()` **ไม่อ่าน team_access เลย**) · phase2-4/phase3-10 ยกระดับฟังก์ชันนี้ทีหลัง · พอรัน policies.sql ซ้ำ (ตามโน้ตเดิมที่ให้รันซ้ำแก้ pending_delete) `create or replace` เลย**ทับ**เวอร์ชันเต็มด้วยเวอร์ชันโง่ → สิทธิ์ข้ามทีมพังทั้งระบบ (is_admin ยังผ่าน = ดูเหมือน "ต้อง admin เท่านั้น")
+- Admin UI + adapter (`setTeamAccess`/`listTeamAccess`) **ถูกต้องอยู่แล้ว** — บั๊กอยู่ที่ DB ล้วน ๆ ไม่แตะ frontend
+- **แก้:**
+  1. `db/fix-cross-team-access.sql` (ใหม่) — คืน `can_access_team()` (อ่าน team_access + ไล่ทีมแม่) + `can_edit_team()` + policy อ่าน(can_access_team)/เขียน(can_edit_team) ของทุกตารางหลัก · idempotent · guard pending_products/team_targets ด้วย to_regclass เผื่อยังไม่ได้รัน phase นั้น → **เจ้าของต้องรันไฟล์นี้ 1 รอบใน Supabase**
+  2. `db/policies.sql` — ใส่ guard: ติดตั้ง can_access_team เวอร์ชันง่าย **เฉพาะตอน team_access ยังไม่มี** (`to_regclass('public.team_access') is null`) → รันซ้ำหลังตั้งระบบแล้วไม่ทับอีก (ปิดกับดักถาวร)
+- **ไม่แตะ frontend · ไม่ bump VERSION**
+**ไฟล์:** db/fix-cross-team-access.sql (ใหม่) · db/policies.sql · CLAUDE.md · autolog.md
+**ทดสอบ:** PGlite (Postgres จริง PG16) รันไฟล์ db/ ตามลำดับจริง + shim auth.uid()/role authenticated → **16/16 ผ่าน** · จำลองบั๊ก (ทับด้วยเวอร์ชันเก่า → เห็นแค่ทีมตัวเอง) → รันไฟล์แก้ → เห็นข้ามทีมได้อีก (รวมทีมแม่→ทีมลูก) · แก้แยกตาม can_edit · patch policies.sql รันซ้ำไม่พัง
+
 ## 2026-07-26 · ยังไม่ commit · field "SALE NAME (ผู้ดูแล)" เป็น dropdown บัญชี · Pending + Book 3 สี
 **step:** — (เจ้าของขอเพิ่ม) | **ประเภท:** ฟีเจอร์
 - เจ้าของขอ: field SALE NAME กรอกด้วย dropdown ชื่อตามบัญชีที่มี · default = คนที่ล็อกอิน · เปลี่ยนชื่อในตั้งค่า→เปลี่ยนตามใน DB · sale ถูกลบ→blank รอ admin เลือกผู้ดูแลใหม่

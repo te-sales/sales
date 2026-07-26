@@ -48,14 +48,30 @@ $$;
 
 -- แถวนี้เข้าถึงได้ไหม: admin ได้หมด · sale ได้เฉพาะทีมตัวเอง
 -- team_id ว่าง = งานที่ยังไม่ระบุทีม เห็นได้เฉพาะ admin
-create or replace function can_access_team(target_team uuid)
-returns boolean
-language sql
-stable
-set search_path = public
-as $$
-  select is_admin() or (target_team is not null and target_team = my_team_id());
-$$;
+--
+-- 🔴 กับดักที่เคยทำสิทธิ์ข้ามทีมพัง (แก้ 27 ก.ค. 2569):
+--    can_access_team() ถูก "ยกระดับ" ใน phase2-4.sql (เพิ่ม team_access) และ phase3-10.sql
+--    (เพิ่มไล่ทีมแม่).  ถ้ารัน policies.sql ซ้ำ "หลังจากนั้น" `create or replace` ด้านล่าง
+--    จะทับเวอร์ชันเต็มด้วยเวอร์ชันง่าย (ไม่อ่าน team_access) → หัวหน้าอ่านข้ามทีมไม่ได้อีก
+--    → จึงติดตั้งเวอร์ชันง่าย **เฉพาะตอน team_access ยังไม่มี** (การรันครั้งแรกตามลำดับ)
+--      ถ้า team_access มีแล้ว = phase2-4/phase3-10 รันไปแล้ว → ไม่แตะ ปล่อยเวอร์ชันเต็มไว้
+--    (ถ้าเผลอทับไปแล้ว รัน db/fix-cross-team-access.sql เพื่อคืนสภาพ)
+do $guard$
+begin
+  if to_regclass('public.team_access') is null then
+    execute $ddl$
+      create or replace function can_access_team(target_team uuid)
+      returns boolean
+      language sql
+      stable
+      set search_path = public
+      as $fn$
+        select is_admin() or (target_team is not null and target_team = my_team_id());
+      $fn$;
+    $ddl$;
+  end if;
+end
+$guard$;
 
 -- ══════════════════════════════════════════════════════════
 -- กันยกระดับสิทธิ์ตัวเอง
