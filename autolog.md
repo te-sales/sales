@@ -27,6 +27,14 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-26 · ยังไม่ commit · แก้ daily-backup: 403 อ่าน profiles (legacy service key ใช้ไม่ได้)
+**step:** — (แก้บั๊ก task 5 ต่อ) | **ประเภท:** แก้บั๊ก (Edge Function เท่านั้น · ไม่แตะ frontend)
+- reason ที่ได้: "อ่าน profiles ไม่ได้ (403)" → token ผ่าน แต่ service key อ่านตารางโดน 403 → ตกเป็น role anon (ถูก revoke) → โปรเจกต์ใช้ API key ใหม่ (sb_publishable) legacy service role ใช้ไม่ได้
+- แก้: ① checkAdmin ใช้ creds ผู้ใช้เอง (Authorization+apikey ที่ frontend ส่ง) อ่าน profile ตัวเอง (RLS ยอมแถวตัวเอง) — ไม่พึ่ง service key ② `SECRET = SB_SECRET_KEY || SERVICE_ROLE` ใช้กับ dumpAll/logBackup ③ dumpAll เจอ 401/403 → throw ชัด (กัน backup ว่างเปล่าเงียบ ๆ)
+- **เจ้าของต้องทำ:** เปิด Legacy API keys ใน Supabase (ง่ายสุด) **หรือ** สร้าง Secret key (sb_secret_) ตั้ง secret `SB_SECRET_KEY` → แล้ว re-deploy ฟังก์ชัน
+**ไฟล์:** supabase/functions/daily-backup/index.ts · README.md (ไม่แตะ docs/ · ไม่ bump เวอร์ชัน)
+**ทดสอบ:** ทดสอบจริงไม่ได้ในเครื่อง (Deno/Google) — ตรวจโค้ด · รอเจ้าของ re-deploy + กดยืนยัน
+
 ## 2026-07-26 · ยังไม่ commit · แก้ daily-backup: ตรวจ admin ทนขึ้น + คืนเหตุผล — v0.53.0
 **step:** — (แก้บั๊ก task 5) | **ประเภท:** แก้บั๊ก
 - อาการ: เจ้าของ login admin แล้วกด "สำรองเดี๋ยวนี้" ได้ 401 "ต้องเป็นผู้ดูแลระบบ" (isAdmin ใน Edge Function คืน false)

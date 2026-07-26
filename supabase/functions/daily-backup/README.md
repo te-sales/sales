@@ -28,6 +28,7 @@
 > (ต้องมี Workspace) แล้วเอา Folder ID ของ Shared Drive มาใส่แทน
 
 ### 3) ตั้ง secrets ใน Supabase
+ตั้งได้ที่ **Dashboard → Edge Functions → Secrets** (หรือ CLI):
 ```bash
 supabase secrets set GOOGLE_SA_EMAIL="xxx@yyy.iam.gserviceaccount.com"
 supabase secrets set GOOGLE_SA_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
@@ -36,7 +37,17 @@ supabase secrets set GOOGLE_SA_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
 supabase secrets set GDRIVE_FOLDER_ID="<FOLDER_ID>"
 supabase secrets set BACKUP_CRON_SECRET="<สุ่มข้อความยาว ๆ เก็บไว้ใช้ตอนตั้ง cron>"
 ```
-(`SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` — Supabase ใส่ให้อัตโนมัติ ไม่ต้องตั้ง)
+(`SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` — Supabase ใส่ให้อัตโนมัติ)
+
+> 🔑 **สำคัญ (โปรเจกต์ที่ใช้ API key ใหม่ `sb_publishable_` / ปิด Legacy keys):**
+> `SUPABASE_SERVICE_ROLE_KEY` (legacy) ที่ Supabase ใส่ให้อาจใช้ไม่ได้ → อ่านตารางไม่ผ่าน (403)
+> เลือกทำ **อย่างใดอย่างหนึ่ง**:
+> - **ง่ายสุด:** Supabase → **Settings → API Keys → เปิด (enable) Legacy API keys** — เท่านี้ service role ทำงานได้เลย
+> - **หรือ (แนวใหม่):** สร้าง **Secret key** (`sb_secret_…`) ที่ Settings → API Keys → ตั้งเป็น secret ชื่อ **`SB_SECRET_KEY`**
+>   ```bash
+>   supabase secrets set SB_SECRET_KEY="sb_secret_..."
+>   ```
+>   (ฟังก์ชันจะใช้ `SB_SECRET_KEY` ก่อน ถ้าไม่มีค่อยตกไป legacy service role)
 
 ### 4) deploy Edge Function
 ```bash

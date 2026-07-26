@@ -28,6 +28,9 @@ const SA_EMAIL     = Deno.env.get("GOOGLE_SA_EMAIL") || "";
 const SA_KEY       = Deno.env.get("GOOGLE_SA_PRIVATE_KEY") || "";
 const FOLDER       = Deno.env.get("GDRIVE_FOLDER_ID") || "";
 const CRON_SECRET  = Deno.env.get("BACKUP_CRON_SECRET") || "";
+// คีย์อ่านทุกตาราง (ข้าม RLS): ใช้ secret key ใหม่ (sb_secret_) ถ้ามี ไม่งั้นตกไป legacy service role
+//   โปรเจกต์ที่ใช้ API key ใหม่และปิด legacy → legacy service role ใช้ไม่ได้ ต้องตั้ง SB_SECRET_KEY
+const SECRET = Deno.env.get("SB_SECRET_KEY") || SERVICE_KEY;
 
 // ทุกตารางที่ดึงลง backup — ตรงกับ BACKUP_TABLES ใน supabase-adapter.js + เพิ่มตารางใหม่ (sale_targets/news_reports)
 // รูปแบบไฟล์ต้อง restore กลับได้ด้วย docs/tools/import-json.html (ข้าม profiles/team_access/signoffs ตอนกู้)
@@ -38,37 +41,43 @@ const BACKUP_TABLES = [
   "lead_sources", "expo_customers", "signoffs", "intake_items", "news_reports", "app_settings",
 ];
 
-const svc = { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` };
+const svc = { apikey: SECRET, Authorization: `Bearer ${SECRET}` };
 
-// ── ตรวจว่าเป็น admin จริง (สำหรับปุ่ม manual) — คืน "เหตุผล" ด้วยถ้าไม่ผ่าน จะได้ไล่ปัญหาได้ ──
-async function checkAdmin(auth: string | null): Promise<{ ok: boolean; reason?: string }> {
+// ── ตรวจว่าเป็น admin จริง (สำหรับปุ่ม manual) ──
+// ใช้ "creds ของผู้ใช้เอง" (Authorization + apikey ที่ frontend ส่งมา) อ่าน profile ของตัวเอง
+//   RLS ยอมให้อ่านแถวตัวเอง (id = auth.uid()) → ได้ role โดยไม่ต้องพึ่ง service key (กันปัญหา 403 จาก legacy key)
+async function checkAdmin(auth: string | null, apikey: string | null): Promise<{ ok: boolean; reason?: string }> {
   if (!auth) return { ok: false, reason: "ไม่มี Authorization header" };
-  // ยืนยัน token ด้วย /auth/v1/user — ลอง apikey ทั้ง anon และ service (รองรับทั้ง legacy key และโปรเจกต์ที่ปิด legacy)
+  const key = apikey || ANON || SECRET;
   let uid = "";
-  for (const key of [ANON, SERVICE_KEY]) {
-    if (!key) continue;
-    try {
-      const u = await fetch(`${SUPA_URL}/auth/v1/user`, { headers: { Authorization: auth, apikey: key } });
-      if (u.ok) { uid = (await u.json())?.id || ""; if (uid) break; }
-    } catch { /* ลองคีย์ถัดไป */ }
-  }
-  if (!uid) return { ok: false, reason: "ยืนยัน token ไม่ผ่าน (auth/v1/user) — ตรวจว่ายัง login อยู่ / เปิด legacy API keys" };
   try {
-    const pr = await fetch(`${SUPA_URL}/rest/v1/profiles?id=eq.${uid}&select=role`, { headers: svc });
-    if (!pr.ok) return { ok: false, reason: `อ่าน profiles ไม่ได้ (${pr.status})` };
+    const u = await fetch(`${SUPA_URL}/auth/v1/user`, { headers: { Authorization: auth, apikey: key } });
+    if (!u.ok) return { ok: false, reason: `ยืนยัน token ไม่ผ่าน (auth/v1/user ${u.status}) — login ใหม่แล้วลองอีกครั้ง` };
+    uid = (await u.json())?.id || "";
+  } catch { return { ok: false, reason: "เรียก auth/v1/user ไม่สำเร็จ" }; }
+  if (!uid) return { ok: false, reason: "หา user id ไม่เจอจาก token" };
+  try {
+    const pr = await fetch(`${SUPA_URL}/rest/v1/profiles?id=eq.${uid}&select=role`, {
+      headers: { Authorization: auth, apikey: key },   // creds ผู้ใช้ (ไม่ใช่ service key)
+    });
+    if (!pr.ok) return { ok: false, reason: `อ่าน profile ตัวเองไม่ได้ (${pr.status})` };
     const role = (await pr.json())?.[0]?.role;
     return role === "admin" ? { ok: true } : { ok: false, reason: `บัญชีนี้ role='${role ?? "ไม่พบแถว profiles"}' ไม่ใช่ admin` };
-  } catch { return { ok: false, reason: "อ่าน profiles ล้มเหลว" }; }
+  } catch { return { ok: false, reason: "อ่าน profile ตัวเองล้มเหลว" }; }
 }
 
 // ── ดึงทุกตารางด้วย service_role (ข้าม RLS) ──
 async function dumpAll(): Promise<Record<string, unknown[]>> {
   const out: Record<string, unknown[]> = {};
   for (const t of BACKUP_TABLES) {
-    try {
-      const r = await fetch(`${SUPA_URL}/rest/v1/${t}?select=*&limit=100000`, { headers: svc });
-      out[t] = r.ok ? await r.json() : [];
-    } catch { out[t] = []; }
+    const r = await fetch(`${SUPA_URL}/rest/v1/${t}?select=*&limit=100000`, { headers: svc });
+    if (r.ok) { out[t] = await r.json(); continue; }
+    // 401/403 = คีย์อ่านไม่ผ่าน → ห้าม backup ว่างเปล่าแบบเงียบ ๆ ต้องฟ้อง
+    if (r.status === 401 || r.status === 403) {
+      throw new Error(`อ่านตาราง "${t}" ไม่ได้ (${r.status}) — service/secret key ใช้ไม่ได้: ` +
+        `เปิด Legacy API keys ใน Supabase (Settings → API Keys) หรือใส่ secret SB_SECRET_KEY = คีย์แบบ sb_secret_…`);
+    }
+    out[t] = [];   // 404 = ตารางยังไม่ถูกสร้าง ข้ามได้
   }
   return out;
 }
@@ -143,7 +152,7 @@ Deno.serve(async (req: Request) => {
   const viaCron = !!CRON_SECRET && req.headers.get("x-backup-secret") === CRON_SECRET;
   const triggered_by = viaCron ? "cron" : "manual";
   if (!viaCron) {
-    const chk = await checkAdmin(req.headers.get("authorization"));
+    const chk = await checkAdmin(req.headers.get("authorization"), req.headers.get("apikey"));
     if (!chk.ok) return json({ error: "ต้องเป็นผู้ดูแลระบบ (หรือ cron secret ถูกต้อง)", reason: chk.reason }, 401);
   }
   if (!SA_EMAIL || !SA_KEY) {
