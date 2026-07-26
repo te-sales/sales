@@ -595,6 +595,17 @@ const supabaseAdapter = {
     return rows[0];
   },
 
+  async deleteFollowLog(id) {
+    // ลบได้เฉพาะบันทึกที่ตัวเองเขียน (หรือ admin) — บังคับที่ RLS (follow_delete)
+    // return=representation → ถ้า RLS ปฏิเสธจะได้ 0 แถว (ลบเงียบ ๆ) ต้องดักเอง
+    const rows = await rest(`/follow_logs?id=eq.${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=representation' },
+    });
+    if (!rows?.length) throw new Error('ลบบันทึกนี้ไม่ได้ — ลบได้เฉพาะบันทึกที่ตัวเองเขียน');
+    return true;
+  },
+
   // ---------- B6 Dashboard ----------
 
   /**
@@ -777,6 +788,16 @@ const supabaseAdapter = {
     });
     if (!rows?.length) throw new Error('แก้บันทึกนี้ไม่ได้ — แก้ได้เฉพาะบันทึกที่ตัวเองเขียน');
     return rows[0];
+  },
+
+  async deleteCustomerLog(id) {
+    // ลบได้เฉพาะบันทึกที่ตัวเองเขียน (หรือ admin) — บังคับที่ RLS (clog_delete)
+    const rows = await rest(`/customer_logs?id=eq.${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=representation' },
+    });
+    if (!rows?.length) throw new Error('ลบบันทึกนี้ไม่ได้ — ลบได้เฉพาะบันทึกที่ตัวเองเขียน');
+    return true;
   },
 
   // ---------- B4 · Activities (step 2.1) ----------

@@ -171,8 +171,18 @@ function readHashError() {
   } catch { return null; }
 }
 
+// ⚡ บันทึกเร็ว (P11) — เปิดจากปุ่มบนแถบหัว และปุ่มในเมนู (ระหว่าง Book 3 กับ แผนติดต่อ)
+function openQL() {
+  openQuickLog({
+    onSaved:  () => { if (current) render(current); },   // บันทึกแล้ว refresh หน้าปัจจุบัน
+    navigate: (v) => render(v),                           // "เปิดฟอร์มเต็ม" → ไปหน้านั้น + วาดใหม่เสมอ
+  });
+}
+
 function bindNav() {
   document.querySelectorAll('.nav-item, .bn').forEach(btn => {
+    // ปุ่มบันทึกด่วนในเมนู = action ไม่ใช่ view → เปิด modal แทนการเปลี่ยนหน้า
+    if (btn.hasAttribute('data-quicklog')) { btn.addEventListener('click', openQL); return; }
     btn.addEventListener('click', () => render(btn.dataset.view));
   });
   window.addEventListener('hashchange', () => {
@@ -293,11 +303,7 @@ async function boot() {
   document.getElementById('logoutBtn')?.addEventListener('click', signOut);
   document.getElementById('logoutBtnTop')?.addEventListener('click', signOut);
   document.getElementById('themeBtn')?.addEventListener('click', openThemePicker);
-  // ⚡ บันทึกเร็ว (P11) — บันทึกหลัง refresh หน้าปัจจุบัน · เปิดฟอร์มเต็มผ่าน render(view)
-  document.getElementById('quickLogBtn')?.addEventListener('click', () => openQuickLog({
-    onSaved:  () => { if (current) render(current); },
-    navigate: (v) => render(v),
-  }));
+  document.getElementById('quickLogBtn')?.addEventListener('click', openQL);   // ⚡ บันทึกเร็ว (แถบหัว)
 
   try {
     const info = await initAdapter();

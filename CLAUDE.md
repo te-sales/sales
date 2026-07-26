@@ -366,7 +366,10 @@ _1.7 ตรวจอัตโนมัติผ่าน 25/25 · เหลื�
 🤖 **AI Intake (3.5): ข้อมูลลง staging (`intake_items`) ก่อนเสมอ ห้ามเขียนตารางจริงตรง ๆ**
    เขียนจริงตอน "บันทึกเข้าระบบ" ผ่าน `savePending`/`saveCustomer` ตัวเดิม (RLS ปกติ) แล้ว `approveIntake` ปิด draft→merged
    · แถว `status='merged'` + `target_id` + `approved_by` = ล็อกการนำเข้าในตัว (หลักฐานว่าอะไรมาจากเอกสารไหน ใครอนุมัติ)
-⚡ **Quick-log (P11 · `docs/js/modules/quicklog.js`) — ปุ่ม "บันทึกเร็ว" บนแถบหัว (`#quickLogBtn` ใน app.js)**
+🗑 **ลบ log ได้เฉพาะของตัวเอง · admin ลบได้หมด** (เจ้าของสั่ง 26 ก.ค. 2569) — RLS `follow_delete`/`clog_delete` มีอยู่แล้ว (own or admin) ไม่ต้อง migration
+   · UI = ปุ่ม "🗑 ลบบันทึก" ในกล่องแก้ไข (`loglist.js` `bindLogEditing` รับ `deleteFn`) กด 2 ครั้งยืนยัน (ลบแล้วกู้ไม่ได้)
+   · ปุ่มโผล่เฉพาะกล่องแก้ไข ซึ่งเปิดได้เฉพาะ `canEditLog` (own/admin) อยู่แล้ว → กันคนอื่นลบของเราทั้ง UI + DB
+⚡ **Quick-log (P11 · `docs/js/modules/quicklog.js`) — ปุ่ม "บันทึกด่วน" 2 จุด: แถบหัว (`#quickLogBtn`) + เมนู (`[data-quicklog]` ระหว่าง Book3/แผนติดต่อ · sidebar+bottombar) → ทั้งคู่เรียก `openQL()` ใน app.js**
    ประตูบันทึกจุดเดียว: แท็บ Book3/Pending → ค้นหาของเดิม/สร้างใหม่ (ฟอร์มสั้น) → ลง log · **ใช้โค้ดเดิมซ้ำหมด** (listCustomers/listPending · loglist · addCustomerLog/addFollowLog · saveCustomer/savePending · openAILog · COLORS/STAGES) **ห้ามก๊อปซ้ำ**
    · "เปิดฟอร์มเต็ม" = jump ผ่าน `sessionStorage 'te:openRecord'` แล้ว navigate · ติ๊กสร้าง activity(+7) จาก next_doing · **MVP ออนไลน์เท่านั้น** (ออฟไลน์คิว-sync = เฟส 2 ใน UPDATE-PLAN.md)
 🧠 **ทุกจุดที่ AI ช่วยบันทึก ใช้ชิ้นส่วนร่วมกันใน `ai-intake.js` — อัปเดตที่เดียว ทุกปุ่มได้เท่ากัน** (เจ้าของสั่ง 25 ก.ค. 2569)

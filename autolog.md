@@ -27,6 +27,18 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-26 · ยังไม่ commit · ปุ่มบันทึกด่วนในเมนู + ลบ log ของตัวเอง + ชิป BY ใหม่ — v0.45.0
+**step:** — | **ประเภท:** ฟีเจอร์ + แก้ UI (คำขอเจ้าของ 3 ข้อ)
+- **① ปุ่มบันทึกด่วนในเมนู** (`[data-quicklog]`) แทรกระหว่าง Book 3 กับ แผนติดต่อ (sidebar + bottombar) · เด่น (accent) · ปุ่มแถบหัวเดิมคงไว้ + ขยาย ~20% (`#quickLogBtn` font 15px)
+  · app.js: `openQL()` ใช้ร่วม 2 จุด · bindNav ข้าม `[data-quicklog]` (เปิด modal ไม่เปลี่ยนหน้า)
+- **② ลบ log ของตัวเองได้ (admin ลบหมด)** — RLS `follow_delete`/`clog_delete` มี own-or-admin อยู่แล้ว **ไม่ต้อง migration**
+  · เพิ่ม adapter `deleteFollowLog`/`deleteCustomerLog` (facade+supabase[return=representation ดัก RLS เงียบ]+local[เช็ก created_by])
+  · `loglist.js bindLogEditing` รับ `deleteFn` → ปุ่ม "🗑 ลบบันทึก" ในกล่องแก้ไข กด 2 ครั้งยืนยัน · ต่อ deleteFn ทุก call ใน book3/pending
+  · กันคนอื่นลบของเรา: ปุ่มอยู่ในกล่องแก้ไข (เปิดได้เฉพาะ canEditLog own/admin) + RLS อีกชั้น
+- **③ ชิป BY (Quick-log):** เพิ่ม "ประชุมออนไลน์" · ตัด "นัด demo"/"ทวงถาม" ออก
+**ไฟล์:** index.html · app.js · css/app.css · adapter.js · supabase-adapter.js · local-adapter.js · ui/loglist.js · modules/book3.js · modules/pending.js · modules/quicklog.js · config.js+sw.js (v0.45.0) · CLAUDE.md · WishtoHave.md
+**ทดสอบ:** navdel-test 13/13 (เมนู·ไม่เปลี่ยนหน้า·ชิปใหม่·แถบหัว 15px·ลบ log จริง) + quicklog 19/19 + ailog 19/19 + aisrc 13/13 · ไม่มี JS error/rejection
+
 ## 2026-07-26 · ยังไม่ commit · เปลี่ยน label BY: "ใครติดตาม" → "ช่องทางติดต่อ" — v0.44.0
 **step:** — | **ประเภท:** แก้ UI (คำขอเจ้าของ — ช่อง BY คือวิธี/ช่องทางติดต่อ ไม่ใช่ชื่อคนติดตาม)
 - เปลี่ยน label ทุกจุด: `BY — ใครติดตาม` / `BY (ใคร)` → **`BY — ช่องทางติดต่อ`** + placeholder "เช่น โทร / เข้าพบ / ไลน์"

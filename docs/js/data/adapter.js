@@ -65,6 +65,7 @@ export const adapter = {
   listFollowLogs:    (pid)   => need().listFollowLogs(pid),
   addFollowLog:      (log)   => need().addFollowLog(log),
   updateFollowLog:   (id, p) => need().updateFollowLog(id, p),
+  deleteFollowLog:   (id)    => need().deleteFollowLog(id),
 
   // B3 book 3 สี
   listCustomers:     (opt)   => need().listCustomers(opt),
@@ -78,6 +79,7 @@ export const adapter = {
   listCustomerLogs:  (cid)   => need().listCustomerLogs(cid),
   addCustomerLog:    (log)   => need().addCustomerLog(log),
   updateCustomerLog: (id, p) => need().updateCustomerLog(id, p),
+  deleteCustomerLog: (id)    => need().deleteCustomerLog(id),
 
   // B4 activities
   listActivities:    (opt)   => need().listActivities(opt),

@@ -21,7 +21,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m =>
 const norm   = (s) => String(s ?? '').trim().toLowerCase();
 const digits = (s) => String(s ?? '').replace(/\D/g, '');
 
-const CHANNELS = ['โทร', 'เข้าพบ', 'ไลน์', 'อีเมล', 'ส่งใบเสนอราคา', 'นัด demo', 'ทวงถาม'];
+const CHANNELS = ['โทร', 'เข้าพบ', 'ไลน์', 'อีเมล', 'ส่งใบเสนอราคา', 'ประชุมออนไลน์'];
 const LS_TAB = 'te-dashboard:quicklog-tab';   // จำแท็บล่าสุด
 
 // ── ตั้งค่าต่อปลายทาง (customer = Book 3 สี · pending = Pending Project) ──

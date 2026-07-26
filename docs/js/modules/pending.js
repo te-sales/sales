@@ -552,10 +552,10 @@ async function openQuickLog(host, pendingId, onSaved) {
     const ul = q('#qLogList');
     if (!ul) return;
     ul.innerHTML = logListHtml(fresh, me);
-    bindLogEditing(ul, fresh, adapter.updateFollowLog, reloadQLogs);
+    bindLogEditing(ul, fresh, adapter.updateFollowLog, reloadQLogs, adapter.deleteFollowLog);
     await onSaved();
   }
-  if (logs.length) bindLogEditing(q('#qLogList'), logs, adapter.updateFollowLog, reloadQLogs);
+  if (logs.length) bindLogEditing(q('#qLogList'), logs, adapter.updateFollowLog, reloadQLogs, adapter.deleteFollowLog);
 
   q('#qForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -906,11 +906,11 @@ async function openDetail(host, id, onSaved, teams) {
     ul.innerHTML = logListHtml(fresh, me);
     const cnt = q('#logCount');
     if (cnt) cnt.textContent = fresh.length;
-    bindLogEditing(ul, fresh, adapter.updateFollowLog, reloadLogs);
+    bindLogEditing(ul, fresh, adapter.updateFollowLog, reloadLogs, adapter.deleteFollowLog);
     await onSaved();                       // อัปเดตตารางข้างหลังด้วย
   }
 
-  if (id) bindLogEditing(q('#logList'), logs, adapter.updateFollowLog, reloadLogs);
+  if (id) bindLogEditing(q('#logList'), logs, adapter.updateFollowLog, reloadLogs, adapter.deleteFollowLog);
 
   /** อ่านช่องบันทึกติดตามที่พิมพ์ค้างไว้ — คืน null ถ้ายังไม่ได้พิมพ์อะไร */
   function draftLog() {

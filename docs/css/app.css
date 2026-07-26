@@ -280,6 +280,15 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 .nav-item:hover { background: var(--bg-hover); color: var(--text); }
 .nav-item.is-active { background: var(--accent-soft); color: var(--accent-text); }
 
+/* ⚡ ปุ่มบันทึกด่วนในเมนู — เด่นกว่าเมนูอื่น เข้าถึงง่าย (ระหว่าง Book 3 กับ แผนติดต่อ) */
+.nav-quicklog {
+  background: var(--accent-soft); color: var(--accent-text);
+  border: 1px solid var(--accent);
+  font-size: 15px; font-weight: 600; padding: 11px 10px; margin: 2px 0;
+}
+.nav-quicklog:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); color: var(--text); }
+.nav-quicklog .ico { opacity: 1; font-size: 16px; }
+
 .sidebar-foot { margin-top: auto; padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 6px; }
 .mode-chip {
   align-self: flex-start;
@@ -402,6 +411,9 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
   }
   .bn span { font-size: 15px; line-height: 1; }
   .bn.is-active { color: var(--accent-text); background: var(--accent-soft); }
+  /* ⚡ บันทึกด่วน ในแถบล่างมือถือ — เด่นให้เห็นง่าย แม้ไม่ได้เลือกอยู่ */
+  .bn-quicklog { color: var(--accent-text); font-weight: 700; }
+  .bn-quicklog span { transform: scale(1.15); }
 }
 
 /* ═══════════════════════════════════════════════════
@@ -519,6 +531,9 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 /* flex-wrap + justify-end: พอมีชิปชื่อผู้ใช้เพิ่ม แถวขวาจะยาวเกินจอมือถือ
    ต้องปล่อยให้ห่อลงบรรทัดใหม่ ไม่งั้นล้นจนมีแถบเลื่อนแนวนอน (บทเรียนเดิมจาก .topbar-left) */
 .topbar-right { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0; }
+
+/* ⚡ ปุ่มบันทึกเร็วบนแถบหัว — ใหญ่กว่า btn-sm ปกติ ~20% (เจ้าของขอ) */
+#quickLogBtn { font-size: 15px; padding: 6px 13px; min-height: 38px; }
 
 /* ชิปชื่อผู้ใช้ที่ล็อกอิน บนแถบหัว — ให้เห็นว่าอยู่ account ของใครทุกขนาดจอ */
 .topuser {
@@ -797,6 +812,7 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 .log-edit-box input:focus, .log-edit-box textarea:focus { outline: none; border-color: var(--accent); }
 .log-edit-box textarea { resize: vertical; }
 .log-edit-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.log-edit-foot .lg-foot-sp { flex: 1; }   /* ดันปุ่มลบไปซ้าย · ยกเลิก/บันทึก อยู่ขวา */
 
 @media (max-width: 1024px) { .log-edit-box .fgrid { grid-template-columns: 1fr; } }
 

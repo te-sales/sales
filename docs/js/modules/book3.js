@@ -348,10 +348,10 @@ async function openQuickLog(host, customerId, onSaved) {
     const ul = q('#bqLogList');
     if (!ul) return;
     ul.innerHTML = logListHtml(fresh, me);
-    bindLogEditing(ul, fresh, adapter.updateCustomerLog, reloadLogs);
+    bindLogEditing(ul, fresh, adapter.updateCustomerLog, reloadLogs, adapter.deleteCustomerLog);
     await onSaved();
   }
-  if (logs.length) bindLogEditing(q('#bqLogList'), logs, adapter.updateCustomerLog, reloadLogs);
+  if (logs.length) bindLogEditing(q('#bqLogList'), logs, adapter.updateCustomerLog, reloadLogs, adapter.deleteCustomerLog);
 
   q('#bqForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -591,10 +591,10 @@ async function openDetail(host, id, onSaved, teams) {
     ul.innerHTML = logListHtml(fresh, me);
     const cnt = q('#bLogCount');
     if (cnt) cnt.textContent = fresh.length;
-    bindLogEditing(ul, fresh, adapter.updateCustomerLog, reloadLogs);
+    bindLogEditing(ul, fresh, adapter.updateCustomerLog, reloadLogs, adapter.deleteCustomerLog);
     await onSaved();
   }
-  if (id) bindLogEditing(q('#bLogList'), logs, adapter.updateCustomerLog, reloadLogs);
+  if (id) bindLogEditing(q('#bLogList'), logs, adapter.updateCustomerLog, reloadLogs, adapter.deleteCustomerLog);
 
   q('#blAdd')?.addEventListener('click', async () => {
     const d = readLogForm(host, 'bl');

@@ -59,9 +59,11 @@ export function logListHtml(logs, me) {
  * @param host     element ที่มี [data-edit] อยู่ข้างใน
  * @param logs     รายการบันทึกชุดเดียวกับที่วาด
  * @param updateFn (id, patch) => Promise — เช่น adapter.updateFollowLog / updateCustomerLog
- * @param onSaved  เรียกหลังบันทึกสำเร็จ (ผู้เรียกวาดรายการใหม่เอง)
+ * @param onSaved  เรียกหลังบันทึก/ลบสำเร็จ (ผู้เรียกวาดรายการใหม่เอง)
+ * @param deleteFn (id) => Promise — เช่น adapter.deleteFollowLog / deleteCustomerLog (ไม่ส่ง = ไม่มีปุ่มลบ)
+ *                 ลบได้เฉพาะบันทึกของตัวเอง/admin — บังคับที่ RLS · ปุ่มโผล่ในกล่องแก้ไข (ซึ่งเปิดได้เฉพาะคนที่แก้ได้อยู่แล้ว)
  */
-export function bindLogEditing(host, logs, updateFn, onSaved) {
+export function bindLogEditing(host, logs, updateFn, onSaved, deleteFn) {
   host?.querySelectorAll('[data-edit]').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.edit;
@@ -85,6 +87,8 @@ export function bindLogEditing(host, logs, updateFn, onSaved) {
         </div>
         <p class="login-err" data-err hidden></p>
         <div class="log-edit-foot">
+          ${deleteFn ? '<button type="button" class="btn btn-danger btn-sm" data-del>🗑 ลบบันทึก</button>' : ''}
+          <span class="lg-foot-sp"></span>
           <button type="button" class="btn btn-ghost btn-sm" data-cancel>ยกเลิก</button>
           <button type="button" class="btn btn-primary btn-sm" data-save>บันทึกการแก้ไข</button>
         </div>`;
@@ -96,6 +100,28 @@ export function bindLogEditing(host, logs, updateFn, onSaved) {
         box.remove();
         li.querySelector('.log-view').hidden = false;
       });
+
+      // ── ลบบันทึก (ของตัวเอง/admin) — กด 2 ครั้งยืนยัน เพราะลบแล้วกู้ไม่ได้ (ไม่มี rollback รายแถว) ──
+      const delBtn = box.querySelector('[data-del]');
+      if (delBtn && typeof deleteFn === 'function') {
+        let armed = false;
+        delBtn.addEventListener('click', async () => {
+          if (!armed) {
+            armed = true; delBtn.textContent = '⚠️ กดยืนยันลบ';
+            setTimeout(() => { if (delBtn.isConnected) { armed = false; delBtn.textContent = '🗑 ลบบันทึก'; } }, 3000);
+            return;
+          }
+          err.hidden = true;
+          delBtn.disabled = true; delBtn.textContent = 'กำลังลบ…';
+          try {
+            await deleteFn(id);
+            await onSaved();                 // ผู้เรียกวาดรายการใหม่ (แถวที่ลบจะหายไปเอง)
+          } catch (e) {
+            err.textContent = e.message; err.hidden = false;
+            delBtn.disabled = false; delBtn.textContent = '🗑 ลบบันทึก'; armed = false;
+          }
+        });
+      }
 
       box.querySelector('[data-save]').addEventListener('click', async () => {
         err.hidden = true;

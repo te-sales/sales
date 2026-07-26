@@ -241,6 +241,18 @@ const localAdapter = {
     return row;
   },
 
+  async deleteFollowLog(id) {
+    const i = db.follow_logs.findIndex(l => l.id === id);
+    if (i < 0) throw new Error('ไม่พบบันทึกนี้');
+    const me = db.session?.user;                     // เลียนแบบ RLS: ลบได้เฉพาะของตัวเอง/admin
+    const row = db.follow_logs[i];
+    if (row.created_by && me && row.created_by !== me.id && me.role !== 'admin')
+      throw new Error('ลบบันทึกนี้ไม่ได้ — ลบได้เฉพาะบันทึกที่ตัวเองเขียน');
+    db.follow_logs.splice(i, 1);
+    save();
+    return true;
+  },
+
   // B3 — กรอง/เรียงในหน่วยความจำ ให้ผลตรงกับ supabase-adapter
   async listCustomers(opt = {}) {
     const { status = 'active', color, teamId, saleId, search,
@@ -321,6 +333,18 @@ const localAdapter = {
     Object.assign(row, safeP, { updated_at: new Date().toISOString() });
     save();
     return row;
+  },
+
+  async deleteCustomerLog(id) {
+    const i = db.customer_logs.findIndex(l => l.id === id);
+    if (i < 0) throw new Error('ไม่พบบันทึกนี้');
+    const me = db.session?.user;
+    const row = db.customer_logs[i];
+    if (row.created_by && me && row.created_by !== me.id && me.role !== 'admin')
+      throw new Error('ลบบันทึกนี้ไม่ได้ — ลบได้เฉพาะบันทึกที่ตัวเองเขียน');
+    db.customer_logs.splice(i, 1);
+    save();
+    return true;
   },
 
   // B4
