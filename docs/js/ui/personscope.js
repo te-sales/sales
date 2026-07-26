@@ -36,8 +36,9 @@ export function mountPersonScope(host, opt = {}, onChange = () => {}) {
     .sort((a, b) => (a.id === meId ? -1 : b.id === meId ? 1 : 0)
                  || String(a.full_name || a.email || '').localeCompare(String(b.full_name || b.email || ''), 'th'));
 
-  // เห็นได้คนเดียว (หรือไม่มีใคร) → ไม่ต้องมีตัวเลือก (เหมือน mountTeamScope กับทีมเดียว)
-  if (people.length <= 1) { host.innerHTML = ''; return { selected: () => '', filter: (r) => r || [] }; }
+  // โผล่เสมอถ้ามีอย่างน้อย 1 คน (ตัวเราเอง) — ให้เลือก "ตัวเอง ↔ ทุกคน ↔ คนอื่น" ได้
+  // (เดิมซ่อนเมื่อ ≤1 คน ทำให้บางบัญชีไม่เห็นดรอปดาวน์เลย — เจ้าของแจ้ง 27 ก.ค. 2569)
+  if (people.length < 1) { host.innerHTML = ''; return { selected: () => '', filter: (r) => r || [] }; }
 
   let selected = people.some(p => p.id === opt.initial) ? opt.initial : '';
 

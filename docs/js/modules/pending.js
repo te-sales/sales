@@ -196,8 +196,14 @@ export default {
     try { teams = await adapter.listTeams(); } catch { /* ไม่มีทีมก็ยังใช้งานต่อได้ */ }
     // รายชื่อคน (สำหรับดรอปดาวน์เลือกดูรายบุคคล) + ผู้ใช้ปัจจุบัน — RLS คัดมาให้แล้วว่าเห็นใครได้บ้าง
     let people = [], meId = null;
-    try { people = await adapter.listProfiles(); } catch { /* เห็นคนเดียว/ไม่มีสิทธิ์ = ไม่โชว์ดรอปดาวน์ */ }
-    try { meId = (await adapter.getSession())?.user?.id || null; } catch { /* ไม่รู้ว่าเป็นใครก็ยังใช้ได้ */ }
+    try { people = await adapter.listProfiles(); } catch { /* listProfiles ล้มเหลว = ยังมีตัวเราจาก session อยู่ดี */ }
+    try {
+      const su = (await adapter.getSession())?.user || null;
+      meId = su?.id || null;
+      // ให้แน่ใจว่ามี "ตัวเรา" ในลิสต์เสมอ (เผื่อ listProfiles คืนไม่ครบ/ล้มเหลว) → ดรอปดาวน์ "ดูของ" โผล่แน่นอน
+      if (su && meId && !people.some(p => p.id === meId))
+        people = [{ id: su.id, full_name: su.full_name, email: su.email, team_id: su.team_id, is_active: true }, ...people];
+    } catch { /* ไม่รู้ว่าเป็นใครก็ยังใช้ได้ */ }
     // แก้ owner_id (บัญชี) → ชื่อจากโปรไฟล์ปัจจุบัน · เปลี่ยนชื่อในตั้งค่าระบบแล้วอัปเดตตามทันที (ไม่ก๊อปชื่อลงแถว)
     const peopleById = new Map((people || []).map(p => [p.id, p]));
     const ownerName  = (id) => { const p = peopleById.get(id); return p ? (p.full_name || p.email || '') : ''; };
