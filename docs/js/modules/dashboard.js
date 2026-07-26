@@ -546,6 +546,19 @@ export default {
     try { saleTargets = await adapter.listAllSaleTargets(); } catch { saleTargets = []; }
     try { profiles = await adapter.listProfiles(); } catch { profiles = []; }
 
+    // ── มิติ "เป้ารายคน" บนหน้าภาพรวม (dropdown) ──
+    //   รายชื่อในดรอปดาวน์ = คนที่ผู้ใช้คนนี้ "มองเห็น" (RLS กรอง profiles มาให้แล้วตาม login + org chart)
+    //   sale → เห็นทีมตัวเอง · manager → ทีมที่ดูแล · admin → ทุกคน · ตัวเองขึ้นบนสุด ติดป้าย (ฉัน)
+    const activePeople = (profiles || []).filter(p => p.is_active !== false)
+      .sort((a, b) => (a.id === me?.id ? -1 : b.id === me?.id ? 1 : 0)
+                   || String(a.full_name || a.email || '').localeCompare(String(b.full_name || b.email || ''), 'th'));
+    // เป้ารายคน = รวม sale_targets รายเดือนในช่วงเป้า (โยงจากหน้าตั้งค่า → เป้ารายเดือนต่อทีม → รายคน)
+    const personTargetBaht = (pid) => (saleTargets || [])
+      .filter(r => r.profile_id === pid && /^\d{4}-\d{2}$/.test(r.period) && r.period >= goal.from && r.period <= goal.to)
+      .reduce((a, r) => a + Number(r.target_baht || 0), 0);
+    const personName = (pid) => { const p = activePeople.find(x => x.id === pid); return p ? (p.full_name || p.email || '—') : '—'; };
+    let person = '';   // '' = ดูตามทีม/องค์กร (ค่าเริ่มต้น ไม่รบกวนมุมมองเดิม) · เลือกคน = ดูเป้ารายคน
+
     const tops = teams.filter(t => !t.parent_team_id).map(t => t.id);
     // sale: ไม่เห็นตัวกรองข้ามทีม + เริ่มที่ทีมตัวเอง · admin/manager: เห็นตัวกรอง + เริ่มที่รวมทั้งองค์กร
     const showFilter = teams.length > 1 && !isSale;
@@ -559,6 +572,13 @@ export default {
         <button type="button" class="chip on" data-scope="all">ทั้งองค์กร (รวม)</button>
         ${teams.map(t => `<button type="button" class="chip ${t.parent_team_id ? 'chip-sub' : ''}"
                             data-scope="team" data-team="${esc(t.id)}">${esc(t.code)}</button>`).join('')}
+      </div>` : ''}
+      ${activePeople.length ? `<div class="dash-scope" id="dashPersonRow">
+        <span class="dash-scope-l">เป้ารายคน:</span>
+        <select class="inp inp-sm" id="dashPerson" aria-label="เลือกดูเป้ายอดขายรายคน">
+          <option value="">— ดูตามทีม/องค์กร —</option>
+          ${activePeople.map(p => `<option value="${esc(p.id)}">${esc(p.full_name || p.email || '—')}${p.id === me?.id ? ' (ฉัน)' : ''}${p.team_id ? ' · ' + esc(teams.find(t => t.id === p.team_id)?.code || '') : ''}</option>`).join('')}
+        </select>
       </div>` : ''}
       <div id="dashBody"></div>
       <div id="dashDrill"></div>`;
@@ -577,29 +597,42 @@ export default {
     // วาดเนื้อหาทั้งหมดตาม "ขอบเขตทีม" ที่เลือก — เลือกทีมไหน ทุกส่วน (KPI/กราฟ/funnel/top3/
     // เลยกำหนด/ลูกค้า Book 3 สี) นับเฉพาะทีมนั้น · ไม่เลือก = รวมทั้งองค์กร
     function paintBody() {
-      const ids = selected.size ? [...selected] : tops;
-      const exp = expandTeams(teams, ids);
-      const scoped  = selected.size ? rows.filter(r => exp.has(r.team_id))  : rows;
-      const scopedC = selected.size ? custs.filter(c => exp.has(c.team_id)) : custs;
-      const picked  = selected.size
-        ? teams.filter(t => selected.has(t.id)).map(t => t.code).join(' + ')
-        : 'ทั้งองค์กร';
+      const isPerson = !!person;
+      let scoped, scopedC, picked, targetBaht;
 
-      // เป้าของขอบเขต: ทั้งองค์กร = ผลรวมเป้าทุกทีม (โยงจากที่ตั้งรายเดือน · fallback settings) · เลือกทีม = ผลรวมเป้าทีมในขอบเขต
-      let targetBaht = orgTargetBaht || Number(goal.target_mb || 0) * 1e6;
-      if (selected.size) { targetBaht = 0; for (const id of exp) targetBaht += Number(targetsMap[id] || 0); }
+      if (isPerson) {
+        // มุมมองรายคน: นับเฉพาะงาน/ลูกค้าที่ owner_id = คนนี้ · เป้า = sale_targets ของคนนี้
+        picked  = personName(person);
+        scoped  = rows.filter(r => r.owner_id === person);
+        scopedC = custs.filter(c => c.owner_id === person);
+        targetBaht = personTargetBaht(person);
+      } else {
+        const ids = selected.size ? [...selected] : tops;
+        const exp = expandTeams(teams, ids);
+        scoped  = selected.size ? rows.filter(r => exp.has(r.team_id))  : rows;
+        scopedC = selected.size ? custs.filter(c => exp.has(c.team_id)) : custs;
+        picked  = selected.size
+          ? teams.filter(t => selected.has(t.id)).map(t => t.code).join(' + ')
+          : 'ทั้งองค์กร';
+        // เป้าของขอบเขต: ทั้งองค์กร = ผลรวมเป้าทุกทีม (โยงจากที่ตั้งรายเดือน · fallback settings) · เลือกทีม = ผลรวมเป้าทีมในขอบเขต
+        targetBaht = orgTargetBaht || Number(goal.target_mb || 0) * 1e6;
+        if (selected.size) { targetBaht = 0; for (const id of exp) targetBaht += Number(targetsMap[id] || 0); }
+      }
 
       const s = summarize(scoped, { from: goal.from, to: goal.to, targetMB: targetBaht / 1e6 });
       const cov = s.coverage === Infinity ? '∞' : s.coverage.toFixed(1) + '×';
       const covRisk = s.coverage !== Infinity && s.coverage < 3;
       const pctTxt = targetBaht ? s.pct.toFixed(1) + '%' : '—';
+      const targetCardLabel = isPerson ? 'เป้าของ ' + esc(picked) : (isSale ? 'เป้าทีม' : 'เป้ายอดขาย');
 
       body.innerHTML = `
-        ${selected.size && !isSale ? `<div class="dash-scope-note">กำลังดูเฉพาะ <b>${esc(picked)}</b> · ตัวเลขด้านล่างนับเฉพาะขอบเขตนี้</div>` : ''}
+        ${isPerson
+          ? `<div class="dash-scope-note">กำลังดูเป้า<b>รายคน</b>: <b>${esc(picked)}</b> · นับเฉพาะงานที่ระบุผู้ดูแลเป็นคนนี้${targetBaht ? '' : ' · ⚠ ยังไม่ได้ตั้งเป้ารายคนช่วงนี้ (ตั้งที่ ตั้งค่าระบบ → เป้ารายเดือนต่อทีม → รายคน)'}</div>`
+          : (selected.size && !isSale ? `<div class="dash-scope-note">กำลังดูเฉพาะ <b>${esc(picked)}</b> · ตัวเลขด้านล่างนับเฉพาะขอบเขตนี้</div>` : '')}
         <div class="grid cols-4">
           <div class="card stat-clickable" data-target-drill role="button" tabindex="0"
                title="คลิกดูรายละเอียดเป้ารายเดือน/ไตรมาส/ครึ่งปี/ปี">
-            <div class="stat-label">${isSale ? 'เป้าทีม' : 'เป้ายอดขาย'} <span class="stat-more">รายละเอียด ›</span></div>
+            <div class="stat-label">${targetCardLabel} <span class="stat-more">รายละเอียด ›</span></div>
             <div class="stat-value">${targetBaht ? fmtMB(targetBaht) : '—'} ล้านบาท</div>
             <div class="stat-note">${selected.size ? esc(picked) : esc(goal.period)}</div>
           </div>
@@ -624,7 +657,7 @@ export default {
           ${barChart(s.byMonth, chartW)}
         </div>
 
-        ${teams.length > 1 && !isSale ? teamBreakdownSection(rows, teams, targetsMap, opt) : ''}
+        ${!isPerson && teams.length > 1 && !isSale ? teamBreakdownSection(rows, teams, targetsMap, opt) : ''}
         ${(custs.length || showFilter) ? customerCard(scopedC, picked, selected.size > 0) : ''}
 
         <div class="grid cols-2 sec-grid">
@@ -669,15 +702,38 @@ export default {
         </div>`;
     }
 
+    const personSel = root.querySelector('#dashPerson');
+
     if (showFilter) {
       const scope = root.querySelector('#dashScope');
       scope.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-scope]');
         if (!btn) return;
+        // เลือกทีม = ออกจากมุมมองรายคน (สองมิตินี้ใช้ทีละอัน)
+        if (person) { person = ''; if (personSel) personSel.value = ''; scope.classList.remove('is-off'); }
         if (btn.dataset.scope === 'all') selected.clear();
         else { const id = btn.dataset.team; if (selected.has(id)) selected.delete(id); else selected.add(id); }
         scope.querySelector('[data-scope="all"]').classList.toggle('on', selected.size === 0);
         scope.querySelectorAll('[data-scope="team"]').forEach(b => b.classList.toggle('on', selected.has(b.dataset.team)));
+        paintBody();
+      });
+    }
+
+    // ดรอปดาวน์เป้ารายคน — เลือกคน = ทับมุมมองทีม (หรี่แถบทีมไว้) · เลือก "ตามทีม/องค์กร" = กลับมุมมองเดิม
+    if (personSel) {
+      personSel.addEventListener('change', () => {
+        person = personSel.value;
+        const scope = root.querySelector('#dashScope');
+        if (person) {
+          selected.clear();
+          if (scope) {
+            scope.classList.add('is-off');
+            scope.querySelector('[data-scope="all"]')?.classList.add('on');
+            scope.querySelectorAll('[data-scope="team"]').forEach(b => b.classList.remove('on'));
+          }
+        } else if (scope) {
+          scope.classList.remove('is-off');
+        }
         paintBody();
       });
     }

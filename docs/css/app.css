@@ -2016,6 +2016,9 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
   background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: var(--r-md);
 }
 .dash-scope-l { font-size: 12px; font-weight: 600; color: var(--text-dim); margin-right: 4px; }
+/* เลือกดูเป้ารายคน → หรี่แถบเลือกทีมไว้ (สองมิติใช้ทีละอัน) */
+.dash-scope.is-off { opacity: .4; pointer-events: none; }
+#dashPerson { min-width: 200px; max-width: 100%; }
 
 /* แถบเลือกทีม (Pending Project / Book 3 สี) — ใช้ .chip ร่วมกับ dashboard */
 .team-scope {
