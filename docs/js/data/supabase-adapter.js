@@ -1308,7 +1308,8 @@ const supabaseAdapter = {
     }
     if (res.status === 404)
       throw new Error('ยังไม่ได้ deploy Edge Function "daily-backup" — ดูวิธีตั้งค่าใน supabase/functions/daily-backup/README.md');
-    if (!res.ok || data?.ok === false) throw new Error(data?.error || `สำรองไม่สำเร็จ (${res.status})`);
+    if (!res.ok || data?.ok === false)
+      throw new Error((data?.error || `สำรองไม่สำเร็จ (${res.status})`) + (data?.reason ? ` — ${data.reason}` : ''));
     return data;
   },
 

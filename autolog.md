@@ -27,6 +27,15 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-26 · ยังไม่ commit · แก้ daily-backup: ตรวจ admin ทนขึ้น + คืนเหตุผล — v0.53.0
+**step:** — (แก้บั๊ก task 5) | **ประเภท:** แก้บั๊ก
+- อาการ: เจ้าของ login admin แล้วกด "สำรองเดี๋ยวนี้" ได้ 401 "ต้องเป็นผู้ดูแลระบบ" (isAdmin ใน Edge Function คืน false)
+- สาเหตุน่าจะ: โปรเจกต์ใช้ API key ใหม่ (sb_publishable) · isAdmin เดิมเรียก /auth/v1/user ด้วย ANON ตัวเดียว
+- แก้: `checkAdmin()` ลอง apikey ทั้ง ANON + SERVICE_ROLE · คืน `reason` บอกจุดที่ติด (no-auth / auth-fail / role) · handler ส่ง reason กลับ · adapter ต่อ reason ให้ขึ้นบน UI
+- **ต้อง re-deploy Edge Function** (วาง index.ts ใหม่) → กดอีกครั้ง จะเห็นสาเหตุชัด (หรือผ่านเลย)
+**ไฟล์:** supabase/functions/daily-backup/index.ts · js/data/supabase-adapter.js · config.js · sw.js
+**ทดสอบ:** แก้เฉพาะ Edge Function (ทดสอบจริงไม่ได้ในเครื่อง) + adapter (ต่อ reason) · UI เดิมผ่านแล้ว
+
 ## 2026-07-26 · ยังไม่ commit · สำรองขึ้น Google Drive อัตโนมัติ (Edge Function + pg_cron) — v0.52.0
 **step:** — (คำขอเจ้าของ 5/5 ข้อ · เลือกแนวทาง B) | **ประเภท:** ฟีเจอร์ (backend + UI)
 - เจ้าของเลือก **แนวทาง B: อัตโนมัติจริงฝั่งเซิร์ฟเวอร์** (เว็บ static สั่ง Drive เองไม่ได้ · MCP เป็นของ Claude ไม่ใช่เว็บ)

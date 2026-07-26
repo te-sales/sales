@@ -40,18 +40,25 @@ const BACKUP_TABLES = [
 
 const svc = { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` };
 
-// ── ตรวจว่าเป็น admin จริง (สำหรับปุ่ม manual) ──
-async function isAdmin(auth: string | null): Promise<boolean> {
-  if (!auth) return false;
+// ── ตรวจว่าเป็น admin จริง (สำหรับปุ่ม manual) — คืน "เหตุผล" ด้วยถ้าไม่ผ่าน จะได้ไล่ปัญหาได้ ──
+async function checkAdmin(auth: string | null): Promise<{ ok: boolean; reason?: string }> {
+  if (!auth) return { ok: false, reason: "ไม่มี Authorization header" };
+  // ยืนยัน token ด้วย /auth/v1/user — ลอง apikey ทั้ง anon และ service (รองรับทั้ง legacy key และโปรเจกต์ที่ปิด legacy)
+  let uid = "";
+  for (const key of [ANON, SERVICE_KEY]) {
+    if (!key) continue;
+    try {
+      const u = await fetch(`${SUPA_URL}/auth/v1/user`, { headers: { Authorization: auth, apikey: key } });
+      if (u.ok) { uid = (await u.json())?.id || ""; if (uid) break; }
+    } catch { /* ลองคีย์ถัดไป */ }
+  }
+  if (!uid) return { ok: false, reason: "ยืนยัน token ไม่ผ่าน (auth/v1/user) — ตรวจว่ายัง login อยู่ / เปิด legacy API keys" };
   try {
-    const u = await fetch(`${SUPA_URL}/auth/v1/user`, { headers: { Authorization: auth, apikey: ANON } });
-    if (!u.ok) return false;
-    const uid = (await u.json())?.id;
-    if (!uid) return false;
     const pr = await fetch(`${SUPA_URL}/rest/v1/profiles?id=eq.${uid}&select=role`, { headers: svc });
-    const rows = await pr.json();
-    return rows?.[0]?.role === "admin";
-  } catch { return false; }
+    if (!pr.ok) return { ok: false, reason: `อ่าน profiles ไม่ได้ (${pr.status})` };
+    const role = (await pr.json())?.[0]?.role;
+    return role === "admin" ? { ok: true } : { ok: false, reason: `บัญชีนี้ role='${role ?? "ไม่พบแถว profiles"}' ไม่ใช่ admin` };
+  } catch { return { ok: false, reason: "อ่าน profiles ล้มเหลว" }; }
 }
 
 // ── ดึงทุกตารางด้วย service_role (ข้าม RLS) ──
@@ -135,8 +142,9 @@ Deno.serve(async (req: Request) => {
 
   const viaCron = !!CRON_SECRET && req.headers.get("x-backup-secret") === CRON_SECRET;
   const triggered_by = viaCron ? "cron" : "manual";
-  if (!viaCron && !(await isAdmin(req.headers.get("authorization")))) {
-    return json({ error: "ต้องเป็นผู้ดูแลระบบ (หรือ cron ที่ตั้ง secret ถูกต้อง)" }, 401);
+  if (!viaCron) {
+    const chk = await checkAdmin(req.headers.get("authorization"));
+    if (!chk.ok) return json({ error: "ต้องเป็นผู้ดูแลระบบ (หรือ cron secret ถูกต้อง)", reason: chk.reason }, 401);
   }
   if (!SA_EMAIL || !SA_KEY) {
     return json({ error: "ยังไม่ได้ตั้ง GOOGLE_SA_EMAIL / GOOGLE_SA_PRIVATE_KEY (ดู README)" }, 500);
