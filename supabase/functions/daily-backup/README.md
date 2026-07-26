@@ -9,7 +9,32 @@
 
 ---
 
-## ตั้งค่าครั้งเดียว (ทำตามลำดับ)
+## เลือกวิธีเชื่อม Google Drive (สำคัญ)
+
+| วิธี | เหมาะกับ | หมายเหตุ |
+|---|---|---|
+| **OAuth refresh token** (แนะนำ) | **Gmail ส่วนตัว** | ไฟล์เก็บใน Drive ของคุณ (มีพื้นที่ 15GB) · ตั้ง 3 secret: `GOOGLE_OAUTH_CLIENT_ID/CLIENT_SECRET/REFRESH_TOKEN` |
+| Service account | **Google Workspace + Shared Drive** เท่านั้น | Gmail ส่วนตัวจะเจอ `storageQuotaExceeded` (service account ไม่มีพื้นที่เก็บ) |
+
+ฟังก์ชันจะใช้ OAuth ก่อนถ้าตั้ง 3 secret ครบ · ไม่งั้นตกไป service account
+
+### 🟢 วิธี OAuth refresh token (Gmail ส่วนตัว) — ทำครั้งเดียว
+1. Google Cloud → **APIs & Services → OAuth consent screen** → User Type **External** → กรอกชื่อแอป + อีเมลคุณ →
+   ในหน้า Scopes เพิ่ม `.../auth/drive.file` → **Publishing status กด "PUBLISH APP" (Production)**
+   (scope `drive.file` เป็น sensitive ไม่ใช่ restricted → เผยแพร่ได้เลยไม่ต้องยืนยันตัวตน · ถ้าปล่อยเป็น Testing refresh token จะหมดอายุใน 7 วัน)
+2. **APIs & Services → Credentials → Create credentials → OAuth client ID → Web application**
+   → **Authorized redirect URIs** ใส่ `https://developers.google.com/oauthplayground` → Create → ก๊อป **Client ID + Client secret**
+3. ไป <https://developers.google.com/oauthplayground> → กด ⚙️ (มุมขวาบน) → ติ๊ก **Use your own OAuth credentials** → วาง Client ID + Secret
+4. ช่องซ้าย ใส่ scope: `https://www.googleapis.com/auth/drive.file` → **Authorize APIs** → ล็อกอิน Gmail คุณ → อนุญาต
+5. กด **Exchange authorization code for tokens** → ก๊อป **Refresh token**
+6. ตั้ง 3 secret (Dashboard → Edge Functions → Secrets):
+   `GOOGLE_OAUTH_CLIENT_ID` · `GOOGLE_OAUTH_CLIENT_SECRET` · `GOOGLE_OAUTH_REFRESH_TOKEN`
+   + (ถ้าอยากเก็บในโฟลเดอร์) `GDRIVE_FOLDER_ID` = id โฟลเดอร์ใน Drive คุณ · เว้นว่าง = เก็บใน My Drive
+7. Re-deploy ฟังก์ชัน → กด "สำรองขึ้น Drive เดี๋ยวนี้"
+
+---
+
+## ตั้งค่าครั้งเดียว (แบบ service account · Workspace/Shared Drive)
 
 ### 1) สร้าง Google service account + เปิด Drive API
 1. เข้า <https://console.cloud.google.com> → สร้าง/เลือก Project

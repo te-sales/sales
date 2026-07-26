@@ -27,6 +27,11 @@ const ANON         = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SA_EMAIL     = Deno.env.get("GOOGLE_SA_EMAIL") || "";
 const SA_KEY       = Deno.env.get("GOOGLE_SA_PRIVATE_KEY") || "";
 const FOLDER       = Deno.env.get("GDRIVE_FOLDER_ID") || "";
+// OAuth ของบัญชีผู้ใช้เอง (แนะนำสำหรับ Gmail ส่วนตัว — service account ไม่มีพื้นที่เก็บ อัปลง My Drive ไม่ได้)
+const OA_CLIENT_ID     = Deno.env.get("GOOGLE_OAUTH_CLIENT_ID") || "";
+const OA_CLIENT_SECRET = Deno.env.get("GOOGLE_OAUTH_CLIENT_SECRET") || "";
+const OA_REFRESH       = Deno.env.get("GOOGLE_OAUTH_REFRESH_TOKEN") || "";
+const hasOAuth = !!(OA_CLIENT_ID && OA_CLIENT_SECRET && OA_REFRESH);
 const CRON_SECRET  = Deno.env.get("BACKUP_CRON_SECRET") || "";
 // คีย์อ่านทุกตาราง (ข้าม RLS): ใช้ secret key ใหม่ (sb_secret_) ถ้ามี ไม่งั้นตกไป legacy service role
 //   โปรเจกต์ที่ใช้ API key ใหม่และปิด legacy → legacy service role ใช้ไม่ได้ ต้องตั้ง SB_SECRET_KEY
@@ -97,7 +102,25 @@ async function importKey(pem: string): Promise<CryptoKey> {
   return crypto.subtle.importKey("pkcs8", der.buffer,
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
 }
+// เลือกวิธีขอ access token: OAuth ของผู้ใช้ (ถ้าตั้งไว้ · อัปลง My Drive ได้) ก่อน · ไม่งั้น service account
 async function googleToken(): Promise<string> {
+  if (hasOAuth) {
+    const res = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: OA_CLIENT_ID, client_secret: OA_CLIENT_SECRET, refresh_token: OA_REFRESH,
+      }),
+    });
+    const data = await res.json();
+    if (!data.access_token) throw new Error("OAuth refresh token ใช้ไม่ได้: " + JSON.stringify(data));
+    return data.access_token;
+  }
+  return await serviceAccountToken();
+}
+
+async function serviceAccountToken(): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const enc = (o: unknown) => b64url(new TextEncoder().encode(JSON.stringify(o)));
   const unsigned = `${enc({ alg: "RS256", typ: "JWT" })}.${enc({
@@ -155,8 +178,8 @@ Deno.serve(async (req: Request) => {
     const chk = await checkAdmin(req.headers.get("authorization"), req.headers.get("apikey"));
     if (!chk.ok) return json({ error: "ต้องเป็นผู้ดูแลระบบ (หรือ cron secret ถูกต้อง)", reason: chk.reason }, 401);
   }
-  if (!SA_EMAIL || !SA_KEY) {
-    return json({ error: "ยังไม่ได้ตั้ง GOOGLE_SA_EMAIL / GOOGLE_SA_PRIVATE_KEY (ดู README)" }, 500);
+  if (!hasOAuth && (!SA_EMAIL || !SA_KEY)) {
+    return json({ error: "ยังไม่ได้ตั้งค่า Google — ตั้ง OAuth refresh token (แนะนำสำหรับ Gmail ส่วนตัว) หรือ service account+Shared Drive (Workspace) · ดู README" }, 500);
   }
 
   try {

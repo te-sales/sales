@@ -27,6 +27,14 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-26 · ยังไม่ commit · daily-backup รองรับ OAuth (แก้ storageQuotaExceeded ของ service account)
+**step:** — (แก้บั๊ก task 5 ต่อ) | **ประเภท:** ฟีเจอร์/แก้บั๊ก (Edge Function)
+- หลัง grant service_role → อ่านข้อมูล+ขอ token ผ่านหมด → ติดตอนอัป Drive: `Service Accounts do not have storage quota (storageQuotaExceeded)` — service account อัปลง My Drive (Gmail ส่วนตัว) ไม่ได้ (ตามที่เตือนไว้)
+- แก้: index.ts รองรับ **OAuth refresh token ของผู้ใช้เอง** (`GOOGLE_OAUTH_CLIENT_ID/CLIENT_SECRET/REFRESH_TOKEN`) → `googleToken()` ใช้ refresh_token grant ก่อน · ไม่งั้นตกไป service account (แยกเป็น `serviceAccountToken()`) · guard ยอมถ้ามี OAuth หรือ SA อย่างใดอย่างหนึ่ง
+- README เพิ่มวิธี OAuth ครั้งเดียวผ่าน OAuth Playground (scope drive.file · publish app กัน refresh token หมดอายุ 7 วัน)
+- **เจ้าของทำ:** ทำ OAuth (ได้ refresh token) → ตั้ง 3 secret → re-deploy → กดสำรอง · ไฟล์จะเก็บใน Drive ตัวเอง (มีพื้นที่)
+**ไฟล์:** supabase/functions/daily-backup/index.ts · README.md · ไม่แตะ docs/ · ไม่ bump เวอร์ชัน
+
 ## 2026-07-26 · ยังไม่ commit · แก้ 403 daily-backup ต้นเหตุจริง: service_role ไม่มี GRANT
 **step:** — (แก้บั๊ก task 5 ต่อ) | **ประเภท:** แก้บั๊ก (SQL grant เท่านั้น)
 - หลังแก้ admin-check ผ่านแล้ว → ยัง 403 ตอน dumpAll อ่าน "teams" · ทั้ง legacy key + secret key ใหม่ 403 เหมือนกัน (ทั้งคู่ = service_role)
