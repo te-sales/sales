@@ -27,6 +27,15 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-26 · ยังไม่ commit · แก้ 403 daily-backup ต้นเหตุจริง: service_role ไม่มี GRANT
+**step:** — (แก้บั๊ก task 5 ต่อ) | **ประเภท:** แก้บั๊ก (SQL grant เท่านั้น)
+- หลังแก้ admin-check ผ่านแล้ว → ยัง 403 ตอน dumpAll อ่าน "teams" · ทั้ง legacy key + secret key ใหม่ 403 เหมือนกัน (ทั้งคู่ = service_role)
+- **ต้นเหตุจริง:** โปรเจกต์นี้ auto-grant ไม่ทำงาน (โน้ตใน policies.sql) — เคย grant ให้ authenticated แต่**ไม่เคย grant ให้ service_role** → Edge Function โดน permission denied · admin-check ผ่านเพราะใช้สิทธิ์ผู้ใช้ (authenticated) ไม่ใช่ service_role
+- แก้: `db/grant-service-role.sql` — grant all บนทุกตาราง/sequence ให้ service_role + default privileges สำหรับตารางอนาคต (service_role bypass RLS + คีย์อยู่เซิร์ฟเวอร์ · ปลอดภัย)
+- **เจ้าของแค่รัน grant-service-role.sql ครั้งเดียว** แล้วกด "สำรองเดี๋ยวนี้" — ไม่ต้องแก้คีย์/deploy ใหม่ · จะใช้ legacy key หรือ secret key ก็ได้ (ทั้งคู่ = service_role ซึ่งมีสิทธิ์แล้ว)
+**ไฟล์:** db/grant-service-role.sql · supabase/functions/daily-backup/README.md (troubleshooting) · ไม่แตะ docs/ · ไม่ bump เวอร์ชัน
+**ทดสอบ:** SQL grant มาตรฐาน · รอเจ้าของรัน + กดยืนยัน (ผ่าน 403 แล้วจะเหลือแค่ฝั่ง Google — token/แชร์โฟลเดอร์)
+
 ## 2026-07-26 · ยังไม่ commit · แก้ daily-backup: 403 อ่าน profiles (legacy service key ใช้ไม่ได้)
 **step:** — (แก้บั๊ก task 5 ต่อ) | **ประเภท:** แก้บั๊ก (Edge Function เท่านั้น · ไม่แตะ frontend)
 - reason ที่ได้: "อ่าน profiles ไม่ได้ (403)" → token ผ่าน แต่ service key อ่านตารางโดน 403 → ตกเป็น role anon (ถูก revoke) → โปรเจกต์ใช้ API key ใหม่ (sb_publishable) legacy service role ใช้ไม่ได้

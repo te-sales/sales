@@ -76,6 +76,14 @@ curl -X POST 'https://<PROJECT_REF>.supabase.co/functions/v1/daily-backup' \
   -H 'x-backup-secret: <BACKUP_CRON_SECRET>' -H 'Content-Type: application/json' -d '{}'
 ```
 
+## แก้ปัญหาที่เจอบ่อย
+- **"อ่านตาราง … ไม่ได้ (403)"** ตอนกดสำรอง → role `service_role` ยังไม่มีสิทธิ์ในตาราง
+  (โปรเจกต์นี้ auto-grant ไม่ทำงาน) → **รัน `db/grant-service-role.sql` ครั้งเดียว** แล้วกดใหม่
+  (แก้ที่สิทธิ์ DB · ไม่เกี่ยวกับว่าใช้ legacy key หรือ secret key)
+- **"Drive upload failed … File not found"** → ยังไม่ได้แชร์โฟลเดอร์ให้อีเมล service account (ข้อ 2)
+- **"Google token failed"** → `GOOGLE_SA_EMAIL` / `GOOGLE_SA_PRIVATE_KEY` ไม่ถูก (ก๊อป private_key ทั้งก้อนรวม `\n`)
+- **"ต้องเป็นผู้ดูแลระบบ … role='…'"** → บัญชีที่ล็อกอินไม่ใช่ admin ในตาราง profiles
+
 ## หมายเหตุ
 - ไม่ deploy ก็ไม่พัง — หน้า Admin โชว์ "ยังไม่มีประวัติ" และปุ่มจะแจ้งว่ายังไม่ได้ deploy
 - รูปแบบไฟล์ = `te-sales-dashboard-backup` v1 (เหมือนปุ่ม Export) → กู้คืนที่ `docs/tools/import-json.html` ได้ทันที
