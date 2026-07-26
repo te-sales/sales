@@ -11,6 +11,7 @@ import { signoffState, signoffBarHtml, bindSignoff, canSign,
 import { printPending } from '../ui/formprint.js';
 import { openAIImport, openAILog } from './ai-intake.js';
 import { mountTeamScope } from '../ui/teamscope.js';
+import { mountPersonScope } from '../ui/personscope.js';
 import { lastLogSpan, mountLogHover } from '../ui/loghover.js';
 import { listViewHtml, bindListView, applyListView } from '../ui/listview.js';
 
@@ -106,7 +107,7 @@ const effMonth = (r) =>
 // ── สถานะหน้าจอ (จำไว้ให้กลับมาแล้วเหมือนเดิม) ──
 const DEFAULT_VIEW = {
   sort: 'updated_at', dir: 'desc', search: '', stage: '',
-  from: '', to: '', status: 'active', team: '',
+  from: '', to: '', status: 'active', team: '', person: '',
 };
 
 function loadView() {
@@ -180,6 +181,10 @@ export default {
     const cols = loadCols();
     let teams = [];
     try { teams = await adapter.listTeams(); } catch { /* ไม่มีทีมก็ยังใช้งานต่อได้ */ }
+    // รายชื่อคน (สำหรับดรอปดาวน์เลือกดูรายบุคคล) + ผู้ใช้ปัจจุบัน — RLS คัดมาให้แล้วว่าเห็นใครได้บ้าง
+    let people = [], meId = null;
+    try { people = await adapter.listProfiles(); } catch { /* เห็นคนเดียว/ไม่มีสิทธิ์ = ไม่โชว์ดรอปดาวน์ */ }
+    try { meId = (await adapter.getSession())?.user?.id || null; } catch { /* ไม่รู้ว่าเป็นใครก็ยังใช้ได้ */ }
 
     root.innerHTML = `
       <div class="toolbar">
@@ -237,6 +242,7 @@ export default {
       </div>
 
       <div id="pScope"></div>
+      <div id="pPersonScope"></div>
       <div class="sum" id="pSum"></div>
       <div id="pList"><div class="skeleton">กำลังโหลด…</div></div>
       <div id="pPanel"></div>`;
@@ -247,13 +253,19 @@ export default {
     bindListView(root, listEl);   // ปุ่มสลับ ตาราง/การ์ด (laptop/iPad)
 
     let rawRows = [];      // ทั้งหมดที่ RLS ให้เห็น
-    let rows = [];         // หลังกรองทีม + เดือน
+    let rows = [];         // หลังกรองทีม + คน + เดือน
     let hiddenNoDate = 0;  // งานที่ถูกช่วงเดือนซ่อนเพราะยังไม่ระบุเดือน (ต้องบอกผู้ใช้ ห้ามซ่อนเงียบ)
-    let scope = null;
+    let scope = null, pscope = null;
 
     // แถบเลือกทีม (admin/หัวหน้าที่เห็นหลายทีม) — เลือกแล้วกรองในฝั่งเบราว์เซอร์ ไม่ต้องโหลดใหม่
     scope = mountTeamScope($('pScope'), teams, view.team || '', (id) => {
       view.team = id; saveView(view);
+      applyFilters();
+    });
+
+    // ดรอปดาวน์เลือกดูรายบุคคล — กรองต่อจากทีม (เจาะดูงานของ sale คนเดียว)
+    pscope = mountPersonScope($('pPersonScope'), { people, teams, meId, initial: view.person || '' }, (id) => {
+      view.person = id; saveView(view);
       applyFilters();
     });
 
@@ -279,9 +291,10 @@ export default {
       refreshArcBadge();   // อัปเดตเลขบนแถบ Archive ทุกครั้ง (กดเก็บ/ปลุกกลับแล้วเลขตามทันที)
     }
 
-    // กรองทีม + ช่วงเดือน ฝั่งเบราว์เซอร์ (ไม่โหลดใหม่) แล้ววาด
+    // กรองทีม + คน + ช่วงเดือน ฝั่งเบราว์เซอร์ (ไม่โหลดใหม่) แล้ววาด
     function applyFilters() {
-      const teamRows = scope ? scope.filter(rawRows) : rawRows;
+      let teamRows = scope ? scope.filter(rawRows) : rawRows;
+      teamRows = pscope ? pscope.filter(teamRows) : teamRows;   // เจาะรายบุคคลต่อจากทีม
       // Archive = งานจบแล้ว "เดือนคาดปิด" ไม่มีความหมาย จึงไม่กรองเดือน
       const range = view.status !== 'archived' && (view.from || view.to);
       hiddenNoDate = 0;

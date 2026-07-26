@@ -27,6 +27,17 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-26 · ยังไม่ commit · ดรอปดาวน์ "ดูของ (รายบุคคล)" หน้า Pending + Book 3 สี
+**step:** — (เจ้าของขอเพิ่ม) | **ประเภท:** ฟีเจอร์
+- เจ้าของขอ: เลือกแสดง Pending / Book 3 สี ของ sale แต่ละคนเป็น dropdown
+- คอมโพเนนต์ร่วมใหม่ `docs/js/ui/personscope.js` (`mountPersonScope`) — มิเรอร์ `teamscope.js` แต่เป็นดรอปดาวน์ · กรองด้วย **owner_id** (เจ้าของแถวจาก login) กติกาเดียวกับดรอปดาวน์เป้ารายคนบนหน้าภาพรวม · **ห้ามกรองด้วย sale_name (free text)**
+- โผล่เฉพาะเมื่อเห็นคน >1 (RLS คัด profiles มาให้) · ตัวเองขึ้นบนสุดติดป้าย (ฉัน) · เรียงชื่อไทย
+- ทำงาน **ต่อจากแถบเลือกทีม** (mountTeamScope): เลือกทีม → เจาะรายคน (กรองซ้อน ไม่ทับกัน) · จำค่าใน `view.person` (localStorage)
+- pending.js: chain ใน `applyFilters()` · book3.js: รวมเป็น helper `applyScopes()` ใช้ทั้ง reload + สลับตัวกรอง
+- bump VERSION 0.53.0 → 0.54.0 (config.js + sw.js) + เพิ่ม personscope.js ใน SHELL precache
+**ไฟล์:** docs/js/ui/personscope.js · docs/js/modules/pending.js · docs/js/modules/book3.js · docs/css/app.css · docs/sw.js · docs/js/config.js
+**ทดสอบ:** Chrome จริงผ่าน CDP (seed 3 profiles + งาน/ลูกค้า owner ต่างกัน) → **10/10 ผ่าน · ไม่มี JS error/console.error/unhandled** (ดรอปดาวน์โผล่ทั้ง 2 หน้า · เลือกคนแล้วกรอง owner_id ถูก · กลับ "ทุกคน" ครบ · จำค่าใน localStorage)
+
 ## 2026-07-26 · ✅ task 5 สำเร็จจริง · daily-backup อัปขึ้น Google Drive + ยืนยัน UTF-8
 **step:** — (task 5 ปิดจ๊อบ) | **ประเภท:** ยืนยันผล/แก้บั๊กจบ
 - เจ้าของทำครบ: grant-service-role.sql + OAuth refresh token (drive.file, publish app) + ตั้ง 3 secret GOOGLE_OAUTH_* + re-deploy → กด "สำรองเดี๋ยวนี้" **สำเร็จ** ได้ไฟล์ `te-backup-2026-07-26.json` (474KB) เจ้าของ theerasaku@gmail.com (OAuth = ไฟล์เป็นของ user มีพื้นที่ ไม่ใช่ SA)

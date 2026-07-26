@@ -12,6 +12,7 @@ import { printCustomer } from '../ui/formprint.js';
 import { photoFieldHtml, bindPhotoField } from '../ui/photofield.js';
 import { openAIImport, openAILog } from './ai-intake.js';
 import { mountTeamScope } from '../ui/teamscope.js';
+import { mountPersonScope } from '../ui/personscope.js';
 import { lastLogSpan, mountLogHover } from '../ui/loghover.js';
 import { listViewHtml, bindListView, applyListView } from '../ui/listview.js';
 
@@ -24,7 +25,7 @@ export const COLORS = [
 const colorOf = (id) => COLORS.find(c => c.id === id) || COLORS[2];
 
 const LS_VIEW = 'te-dashboard:book3-view';
-const DEFAULT_VIEW = { color: '', search: '', status: 'active', sort: 'updated_at', dir: 'desc', team: '' };
+const DEFAULT_VIEW = { color: '', search: '', status: 'active', sort: 'updated_at', dir: 'desc', team: '', person: '' };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -84,6 +85,10 @@ export default {
     const view = loadView();
     let teams = [];
     try { teams = await adapter.listTeams(); } catch { /* ไม่มีทีมก็ยังใช้ได้ */ }
+    // รายชื่อคน (สำหรับดรอปดาวน์เลือกดูรายบุคคล) + ผู้ใช้ปัจจุบัน — RLS คัดมาให้แล้วว่าเห็นใครได้บ้าง
+    let people = [], meId = null;
+    try { people = await adapter.listProfiles(); } catch { /* เห็นคนเดียว/ไม่มีสิทธิ์ = ไม่โชว์ดรอปดาวน์ */ }
+    try { meId = (await adapter.getSession())?.user?.id || null; } catch { /* ไม่รู้ว่าเป็นใครก็ยังใช้ได้ */ }
 
     root.innerHTML = `
       <div class="toolbar">
@@ -117,6 +122,7 @@ export default {
       </div>
 
       <div id="bScope"></div>
+      <div id="bPersonScope"></div>
       <div class="sum" id="bSum"></div>
       <div id="bList"><div class="skeleton">กำลังโหลด…</div></div>
       <div id="bPanel"></div>`;
@@ -126,13 +132,27 @@ export default {
     mountLogHover(listEl);   // ชี้เมาส์ที่ความคืบหน้า → เด้ง popup เต็ม
     bindListView(root, listEl);   // ปุ่มสลับ ตาราง/การ์ด (laptop/iPad)
     let rawRows = [];   // ทั้งหมดที่ RLS ให้เห็น
-    let rows = [];      // หลังกรองทีมที่เลือก
-    let scope = null;
+    let rows = [];      // หลังกรองทีม + คนที่เลือก
+    let scope = null, pscope = null;
+
+    // กรองทีม → แล้วเจาะรายบุคคล (ต่อกัน) — ใช้ที่เดียวทั้งตอนโหลดใหม่และตอนสลับตัวกรอง
+    const applyScopes = () => {
+      let r = scope ? scope.filter(rawRows) : rawRows;
+      r = pscope ? pscope.filter(r) : r;
+      rows = r;
+    };
 
     // แถบเลือกทีม (admin/หัวหน้าที่เห็นหลายทีม) — กรองฝั่งเบราว์เซอร์ ไม่โหลดใหม่
     scope = mountTeamScope($('bScope'), teams, view.team || '', (id) => {
       view.team = id; saveView(view);
-      rows = scope.filter(rawRows);
+      applyScopes();
+      paint();
+    });
+
+    // ดรอปดาวน์เลือกดูรายบุคคล — กรองต่อจากทีม (เจาะดูลูกค้าของ sale คนเดียว)
+    pscope = mountPersonScope($('bPersonScope'), { people, teams, meId, initial: view.person || '' }, (id) => {
+      view.person = id; saveView(view);
+      applyScopes();
       paint();
     });
 
@@ -157,7 +177,7 @@ export default {
         $('bSum').textContent = '';
         return;
       }
-      rows = scope ? scope.filter(rawRows) : rawRows;   // กรองตามทีมที่เลือก
+      applyScopes();   // กรองตามทีม + คนที่เลือก
       paint();
       refreshCounts();
     }

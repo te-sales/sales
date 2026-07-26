@@ -2030,6 +2030,15 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 .team-scope-cur { color: var(--accent); font-weight: 700; }
 .team-scope-sp { flex: 1 1 8px; }
 @media (max-width: 430px) { .team-scope-sp { display: none; } }
+
+/* ดรอปดาวน์เลือกดูรายบุคคล (Pending Project / Book 3 สี) — กรองต่อจากแถบเลือกทีม */
+.person-scope {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  margin: 0 0 14px; padding: 8px 12px;
+  background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: var(--r-md);
+}
+.person-scope-l { font-size: 12.5px; font-weight: 600; color: var(--text-dim); }
+.person-scope #personScopeSel { min-width: 220px; max-width: 100%; }
 .dash-scope-note {
   font-size: 12.5px; color: var(--accent-text);
   background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
