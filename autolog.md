@@ -27,6 +27,15 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-26 · ยังไม่ commit · เช็กลิสต์เตรียมขึ้น v1.0 (.md + .html)
+**step:** — | **ประเภท:** เอกสาร
+- เจ้าของรัน SQL ครบทุกไฟล์แล้ว (verification ผ่านทุกข้อ) → สร้างเช็กลิสต์ก้าวสู่ 1.0
+- `RELEASE-1.0.md` — hard gate A–E (Supabase setup · ทดสอบเครื่องจริง 1.7 · บัญชีทีม+RLS · ข้อมูลจริง · backup round-trip) + soft signals + สิ่งที่ไม่ใช่เงื่อนไข 1.0 + ขั้นตอน tag semver
+- `RELEASE-1.0.html` — เช็กลิสต์ติ๊กได้ จำสถานะใน localStorage · แถบ progress · ข้อ SQL ติ๊กมาให้แล้ว (pre-checked)
+- **ไม่แตะโค้ดแอป** — เป็นเอกสารล้วน (ไม่ต้อง bump VERSION/sw.js)
+**ไฟล์:** RELEASE-1.0.md · RELEASE-1.0.html
+**ทดสอบ:** RELEASE-1.0.html 7/7 ผ่าน (render 21 hard + 3 soft · pre-check · progress · reload จำได้ · ไม่มี error)
+
 ## 2026-07-26 · ยังไม่ commit · ปุ่มบันทึกด่วนในเมนู + ลบ log ของตัวเอง + ชิป BY ใหม่ — v0.45.0
 **step:** — | **ประเภท:** ฟีเจอร์ + แก้ UI (คำขอเจ้าของ 3 ข้อ)
 - **① ปุ่มบันทึกด่วนในเมนู** (`[data-quicklog]`) แทรกระหว่าง Book 3 กับ แผนติดต่อ (sidebar + bottombar) · เด่น (accent) · ปุ่มแถบหัวเดิมคงไว้ + ขยาย ~20% (`#quickLogBtn` font 15px)

@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="th" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>เช็กลิสต์เตรียมขึ้น v1.0 — TE Sales Dashboard</title>
+<style>
+  :root{
+    --bg:#0b0d12; --panel:#12151c; --panel2:#171b24; --border:#232833;
+    --text:#e6e9ef; --muted:#8b93a5; --accent:#5b8cff; --accent-soft:#1a2540;
+    --red:#ff6b6b; --red-soft:#2a1518; --green:#3ecf8e; --green-soft:#12251c;
+    --yellow:#f2c94c; --gray:#5a6273;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue","Noto Sans Thai",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.55}
+  .wrap{max-width:820px;margin:0 auto;padding:24px 16px 80px}
+  header h1{font-size:22px;margin:0 0 4px;font-weight:700}
+  header .sub{color:var(--muted);font-size:13.5px}
+  header .meta{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
+  .tag{font-size:12px;padding:3px 9px;border-radius:999px;background:var(--panel2);
+    border:1px solid var(--border);color:var(--muted)}
+  .tag b{color:var(--text)}
+  .lead{background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:14px 16px;margin:18px 0;font-size:14px;color:#cfd5e0}
+  .lead b{color:var(--text)}
+
+  /* progress */
+  .prog{position:sticky;top:0;z-index:5;background:var(--bg);padding:12px 0 8px;margin-bottom:6px}
+  .prog-bar{height:10px;border-radius:999px;background:var(--panel2);overflow:hidden;border:1px solid var(--border)}
+  .prog-fill{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--green));
+    transition:width .3s ease}
+  .prog-txt{display:flex;justify-content:space-between;align-items:center;margin-top:6px;
+    font-size:13px;color:var(--muted)}
+  .prog-txt b{color:var(--text)}
+  .reset{background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;
+    padding:4px 10px;font-size:12px;cursor:pointer}
+  .reset:hover{color:var(--text);border-color:var(--accent)}
+
+  section{margin:22px 0}
+  .sec-h{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700;margin:0 0 4px}
+  .sec-h .cnt{font-size:12px;font-weight:600;color:var(--muted);margin-left:auto}
+  .sec-note{color:var(--muted);font-size:13px;margin:0 0 10px}
+  .group{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px}
+  .group.hard{border-left:3px solid var(--red)}
+  .group.soft{border-left:3px solid var(--green)}
+  .group-h{padding:11px 14px;font-weight:600;font-size:14px;background:var(--panel2);
+    border-bottom:1px solid var(--border)}
+  ul.items{list-style:none;margin:0;padding:6px}
+  li.item{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border-radius:9px;cursor:pointer;
+    transition:background .12s}
+  li.item:hover{background:var(--panel2)}
+  li.item input{appearance:none;-webkit-appearance:none;width:20px;height:20px;flex:0 0 20px;margin-top:1px;
+    border:2px solid var(--gray);border-radius:6px;cursor:pointer;position:relative;background:transparent}
+  li.item input:checked{background:var(--green);border-color:var(--green)}
+  li.item input:checked::after{content:"✓";position:absolute;inset:0;color:#06210f;font-size:13px;
+    font-weight:900;display:flex;align-items:center;justify-content:center}
+  li.item .lbl{font-size:14px;flex:1}
+  li.item.done .lbl{color:var(--muted);text-decoration:line-through}
+  li.item .lbl code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12.5px;
+    color:#a9c7ff;border:1px solid var(--border)}
+  li.item.pre input{border-color:var(--green);background:var(--green)}
+  li.item.pre .badge{font-size:11px;color:var(--green);border:1px solid var(--green);border-radius:6px;
+    padding:1px 6px;margin-left:6px;white-space:nowrap}
+
+  .info{padding:6px}
+  .info li{padding:7px 10px;font-size:13.5px;color:#cfd5e0;display:flex;gap:8px}
+  .info li::before{content:"•";color:var(--muted)}
+  .info li b{color:var(--text)}
+
+  .final{background:var(--green-soft);border:1px solid #1f4a35;border-radius:12px;padding:16px}
+  .final h3{margin:0 0 8px;font-size:15px}
+  .final ol{margin:0;padding-left:20px;font-size:13.5px;line-height:1.7}
+  .final code{background:#0e1a13;padding:1px 6px;border-radius:5px;font-size:12.5px;color:#8ff0c0}
+
+  .summary{background:var(--accent-soft);border:1px solid #2c3f6b;border-radius:12px;padding:16px;font-size:14px}
+  .summary b{color:#fff}
+  footer{color:var(--muted);font-size:12px;text-align:center;margin-top:28px}
+  @media (max-width:480px){ .wrap{padding:16px 12px 70px} header h1{font-size:19px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🚀 เช็กลิสต์เตรียมขึ้นเวอร์ชัน 1.0</h1>
+    <div class="sub">TE Sales Dashboard — บ.ธีระศักดิ์ วิศวกรรม</div>
+    <div class="meta">
+      <span class="tag">ปัจจุบัน <b>v0.45.0</b></span>
+      <span class="tag">repo <b>te-sales/sales</b></span>
+      <span class="tag">อัปเดต <b>26 ก.ค. 2569</b></span>
+    </div>
+  </header>
+
+  <div class="lead">
+    <b>1.0 = "ทีมใช้เป็นระบบหลักจริง + นิ่ง + ข้อมูลปลอดภัย"</b> — ไม่ใช่ "ฟีเจอร์ครบ"<br>
+    โค้ดทำเกินโรดแมปไปแล้ว ดังนั้น 1.0 วัดที่ <b>ความนิ่งและการใช้งานจริง</b> ไม่ใช่จำนวนฟีเจอร์
+  </div>
+
+  <div class="prog">
+    <div class="prog-bar"><div class="prog-fill" id="fill"></div></div>
+    <div class="prog-txt">
+      <span>ผ่าน Hard gate แล้ว <b id="pnum">0/0</b> ข้อ</span>
+      <button class="reset" id="reset">ล้างเครื่องหมายทั้งหมด</button>
+    </div>
+  </div>
+
+  <!-- ทำงานจริงด้วย JS: รายการถูก render จาก data ด้านล่าง -->
+  <section id="hard">
+    <div class="sec-h">🔴 เงื่อนไขที่ "ต้องผ่าน" (Hard gates) <span class="cnt" id="hardcnt"></span></div>
+    <div class="sec-note">ต้องติ๊กครบทุกข้อในกลุ่มนี้ ก่อนติดป้าย 1.0</div>
+    <div id="hardgroups"></div>
+  </section>
+
+  <section id="soft">
+    <div class="sec-h">🟢 สัญญาณว่า "พร้อมจริง" (Soft signals)</div>
+    <div class="sec-note">ไม่ใช่ข้อบังคับ แต่ควรมีก่อนปล่อย</div>
+    <div class="group soft">
+      <ul class="items" id="softlist"></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h">⚪ สิ่งที่ "ไม่ใช่" เงื่อนไข 1.0 (อย่ารอ)</div>
+    <div class="group">
+      <ul class="info">
+        <li><b>ปิดยอด 80 ล้านบาท</b> — เป็นผลลัพธ์ธุรกิจ ไม่ใช่เวอร์ชันซอฟต์แวร์</li>
+        <li>ฟีเจอร์ใน <b>UPDATE-PLAN.md</b> (P7/P8 Telegram · P9 Win/Loss · P10 G-Lead · Quick-log ออฟไลน์) → เก็บไป 1.1+</li>
+        <li><b>Edge Function AI</b> — มี fallback ก๊อปคำสั่งวางเองอยู่แล้ว (ฟรี) deploy เมื่อไหร่ก็ได้</li>
+        <li><b>แถบ Supplier</b> — พักไว้ตามที่เจ้าของสั่ง</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h">✅ เมื่อผ่าน Hard gate ครบ + ใช้จริงนิ่ง ~2 สัปดาห์</div>
+    <div class="final">
+      <h3>ขั้นตอนติดป้าย 1.0</h3>
+      <ol>
+        <li>bump <code>CONFIG.VERSION = '1.0.0'</code> ใน <code>config.js</code> + <code>sw.js</code></li>
+        <li><code>git tag v1.0.0 &amp;&amp; git push --tags</code></li>
+        <li>ใช้ semver ต่อไป: บั๊ก→<code>1.0.1</code> · ฟีเจอร์→<code>1.1</code> · เปลี่ยนโครง DB→ต้องมี migration</li>
+        <li><b>1.0 = สัญญาว่า "จะไม่ทำข้อมูลทีมพังจากการเปลี่ยนโครง"</b></li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <div class="summary">
+      <b>📊 สรุป:</b> ขาดอยู่ 2 กลุ่มหลัก —
+      ① ตั้งค่า Supabase ให้ครบ (Site URL / Redirect / ปิด signup) <i>SQL รันครบแล้ว ✓</i> ·
+      ② ทดสอบเครื่องจริง (1.7) + บัญชีทีม + ทีมใช้จริง + backup round-trip.
+      ผ่านสองกลุ่มนี้ → ติดป้าย <b>v1.0.0</b> ได้อย่างมั่นใจ
+    </div>
+  </section>
+
+  <footer>เก็บสถานะติ๊กไว้ในเครื่องนี้ (localStorage) · เปิดไฟล์เดิมจะจำที่ติ๊กไว้ · คู่ข้อความ: RELEASE-1.0.md</footer>
+</div>
+
+<script>
+// ── ข้อมูลเช็กลิสต์ (id ต้องคงที่ เพื่อ localStorage จำได้) ──
+const HARD = [
+  { title:"A. Setup ฝั่ง Supabase ครบ 100%", items:[
+    { id:"a1", pre:true, badge:"ยืนยันแล้ว 26 ก.ค.",
+      html:'รัน migration ครบทุกไฟล์: <code>phase3-5/9/10/12/2/13</code> + re-run <code>policies.sql</code> (ผ่าน verification ทุกข้อ)' },
+    { id:"a2", html:'ตั้ง <b>Site URL</b> = <code>https://te-sales.github.io/sales/</code>' },
+    { id:"a3", html:'ตั้ง <b>Redirect URLs</b> = <code>https://te-sales.github.io/sales/**</code> (ลิงก์ลืมรหัสผ่าน/ยืนยันอีเมล)' },
+    { id:"a4", html:'ปิด <b>public signup</b> (Email → "Enable sign ups" = OFF)' },
+  ]},
+  { title:"B. ทดสอบบนเครื่องจริง 3 เครื่อง (step 1.7 — step สุดท้าย)", items:[
+    { id:"b1", html:'<b>iPhone (Safari):</b> login · เพิ่มงาน · ดู dashboard · ติดตั้ง PWA · พิมพ์ฟอร์ม' },
+    { id:"b2", html:'<b>Samsung S24 (Chrome):</b> ครบทุกข้อ' },
+    { id:"b3", html:'<b>iPad:</b> ครบทุกข้อ (layout 2 คอลัมน์)' },
+    { id:"b4", html:'ไม่มี JS error · หน้าไม่ค้าง · ปุ่มกดโดนทุกปุ่ม (โดยเฉพาะปุ่มแก้ไข)' },
+    { id:"b5", html:'เลขเวอร์ชันบนหน้าจอตรงกับที่ deploy' },
+  ]},
+  { title:"C. บัญชีทีมครบ + ทดสอบ RLS ด้วย role จริง", items:[
+    { id:"c1", html:'สร้างบัญชีครบทุก sale / manager (admin เชิญผ่าน Invite user)' },
+    { id:"c2", html:'ผูก <code>team</code> + <code>team_access</code> ให้ถูกต้องทุกคน' },
+    { id:"c3", html:'ทดสอบจริง: <b>sale เห็นเฉพาะงานทีมตัวเอง</b>' },
+    { id:"c4", html:'ทดสอบจริง: <b>manager เห็นตามสิทธิ์</b> (ไม่เห็นทีมที่ไม่ได้รับ เช่น TE-IMP)' },
+    { id:"c5", html:'ทดสอบจริง: <b>sale เซ็นรับทราบ/ลบลายเซ็นแทนหัวหน้าไม่ได้</b>' },
+    { id:"c6", html:'ทดสอบจริง: <b>sale ลบ log คนอื่นไม่ได้ · ลบของตัวเองได้ · admin ลบได้หมด</b>' },
+  ]},
+  { title:"D. ข้อมูลจริงเข้าระบบ + ทีมเริ่มใช้แทนของเก่า", items:[
+    { id:"d1", html:'import/กรอกข้อมูลจริง (Pending + Book 3 สี)' },
+    { id:"d2", html:'migrate นามบัตร 11 ราย (Obsidian, sale ธีระศักดิ์) เข้ามาครบ' },
+    { id:"d3", html:'ทีม <b>เลิกใช้ Excel / prototype เดิม</b> มาใช้ตัวนี้เป็นระบบหลัก' },
+  ]},
+  { title:"E. Backup พิสูจน์ครบวงจรแล้ว", items:[
+    { id:"e1", html:'Export ทั้งระบบ → ได้ <code>te-backup-YYYY-MM-DD.json</code>' },
+    { id:"e2", html:'ทดสอบ <b>import กลับ</b> (export → ลบ → import → ข้อมูลครบเหมือนเดิม)' },
+    { id:"e3", html:'ตั้งรูทีน <b>export ทุกวันศุกร์</b> เก็บนอกระบบ' },
+  ]},
+];
+const SOFT = [
+  { id:"s1", html:'ใช้งานต่อเนื่อง <b>~2–4 สัปดาห์</b> โดยไม่มี blocker bug' },
+  { id:"s2", html:'ทีมกรอกข้อมูลเองได้ ไม่ต้องถามวิธีบ่อย' },
+  { id:"s3", html:'ไม่มี "ของค้าง" ที่เป็น blocker ใน <code>autolog.md</code>' },
+];
+
+const KEY = 'te:release10:v1';
+let state = {};
+try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e){ state = {}; }
+// ข้อที่ pre-checked: ถ้ายังไม่เคยบันทึก ให้ถือว่า checked โดยปริยาย
+HARD.forEach(g=>g.items.forEach(it=>{ if(it.pre && !(it.id in state)) state[it.id]=true; }));
+
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+
+function mkItem(it){
+  const li = document.createElement('li');
+  li.className = 'item' + (it.pre?' pre':'');
+  const cb = document.createElement('input');
+  cb.type='checkbox'; cb.checked = !!state[it.id];
+  const lbl = document.createElement('span');
+  lbl.className='lbl'; lbl.innerHTML = it.html + (it.badge?` <span class="badge">${it.badge}</span>`:'');
+  li.append(cb, lbl);
+  if(cb.checked) li.classList.add('done');
+  li.addEventListener('click', e=>{ if(e.target!==cb){ cb.checked=!cb.checked; } toggle(it.id, cb.checked, li); });
+  cb.addEventListener('click', e=>e.stopPropagation());
+  cb.addEventListener('change', ()=>toggle(it.id, cb.checked, li));
+  return li;
+}
+function toggle(id, on, li){ state[id]=on; li.classList.toggle('done',on); save(); refresh(); }
+
+// render hard groups
+const hg = document.getElementById('hardgroups');
+HARD.forEach(g=>{
+  const box=document.createElement('div'); box.className='group hard';
+  const h=document.createElement('div'); h.className='group-h'; h.textContent=g.title;
+  const ul=document.createElement('ul'); ul.className='items';
+  g.items.forEach(it=>ul.append(mkItem(it)));
+  box.append(h,ul); hg.append(box);
+});
+// render soft
+const sl=document.getElementById('softlist');
+SOFT.forEach(it=>sl.append(mkItem(it)));
+
+function refresh(){
+  const all=HARD.flatMap(g=>g.items);
+  const done=all.filter(it=>state[it.id]).length;
+  const pct=Math.round(done/all.length*100);
+  document.getElementById('fill').style.width=pct+'%';
+  document.getElementById('pnum').textContent=`${done}/${all.length}`;
+  document.getElementById('hardcnt').textContent=`${done}/${all.length} · ${pct}%`;
+}
+document.getElementById('reset').addEventListener('click', ()=>{
+  state={}; HARD.forEach(g=>g.items.forEach(it=>{ if(it.pre) state[it.id]=true; }));
+  save();
+  document.querySelectorAll('li.item').forEach(li=>{
+    const cb=li.querySelector('input'); const id=/* find by dataset */ null;
+  });
+  location.reload();
+});
+refresh();
+</script>
+</body>
+</html>
