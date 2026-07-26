@@ -737,8 +737,11 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 /* เก็บบรรทัด/ย่อหน้าที่ผู้ใช้พิมพ์ไว้ — ไม่งั้นตัวหนังสือติดกันเป็นพืด อ่านยาก */
 .log-body { white-space: pre-wrap; word-break: break-word; line-height: 1.55; }
 
-/* ---------- iPad ---------- */
-@media (max-width: 1024px) {
+/* ---------- ฟอร์มในโมดัล: 2 คอลัมน์บน laptop/iPad · 1 คอลัมน์เฉพาะมือถือ ----------
+   เดิมตัดเป็น 1 คอลัมน์ตั้งแต่ ≤1024px → บนจอ Mac ที่หน้าต่างกว้าง ~1013px (retina/ไม่เต็มจอ)
+   ฟอร์มเลยเหลือคอลัมน์เดียวทั้งที่โมดัลกว้างถึง 920px · ลดเหลือ ≤600px ให้ตรงกับสเปก iPad = 2 คอลัมน์
+   (media query ใช้หน่วย CSS px จึงไม่เพี้ยนตามความละเอียดจอ retina) */
+@media (max-width: 600px) {
   .fgrid { grid-template-columns: 1fr; }
 }
 
