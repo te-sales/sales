@@ -1283,6 +1283,35 @@ const supabaseAdapter = {
     return summary;
   },
 
+  // ---------- สำรองขึ้น Google Drive อัตโนมัติ (task 5) ----------
+  //   listBackupLog = อ่านประวัติ (admin เท่านั้น ตาม RLS) · runDriveBackup = สั่ง Edge Function ทำเดี๋ยวนี้
+  async listBackupLog(limit = 10) {
+    try {
+      return await rest(`/backup_log?select=*&order=created_at.desc&limit=${Number(limit) || 10}`);
+    } catch { return []; }   // ยังไม่ได้รัน phase3-15 ก็ไม่ทำให้หน้าพัง
+  },
+
+  async runDriveBackup() {
+    const s = await ensureFreshToken();
+    if (!s) throw new Error('เซสชันหมดอายุ — กรุณาเข้าสู่ระบบใหม่');
+    const endpoint = CONFIG.SUPABASE_URL.replace(/\/$/, '') + '/functions/v1/daily-backup';
+    let res, data;
+    try {
+      res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { apikey: apikey(), Authorization: `Bearer ${s.access_token}`, 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      data = await res.json().catch(() => null);
+    } catch {
+      throw new Error('เรียกสำรองไม่สำเร็จ — ตรวจอินเทอร์เน็ต (หรือยังไม่ได้ deploy Edge Function daily-backup)');
+    }
+    if (res.status === 404)
+      throw new Error('ยังไม่ได้ deploy Edge Function "daily-backup" — ดูวิธีตั้งค่าใน supabase/functions/daily-backup/README.md');
+    if (!res.ok || data?.ok === false) throw new Error(data?.error || `สำรองไม่สำเร็จ (${res.status})`);
+    return data;
+  },
+
   // ---------- AI Intake อัตโนมัติ (step 3.8) ----------
   //
   // ส่งรูป/ข้อความไป Edge Function (ถือ ANTHROPIC_API_KEY ฝั่งเซิร์ฟเวอร์) → คืนข้อความ JSON

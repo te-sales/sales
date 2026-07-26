@@ -727,6 +727,12 @@ const localAdapter = {
     return summary;
   },
 
+  // สำรองขึ้น Google Drive (task 5) — โหมดออฟไลน์ไม่มี Edge Function/เซิร์ฟเวอร์
+  async listBackupLog() { return []; },
+  async runDriveBackup() {
+    throw new Error('สำรองขึ้น Google Drive ใช้ได้เฉพาะโหมด Supabase (ต้อง deploy Edge Function daily-backup)');
+  },
+
   // AI Intake อัตโนมัติ (step 3.8) — โหมดออฟไลน์ไม่มี Edge Function/Claude
   // คืนข้อมูล "ตัวอย่าง" ให้ทดสอบ flow ได้ (ของจริงมาจาก Claude vision ผ่าน Edge Function)
   async aiExtract(payload) {

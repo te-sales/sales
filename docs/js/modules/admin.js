@@ -63,15 +63,16 @@ async function renderAdmin(root) {
 
     root.innerHTML = '<div class="skeleton">กำลังโหลด…</div>';
 
-    let profiles = [], teams = [], access = [], settings = {}, teamTargets = [], saleTargets = [];
+    let profiles = [], teams = [], access = [], settings = {}, teamTargets = [], saleTargets = [], backups = [];
     try {
-      [profiles, teams, access, settings, teamTargets, saleTargets] = await Promise.all([
+      [profiles, teams, access, settings, teamTargets, saleTargets, backups] = await Promise.all([
         adapter.listProfiles(),
         adapter.listTeams(),
         adapter.listTeamAccess(),
         adapter.getSettings().catch(() => ({})),
         adapter.listAllTeamTargets().catch(() => []),
         adapter.listAllSaleTargets().catch(() => []),
+        adapter.listBackupLog(6).catch(() => []),   // ยังไม่ได้รัน phase3-15 ก็ไม่พังทั้งหน้า
       ]);
     } catch (e) {
       const missing = /ยังไม่ได้สร้างตาราง|does not exist|42P01/i.test(e.message);
@@ -89,6 +90,20 @@ async function renderAdmin(root) {
     };
     // คืนแถว team_access เต็ม (มี can_edit) ไม่ใช่แค่ team_id — step 3.10 ต้องรู้ว่าดูได้/แก้ได้
     const accessOf = (pid) => access.filter(a => a.profile_id === pid);
+
+    // ── สำรองขึ้น Google Drive (task 5): ข้อความสถานะ ──
+    const fmtWhen = (iso) => { try {
+      return new Date(iso).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', dateStyle: 'medium', timeStyle: 'short' });
+    } catch { return String(iso || ''); } };
+    // กำหนดครั้งถัดไป = 02:00 น. (ไทย) ของวันถัดไป หรือวันนี้ถ้ายังไม่ถึง — ให้ตรงกับ pg_cron '0 19 * * *' (UTC)
+    const nextBackupText = () => {
+      const ict = new Date(Date.now() + 7 * 3600 * 1000);
+      if (ict.getUTCHours() >= 2) ict.setUTCDate(ict.getUTCDate() + 1);
+      ict.setUTCHours(2, 0, 0, 0);
+      return `${ict.getUTCDate()}/${ict.getUTCMonth() + 1}/${ict.getUTCFullYear() + 543} ~02:00 น.`;
+    };
+    const lastBk = backups.find(b => b.status === 'ok') || backups[0];
+    const lastBkText = lastBk ? `${fmtWhen(lastBk.created_at)}${lastBk.status !== 'ok' ? ' (ล้มเหลว)' : ''}` : 'ยังไม่เคยสำรอง';
 
     root.innerHTML = `
       ${isAdmin ? `<div class="card sec">
@@ -194,6 +209,31 @@ async function renderAdmin(root) {
           <span class="lg-hint" id="bkMsg"></span>
         </div>
         <p class="bk-warn" id="bkWarn" hidden></p>
+      </div>
+
+      <div class="card sec">
+        <h3 class="sec-h">☁️ สำรองขึ้น Google Drive อัตโนมัติ <span class="sec-sub">ทุกวัน · เก็บนอกระบบ</span></h3>
+        <p class="sec-foot" style="margin:0 0 10px">
+          สำรองทั้งฐานข้อมูลขึ้น Google Drive อัตโนมัติทุกวัน (Supabase Edge Function + pg_cron) —
+          ไฟล์รูปแบบเดียวกับปุ่มดาวน์โหลด กู้คืนได้ที่ import-json.html
+          · ตั้งค่า Google service account + deploy ครั้งแรก: ดู <code>supabase/functions/daily-backup/README.md</code>
+        </p>
+        <div class="bk-actions" style="margin-bottom:10px">
+          <button type="button" class="btn btn-primary btn-sm" id="gdNow">☁️ สำรองขึ้น Drive เดี๋ยวนี้</button>
+          <span class="lg-hint" id="gdMsg"></span>
+        </div>
+        <div class="gd-status">
+          <div><span class="gd-l">กำหนดครั้งถัดไป</span><b>${esc(nextBackupText())}</b></div>
+          <div><span class="gd-l">สำรองล่าสุด</span><b>${esc(lastBkText)}</b></div>
+        </div>
+        ${backups.length ? `<ul class="nw-adminlist" style="margin-top:10px">
+          ${backups.map(r => `<li>
+            <span class="nw-ali-main"><b>${r.status === 'ok' ? '✓' : '✗'} ${esc(r.file_name || '(สำรองล้มเหลว)')}</b>
+              <span class="t2">${esc(fmtWhen(r.created_at))} · ${r.triggered_by === 'cron' ? 'อัตโนมัติ' : 'กดเอง'}${r.status !== 'ok' && r.error ? ' · ' + esc(r.error) : ''}</span></span>
+            ${r.drive_view_url ? `<a class="btn btn-ghost btn-sm" href="${esc(r.drive_view_url)}" target="_blank" rel="noopener noreferrer">เปิด ↗</a>` : ''}
+          </li>`).join('')}
+        </ul>` : '<p class="tm-nomem" style="padding:4px 0">ยังไม่มีประวัติการสำรอง — กด "สำรองขึ้น Drive เดี๋ยวนี้" เพื่อทดสอบหลังตั้งค่าเสร็จ</p>'}
+        <p class="login-err" id="gdErr" role="alert" hidden></p>
       </div>` : ''}
 
       <div id="aPanel"></div>`;
@@ -311,6 +351,21 @@ async function renderAdmin(root) {
         flash($('#bkMsg'), `✓ ดาวน์โหลดแล้ว — ${count} แถวจากทุกตาราง`);
       } catch (e) { flash($('#bkMsg'), 'สำรองไม่สำเร็จ: ' + e.message, true); }
       btn.disabled = false; btn.textContent = '⭳ ดาวน์โหลด backup (JSON)';
+    });
+
+    // ── สำรองขึ้น Google Drive เดี๋ยวนี้ (manual) — เรียก Edge Function daily-backup ──
+    $('#gdNow')?.addEventListener('click', async () => {
+      const btn = $('#gdNow');
+      btn.disabled = true; const old = btn.textContent; btn.textContent = 'กำลังสำรองขึ้น Drive…';
+      $('#gdErr').hidden = true;
+      try {
+        const r = await adapter.runDriveBackup();
+        flash($('#gdMsg'), `✓ สำรองขึ้น Drive แล้ว: ${r.name || ''}`);
+        setTimeout(() => renderAdmin(root), 1000);   // รีเฟรชให้เห็นรายการล่าสุด
+      } catch (e) {
+        $('#gdErr').textContent = e.message; $('#gdErr').hidden = false;
+        btn.disabled = false; btn.textContent = old;
+      }
     });
 
     // กู้คืน — ยืนยัน 2 ขั้น เพราะเขียนทับข้อมูลปัจจุบัน

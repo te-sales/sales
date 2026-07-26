@@ -27,6 +27,19 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-26 · ยังไม่ commit · สำรองขึ้น Google Drive อัตโนมัติ (Edge Function + pg_cron) — v0.52.0
+**step:** — (คำขอเจ้าของ 5/5 ข้อ · เลือกแนวทาง B) | **ประเภท:** ฟีเจอร์ (backend + UI)
+- เจ้าของเลือก **แนวทาง B: อัตโนมัติจริงฝั่งเซิร์ฟเวอร์** (เว็บ static สั่ง Drive เองไม่ได้ · MCP เป็นของ Claude ไม่ใช่เว็บ)
+- `supabase/functions/daily-backup/index.ts` — ดึงทุกตารางด้วย service_role (ข้าม RLS) → ไฟล์ `te-sales-dashboard-backup` (กู้ที่ import-json.html ได้) → อัปขึ้น Google Drive ด้วย **service account** (RS256 JWT → OAuth → Drive multipart) → log ลง `backup_log` · เรียกได้ 2 ทาง: pg_cron (header x-backup-secret) หรือปุ่ม admin (ตรวจ JWT+role)
+- `db/phase3-15.sql` — ตาราง `backup_log` + RLS (อ่าน admin · เขียนผ่าน service_role) + เทมเพลต pg_cron (คอมเมนต์ไว้)
+- adapter: `listBackupLog`/`runDriveBackup` (facade+supabase invoke Edge Function · local คืน []/throw)
+- admin.js: ส่วน "☁️ สำรองขึ้น Google Drive อัตโนมัติ" — กำหนดครั้งถัดไป (~02:00 ไทย) · สำรองล่าสุด · ประวัติ + ลิงก์เปิดไฟล์ · ปุ่ม "สำรองเดี๋ยวนี้"
+- README.md วิธี setup ครบ (Google SA + แชร์โฟลเดอร์ + secrets + deploy + pg_cron) · bump 0.51→0.52
+**ไฟล์:** supabase/functions/daily-backup/{index.ts,README.md} · db/phase3-15.sql · js/data/{adapter,supabase-adapter,local-adapter}.js · js/modules/admin.js · css/app.css · config.js · sw.js
+**ทดสอบ:** gdbackup-test 7/7 ผ่าน (UI: section/ปุ่ม/กำหนดถัดไป/สำรองล่าสุด · local กดแล้ว error ถูกต้อง · ปุ่ม download เดิมยังอยู่ · ไม่มี error)
+**ค้าง:** Edge Function + Google Drive **ทดสอบจริงไม่ได้ในเครื่องนี้** (ไม่มี deno/deploy/creds) — ตรวจโค้ดด้วยสายตา · เจ้าของต้องทำ setup ตาม README แล้วกด "สำรองเดี๋ยวนี้" เพื่อยืนยันครั้งแรก
+**หมายเหตุ:** Gmail ส่วนตัว — ไฟล์เป็นของ service account (โควตา) · JSON เล็กใช้ได้นาน · ถ้าเจอ error โควตาให้ใช้ Shared Drive (README ระบุไว้)
+
 ## 2026-07-26 · ยังไม่ commit · dropdown เป้ายอดขายรายคนบน dashboard — v0.51.0
 **step:** — (คำขอเจ้าของ 4/5 ข้อ) | **ประเภท:** ฟีเจอร์
 - หน้าภาพรวมเพิ่ม dropdown "เป้ารายคน" (#dashPerson) — เลือก sale แต่ละคน → KPI/กราฟ/funnel นับเฉพาะงานที่ `owner_id` = คนนั้น · เป้า = รวม `sale_targets` รายเดือนในช่วงเป้า

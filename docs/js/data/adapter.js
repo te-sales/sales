@@ -136,6 +136,10 @@ export const adapter = {
   exportAll:     ()      => need().exportAll(),
   restoreBackup: (t)     => need().restoreBackup(t),
 
+  // สำรองขึ้น Google Drive อัตโนมัติ (task 5 · Edge Function daily-backup)
+  listBackupLog: (limit) => need().listBackupLog(limit),
+  runDriveBackup:()      => need().runDriveBackup(),
+
   // AI Intake อัตโนมัติ (step 3.8) — ส่งรูป/ข้อความไป Edge Function อ่านด้วย Claude
   aiExtract:     (p)     => need().aiExtract(p),
 };
