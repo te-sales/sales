@@ -25,6 +25,7 @@ const emptyDb = () => ({
   intake_items: [],
   lead_sources: [],
   expo_customers: [],
+  news_reports: [],
   teams_custom: [],
   app_settings: {},
   session: null,
@@ -468,6 +469,34 @@ const localAdapter = {
 
   async saveExpoCustomer(row) {
     return upsert('expo_customers', { ...row, updated_by: db.session?.user?.id || null });
+  },
+
+  // ข่าวสารประจำสัปดาห์ (news_reports · phase 3.14) — เลียนแบบ RLS: อ่านได้ทุกคน · เขียน/ลบ admin
+  async listNews() {
+    return db.news_reports
+      .filter(r => r.is_active !== false)
+      .map(({ html, ...meta }) => meta)                  // list ไม่พก html ก้อนใหญ่ (ตรงกับ supabase)
+      .sort((a, b) => String(b.report_date || '').localeCompare(String(a.report_date || ''))
+                   || String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  },
+  async getNews(id) {
+    return db.news_reports.find(r => r.id === id) || null;
+  },
+  async saveNews(row) {
+    const me = db.session?.user;
+    if (!me || me.role !== 'admin')
+      throw new Error('เพิ่มข่าวไม่ได้ — เพิ่ม/ลบข่าวได้เฉพาะผู้ดูแลระบบ');
+    return upsert('news_reports', { ...row, created_by: me.id });
+  },
+  async deleteNews(id) {
+    const me = db.session?.user;
+    if (!me || me.role !== 'admin')
+      throw new Error('ลบข่าวไม่ได้ — ลบได้เฉพาะผู้ดูแลระบบ');
+    const i = db.news_reports.findIndex(r => r.id === id);
+    if (i < 0) throw new Error('ไม่พบข่าวนี้');
+    db.news_reports.splice(i, 1);
+    save();
+    return true;
   },
 
   // B8 — Sign-off (step 2.6) · จำลอง trigger ฝั่ง DB ให้พฤติกรรมตรงกัน

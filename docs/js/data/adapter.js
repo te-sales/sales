@@ -92,6 +92,12 @@ export const adapter = {
   listExpoCustomers: (opt)     => need().listExpoCustomers(opt),
   saveExpoCustomer:  (row)     => need().saveExpoCustomer(row),
 
+  // ข่าวสารโอกาสงานประจำสัปดาห์ (news_reports · phase 3.14)
+  listNews:          ()        => need().listNews(),
+  getNews:           (id)      => need().getNews(id),
+  saveNews:          (row)     => need().saveNews(row),
+  deleteNews:        (id)      => need().deleteNews(id),
+
   // B8 sign-off — หัวหน้าเซ็นรับทราบ (step 2.6)
   listSignoffs:       (t, ids)  => need().listSignoffs(t, ids),
   listSignoffHistory: (t, id)   => need().listSignoffHistory(t, id),

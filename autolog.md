@@ -27,6 +27,19 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-26 · ยังไม่ commit · ข่าวสารโอกาสงานประจำสัปดาห์ (news_reports) — v0.48.0
+**step:** — (คำขอเจ้าของ) | **ประเภท:** ฟีเจอร์
+- เจ้าของสร้างรายงานข่าว HTML จาก Claude Code ทุกสัปดาห์ → อยากแปะเป็นการ์ดแรก (ไฮไลต์ "ใหม่") ในแถบแหล่งงาน
+- 🔒 ตัดสินใจ (ถามเจ้าของ): เก็บใน **Supabase** เห็นเฉพาะคนล็อกอิน — ไม่วางใน public repo (กลยุทธ์/target list DOS ห้ามหลุดสู่สาธารณะ) · เปิดอ่าน **เต็มจอในแอป** (iframe)
+- `db/phase3-14.sql` — ตาราง `news_reports` (title, week_label, report_date, html, is_active) + RLS: อ่านทุกคนล็อกอิน · เขียน/ลบ admin เท่านั้น
+- adapter: `listNews`(เมทาดาทา ไม่พก html)/`getNews`/`saveNews`/`deleteNews` (facade + supabase + local ครบ 3 ชั้น)
+- sources.js: การ์ดข่าวบนสุดของแถบ "เส้นทางหางาน" · ใหม่สุด = การ์ดไฮไลต์ + ป้าย "🆕 ใหม่สัปดาห์นี้" · เก่า = "ข่าวย้อนหลัง" · กด → `openNewsReader` เปิด `<iframe srcdoc>` sandbox (allow-scripts/popups · ไม่มี allow-same-origin = แยก origin จากแอป)
+- admin.js: ส่วน "📰 ข่าวสารประจำสัปดาห์" — วาง HTML ทั้งไฟล์ (ดึงชื่อจาก `<title>` อัตโนมัติ) + ลบ (กด 2 ครั้งยืนยัน)
+- bump VERSION 0.47.0 → 0.48.0 (sources/admin/app.css ใน SHELL)
+**ไฟล์:** db/phase3-14.sql · js/data/{adapter,supabase-adapter,local-adapter}.js · js/modules/sources.js · js/modules/admin.js · css/app.css · js/config.js · sw.js
+**ทดสอบ:** news-test 19/19 ผ่าน (เพิ่มผ่าน modal · ดึง title · การ์ดแรก+ไฮไลต์ · ข่าวย้อนหลัง · iframe เนื้อหาไทยครบ · sandbox แยก origin · ลบ 2-คลิก · ไม่มี error)
+**ค้าง:** ต้องรัน `db/phase3-14.sql` ใน Supabase ก่อนใช้จริง (ไม่รัน adapter คืน [] · หน้าอื่นไม่พัง)
+
 ## 2026-07-26 · ยังไม่ commit · ฟอร์มแก้ไข (modal) เป็น 2 คอลัมน์บน laptop/iPad — v0.47.0
 **step:** — (คำขอเจ้าของ) | **ประเภท:** แก้บั๊ก/ปรับ UI
 - เจ้าของเห็นฟอร์มแก้ไขงานเป็น 1 คอลัมน์บน Mac → อยากได้ 2 คอลัมน์

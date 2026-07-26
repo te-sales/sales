@@ -885,6 +885,42 @@ const supabaseAdapter = {
     return rows[0];
   },
 
+  // ---------- ข่าวสารโอกาสงานประจำสัปดาห์ (news_reports · phase 3.14) ----------
+  // list = เมทาดาทาเท่านั้น — ไม่ดึงคอลัมน์ html (ก้อนใหญ่หลายร้อย KB) ลงมือถือ
+  // เนื้อหาเต็มค่อยดึงด้วย getNews ตอนกดเปิดอ่าน
+  async listNews() {
+    return rest('/news_reports?select=id,title,week_label,report_date,created_at'
+              + '&is_active=eq.true&order=report_date.desc,created_at.desc');
+  },
+
+  async getNews(id) {
+    const rows = await rest(`/news_reports?id=eq.${encodeURIComponent(id)}&select=*&limit=1`);
+    return rows?.[0] || null;
+  },
+
+  // เพิ่มข่าว — RLS (news_write) ปล่อยเฉพาะ admin · ถ้าไม่ใช่จะได้ 0 แถว ต้องดักเอง
+  async saveNews(row) {
+    const body = cleanRow(row);
+    delete body.id;
+    body.created_by = session?.user?.id || null;
+    const rows = await rest('/news_reports', {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify(body),
+    });
+    if (!rows?.length) throw new Error('เพิ่มข่าวไม่ได้ — เพิ่ม/ลบข่าวได้เฉพาะผู้ดูแลระบบ');
+    return rows[0];
+  },
+
+  async deleteNews(id) {
+    const rows = await rest(`/news_reports?id=eq.${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=representation' },
+    });
+    if (!rows?.length) throw new Error('ลบข่าวไม่ได้ — ลบได้เฉพาะผู้ดูแลระบบ');
+    return true;
+  },
+
   // ── B2 รายการสินค้าในฟอร์ม Pending (step 3.9) ── สูงสุด 9 แถวตามฟอร์มกระดาษ
   async listPendingProducts(pendingId) {
     const p = new URLSearchParams();

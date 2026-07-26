@@ -231,50 +231,134 @@ async function renderSources(root) {
 // ══════════════════════════════════════════════════════════
 
 async function drawPaths(body, root, me, redraw) {
-  let rows = [];
-  try { rows = await adapter.listLeadSources(); }
-  catch (e) {
+  // ข่าวสารประจำสัปดาห์โหลดแยก — ถ้ายังไม่ได้รัน phase3-14 ก็ไม่ทำให้ทั้งแถบพัง
+  let news = [];
+  try { news = await adapter.listNews(); } catch { news = []; }
+
+  let rows = [], srcHtml = '';
+  try {
+    rows = await adapter.listLeadSources();
+    const editable = canSign(me);
+    srcHtml = `
+      <p class="sec-foot" style="margin:0 0 12px">
+        ${rows.length} เส้นทางที่ทีมใช้หางาน — กดลิงก์เข้าไปทำงานได้เลย
+        ${editable ? '· แก้ลิงก์/ผู้รับผิดชอบได้ที่ปุ่ม "แก้ไข"'
+                   : '· ลิงก์เป็นของกลาง แก้ได้เฉพาะหัวหน้างาน'}
+      </p>
+      <div class="srcgrid">
+        ${rows.map(s => `
+          <div class="card srccard">
+            <div class="src-h">
+              <span class="src-ico">${esc(s.icon || '•')}</span>
+              <div class="src-title">
+                <strong>${esc(s.name)}</strong>
+                ${s.cadence ? `<span class="src-cad">⏱ ${esc(s.cadence)}</span>` : ''}
+              </div>
+              ${editable ? `<button type="button" class="btn btn-ghost btn-sm"
+                              data-edit-src="${esc(s.id)}">แก้ไข</button>` : ''}
+            </div>
+            ${s.descr ? `<p class="src-desc">${esc(s.descr)}</p>` : ''}
+            ${s.owner_name ? `<p class="src-owner">ผู้รับผิดชอบ: <b>${esc(s.owner_name)}</b></p>` : ''}
+            ${(s.subs || []).length ? `<div class="src-subs">
+              ${s.subs.map(x => `<span class="ateam">${esc(x)}</span>`).join('')}</div>` : ''}
+            ${linksHtml(s.links) || '<p class="src-nolink">— ยังไม่มีลิงก์ —</p>'}
+          </div>`).join('')}
+      </div>`;
+  } catch (e) {
     const missing = /ยังไม่ได้สร้างตาราง|does not exist|42P01/i.test(e.message);
-    body.innerHTML = `<div class="empty">
+    srcHtml = `<div class="empty">
         <strong>${missing ? 'ยังไม่ได้สร้างตารางแหล่งงาน' : 'โหลดข้อมูลไม่สำเร็จ'}</strong>
         ${missing ? 'เอาไฟล์ <code>db/phase3-1.sql</code> ไปรันใน Supabase → SQL Editor ก่อน'
                   : esc(e.message)}
       </div>`;
-    return;
   }
 
-  const editable = canSign(me);
+  body.innerHTML = newsSectionHtml(news) + srcHtml;
 
-  body.innerHTML = `
-    <p class="sec-foot" style="margin:0 0 12px">
-      ${rows.length} เส้นทางที่ทีมใช้หางาน — กดลิงก์เข้าไปทำงานได้เลย
-      ${editable ? '· แก้ลิงก์/ผู้รับผิดชอบได้ที่ปุ่ม "แก้ไข"'
-                 : '· ลิงก์เป็นของกลาง แก้ได้เฉพาะหัวหน้างาน'}
-    </p>
-    <div class="srcgrid">
-      ${rows.map(s => `
-        <div class="card srccard">
-          <div class="src-h">
-            <span class="src-ico">${esc(s.icon || '•')}</span>
-            <div class="src-title">
-              <strong>${esc(s.name)}</strong>
-              ${s.cadence ? `<span class="src-cad">⏱ ${esc(s.cadence)}</span>` : ''}
-            </div>
-            ${editable ? `<button type="button" class="btn btn-ghost btn-sm"
-                            data-edit-src="${esc(s.id)}">แก้ไข</button>` : ''}
-          </div>
-          ${s.descr ? `<p class="src-desc">${esc(s.descr)}</p>` : ''}
-          ${s.owner_name ? `<p class="src-owner">ผู้รับผิดชอบ: <b>${esc(s.owner_name)}</b></p>` : ''}
-          ${(s.subs || []).length ? `<div class="src-subs">
-            ${s.subs.map(x => `<span class="ateam">${esc(x)}</span>`).join('')}</div>` : ''}
-          ${linksHtml(s.links) || '<p class="src-nolink">— ยังไม่มีลิงก์ —</p>'}
-        </div>`).join('')}
-    </div>`;
+  // เปิดอ่านข่าว (ทุกคนที่ล็อกอินอ่านได้) — เต็มจอผ่าน iframe
+  body.querySelectorAll('[data-news]').forEach(b => {
+    b.addEventListener('click', () => openNewsReader(root.querySelector('#sPanel'), b.dataset.news));
+  });
 
   body.querySelectorAll('[data-edit-src]').forEach(b => {
     b.addEventListener('click', () =>
       openSourceEdit(root.querySelector('#sPanel'), rows.find(r => r.id === b.dataset.editSrc), redraw));
   });
+}
+
+// ── การ์ดข่าวโอกาสงานประจำสัปดาห์ (การ์ดแรก · ตัวใหม่สุดไฮไลต์ "ใหม่สัปดาห์นี้") ──
+function newsSectionHtml(news) {
+  if (!news || !news.length) return '';
+  const dateOf = (r) => esc(r.week_label || r.report_date || '');
+  const [latest, ...older] = news;
+
+  return `
+    <div class="newswrap">
+      <button type="button" class="newscard newscard-hot" data-news="${esc(latest.id)}"
+              aria-label="อ่านข่าวโอกาสงานใหม่สัปดาห์นี้">
+        <span class="news-ico">📰</span>
+        <span class="news-main">
+          <span class="news-badge">🆕 ข่าวโอกาสงานใหม่สัปดาห์นี้</span>
+          <strong>${esc(latest.title)}</strong>
+          <span class="news-date">${dateOf(latest)}</span>
+        </span>
+        <span class="news-go">อ่านรายงาน →</span>
+      </button>
+      ${older.length ? `<div class="news-old">
+        <span class="news-old-h">ข่าวย้อนหลัง</span>
+        ${older.map(r => `<button type="button" class="news-oldrow" data-news="${esc(r.id)}">
+          <span class="news-ico">📄</span>
+          <span class="news-main"><strong>${esc(r.title)}</strong><span class="news-date">${dateOf(r)}</span></span>
+          <span class="news-go">อ่าน →</span>
+        </button>`).join('')}
+      </div>` : ''}
+    </div>`;
+}
+
+/**
+ * เปิดอ่านรายงานข่าวเต็มจอ
+ * แสดงผ่าน <iframe srcdoc> sandbox — เนื้อหาข่าว (แท็บ/กราฟ/สไตล์ในไฟล์) ทำงานได้ครบ
+ * แต่แยก origin จากแอป: แตะ DOM/คุกกี้/localStorage ของแอปไม่ได้ (กันสคริปต์หลุด แม้เป็นของ admin เอง)
+ */
+async function openNewsReader(host, id) {
+  host.innerHTML = `
+    <div class="modal modal-full" id="nwModal">
+      <div class="modal-box modal-full-box">
+        <div class="modal-head">
+          <strong id="nwTitle">กำลังโหลดข่าว…</strong>
+          <button type="button" class="btn btn-ghost btn-sm" id="nwClose">ปิด</button>
+        </div>
+        <div class="nw-body" id="nwBody"><div class="skeleton">กำลังโหลด…</div></div>
+      </div>
+    </div>`;
+
+  const q = (s) => host.querySelector(s);
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  function close() { document.removeEventListener('keydown', onKey); host.innerHTML = ''; }
+  q('#nwClose').addEventListener('click', close);
+  q('#nwModal').addEventListener('mousedown', (e) => { if (e.target.id === 'nwModal') close(); });
+  document.addEventListener('keydown', onKey);
+
+  try {
+    const rec = await adapter.getNews(id);
+    if (!rec) throw new Error('ไม่พบข่าวนี้ (อาจถูกลบไปแล้ว)');
+    q('#nwTitle').textContent = rec.title || 'ข่าวสาร';
+
+    const frame = document.createElement('iframe');
+    frame.className = 'nw-frame';
+    frame.setAttribute('title', rec.title || 'ข่าวสาร');
+    // allow-scripts = ให้แท็บ/กราฟในไฟล์ทำงาน · allow-popups(+escape) = ลิงก์ข่าว target=_blank เปิดได้
+    // ไม่ใส่ allow-same-origin → เนื้อหาแยก origin แตะแอปไม่ได้
+    frame.setAttribute('sandbox', 'allow-scripts allow-popups allow-popups-to-escape-sandbox');
+    frame.srcdoc = String(rec.html || '');
+
+    const bodyEl = q('#nwBody');
+    bodyEl.innerHTML = '';
+    bodyEl.appendChild(frame);
+  } catch (e) {
+    const bodyEl = q('#nwBody');
+    if (bodyEl) bodyEl.innerHTML = `<div class="empty" style="padding:30px">${esc(e.message)}</div>`;
+  }
 }
 
 function openSourceEdit(host, src, onSaved) {

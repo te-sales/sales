@@ -10,6 +10,7 @@
 import { adapter } from '../data/adapter.js';
 import { CONFIG } from '../config.js';
 import { buildBackup, BACKUP_FORMAT } from '../data/import-map.js';
+import { todayISO } from '../ui/datepicker.js';
 
 export const ROLES = [
   { id: 'admin',   label: 'ผู้ดูแลระบบ', note: 'เห็นและแก้ได้ทุกทีม · จัดการผู้ใช้ได้' },
@@ -63,15 +64,16 @@ async function renderAdmin(root) {
 
     root.innerHTML = '<div class="skeleton">กำลังโหลด…</div>';
 
-    let profiles = [], teams = [], access = [], settings = {}, teamTargets = [], saleTargets = [];
+    let profiles = [], teams = [], access = [], settings = {}, teamTargets = [], saleTargets = [], news = [];
     try {
-      [profiles, teams, access, settings, teamTargets, saleTargets] = await Promise.all([
+      [profiles, teams, access, settings, teamTargets, saleTargets, news] = await Promise.all([
         adapter.listProfiles(),
         adapter.listTeams(),
         adapter.listTeamAccess(),
         adapter.getSettings().catch(() => ({})),
         adapter.listAllTeamTargets().catch(() => []),
         adapter.listAllSaleTargets().catch(() => []),
+        adapter.listNews().catch(() => []),   // ยังไม่ได้รัน phase3-14 ก็ไม่พังทั้งหน้า
       ]);
     } catch (e) {
       const missing = /ยังไม่ได้สร้างตาราง|does not exist|42P01/i.test(e.message);
@@ -196,6 +198,25 @@ async function renderAdmin(root) {
         <p class="bk-warn" id="bkWarn" hidden></p>
       </div>` : ''}
 
+      <div class="card sec">
+        <h3 class="sec-h">📰 ข่าวสารประจำสัปดาห์ <span class="sec-sub">${news.length} รายงาน · แสดงในแถบแหล่งงาน</span></h3>
+        <p class="sec-foot" style="margin:0 0 10px">
+          วางไฟล์ HTML ข่าวที่สร้างจาก Claude Code รายสัปดาห์ที่นี่ — ระบบจะแสดงเป็น <b>การ์ดแรก (ไฮไลต์ "ใหม่")</b> ในแถบ <b>แหล่งงาน</b>
+          · เก็บใน Supabase เห็นเฉพาะทีมที่ล็อกอิน (ไม่หลุดสู่ public repo)
+        </p>
+        <div class="bk-actions" style="margin-bottom:10px">
+          <button type="button" class="btn btn-primary btn-sm" id="nwAdd">+ เพิ่มข่าวประจำสัปดาห์</button>
+        </div>
+        ${news.length ? `<ul class="nw-adminlist">
+          ${news.map((r, i) => `<li>
+            <span class="nw-ali-main"><b>${esc(r.title)}</b>
+              <span class="t2">${esc(r.week_label || r.report_date || '')}${i === 0 ? ' · ล่าสุด' : ''}</span></span>
+            <button type="button" class="btn btn-ghost btn-sm" data-news-del="${esc(r.id)}">🗑 ลบ</button>
+          </li>`).join('')}
+        </ul>` : '<p class="tm-nomem" style="padding:6px 0">ยังไม่มีข่าว — กด "+ เพิ่มข่าวประจำสัปดาห์"</p>'}
+        <p class="login-err" id="nwErr" role="alert" hidden></p>
+      </div>
+
       <div id="aPanel"></div>`;
 
     const $ = (s) => root.querySelector(s);
@@ -251,6 +272,24 @@ async function renderAdmin(root) {
       btn.addEventListener('click', () =>
         openTeamMonthly($('#aPanel'), teams.find(t => t.id === btn.dataset.monthTarget),
                         targetYear, teamTargets, saleTargets, profiles, teams, () => renderAdmin(root)));
+    });
+
+    // ── ข่าวสารประจำสัปดาห์: เพิ่ม / ลบ ──
+    $('#nwAdd')?.addEventListener('click', () =>
+      openNewsAdd($('#aPanel'), () => renderAdmin(root)));
+
+    root.querySelectorAll('[data-news-del]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        // ลบแล้วกู้ไม่ได้ → กด 2 ครั้งยืนยัน (แนวเดียวกับปุ่มลบ log)
+        if (btn.dataset.armed !== '1') {
+          btn.dataset.armed = '1';
+          btn.textContent = '⚠️ กดยืนยันลบ';
+          setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ''; btn.textContent = '🗑 ลบ'; } }, 3000);
+          return;
+        }
+        try { await adapter.deleteNews(btn.dataset.newsDel); await renderAdmin(root); }
+        catch (e) { flash($('#nwErr'), e.message, true); }
+      });
     });
 
     // ── ผู้ใช้: เปลี่ยน role / ทีม / สถานะ ──
@@ -596,6 +635,85 @@ function monthlyModal(host, o) {
   });
 
   o.onMount && o.onMount(host);
+}
+
+// ── ข่าวสารประจำสัปดาห์: modal วาง HTML ──
+/** ดึงชื่อจาก <title> ของ HTML ที่วางมา */
+function titleFromHtml(html) {
+  const m = String(html || '').match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  return m ? m[1].replace(/\s+/g, ' ').trim() : '';
+}
+
+function openNewsAdd(host, onSaved) {
+  host.innerHTML = `
+    <div class="modal" id="nwaModal">
+      <form class="modal-box" id="nwaForm">
+        <div class="modal-head">
+          <strong>เพิ่มข่าวประจำสัปดาห์</strong>
+          <button type="button" class="btn btn-ghost btn-sm" id="nwaClose">ปิด</button>
+        </div>
+        <div class="modal-body">
+          <p class="sec-foot" style="margin:0 0 10px">
+            วางเนื้อหาไฟล์ HTML <b>ทั้งไฟล์</b> ลงช่องด้านล่าง — ระบบดึงชื่อจาก &lt;title&gt; ให้อัตโนมัติ
+            · ⚠️ ถ้าตัวอักษรไทยเพี้ยน แปลว่าไฟล์ต้นฉบับไม่ใช่ UTF-8 (สร้างใหม่ให้เซฟเป็น UTF-8)
+          </p>
+          <div class="fgrid">
+            <label class="fld"><span>ป้ายสัปดาห์ (อ่านง่าย)</span>
+              <input type="text" name="week_label" placeholder="เช่น 26 ก.ค. 2569"></label>
+            <label class="fld"><span>ชื่อรายงาน</span>
+              <input type="text" name="title" placeholder="เว้นว่างได้ — ดึงจาก <title>"></label>
+            <label class="fld fld-wide"><span>โค้ด HTML ทั้งไฟล์ *</span>
+              <textarea name="html" rows="10" required
+                placeholder="วาง <!doctype html> … </html> ที่นี่"></textarea></label>
+          </div>
+          <p class="sec-foot" id="nwaHint"></p>
+        </div>
+        <p class="login-err" id="nwaErr" role="alert" hidden></p>
+        <div class="modal-foot">
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-ghost" id="nwaCancel">ยกเลิก</button>
+          <button type="submit" class="btn btn-primary" id="nwaSave">บันทึก</button>
+        </div>
+      </form>
+    </div>`;
+
+  const q = (s) => host.querySelector(s);
+  const close = () => { host.innerHTML = ''; };
+  const fail = (m) => { q('#nwaErr').textContent = m; q('#nwaErr').hidden = false; };
+  q('#nwaClose').addEventListener('click', close);
+  q('#nwaCancel').addEventListener('click', close);
+  q('#nwaModal').addEventListener('mousedown', (e) => { if (e.target.id === 'nwaModal') close(); });
+
+  // โชว์ชื่อที่ดึงได้ระหว่างวาง ให้เห็นว่าจับ <title> ติด
+  q('[name="html"]').addEventListener('input', (e) => {
+    const t = titleFromHtml(e.target.value);
+    q('#nwaHint').textContent = t ? `ดึงชื่อได้: "${t}"` : '';
+  });
+
+  q('#nwaForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    q('#nwaErr').hidden = true;
+    const f = Object.fromEntries(new FormData(ev.target).entries());
+    const html = String(f.html || '').trim();
+    if (!html) return fail('วางโค้ด HTML ของข่าวก่อน');
+    const title = String(f.title || '').trim() || titleFromHtml(html) || 'ข่าวสารประจำสัปดาห์';
+
+    const btn = q('#nwaSave');
+    btn.disabled = true; btn.textContent = 'กำลังบันทึก…';
+    try {
+      await adapter.saveNews({
+        title,
+        week_label: String(f.week_label || '').trim() || null,
+        report_date: todayISO(),
+        html,
+      });
+      close();
+      await onSaved();
+    } catch (e) {
+      fail(e.message);
+      btn.disabled = false; btn.textContent = 'บันทึก';
+    }
+  });
 }
 
 // เป้ารายเดือนของทีม + ส่วน "เป้ารายคนในทีม" (กด 📅 รายคน → openSaleMonthly ซ้อนขึ้นมา)

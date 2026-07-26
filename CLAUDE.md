@@ -384,6 +384,9 @@ _เสร็จแล้ว: 0.1 · 0.2 · 1.1–1.6 · 2.1–2.6 · 3.1–3.3 
 🚀 **สิ่งที่เจ้าของต้องทำให้ครบ:** ① รัน `db/phase3-5.sql` (staging AI Intake) ② ตั้ง Supabase Site URL = `https://te-sales.github.io/sales/` + Redirect URLs = `https://te-sales.github.io/sales/**` (ลืมรหัสผ่าน) ③ deploy Edge Function + ตั้ง `ANTHROPIC_API_KEY` (ดู `supabase/functions/ai-intake/README.md` — ทำก็ต่อเมื่ออยากใช้ปุ่มอ่านรูปอัตโนมัติ ไม่ทำก็ก๊อปคำสั่งวางเองได้)
 ⚠️ ต้องรัน `db/phase3-5.sql` ใน Supabase — ไม่งั้นปุ่ม 🤖 AI Import วางผลแล้วบันทึก staging ไม่ได้ (ตาราง `intake_items` ยังไม่มี)
 ⚠️ ต้องรัน `db/phase3-9.sql` + `db/phase3-10.sql` ใน Supabase — ไม่งั้นตารางสินค้า/ทีมย่อย/เป้ารายทีมยังไม่มี
+📰 **ข่าวสารโอกาสงานประจำสัปดาห์ (news_reports · phase3-14):** เจ้าของสร้างรายงาน HTML จาก Claude Code ทุกสัปดาห์ → หน้า Admin "📰 ข่าวสารประจำสัปดาห์" วาง HTML ทั้งไฟล์ (ดึงชื่อจาก `<title>`) → โผล่เป็น**การ์ดแรก ไฮไลต์ "🆕 ใหม่สัปดาห์นี้"** ในแถบแหล่งงาน · เปิดอ่านเต็มจอผ่าน `<iframe srcdoc>` sandbox (ไม่มี allow-same-origin = แยก origin)
+   🔒 **เก็บใน Supabase เท่านั้น เห็นเฉพาะคนล็อกอิน** (RLS: อ่านทุกคน · เขียน/ลบ admin) — ห้ามย้ายไปวางเป็นไฟล์ใน public repo (กลยุทธ์/target list DOS ห้ามหลุด · เจ้าของเลือกทางนี้ 26 ก.ค. 2569)
+   ⚠️ ต้องรัน `db/phase3-14.sql` ใน Supabase — ไม่รัน adapter คืน [] (ไม่มีข่าว) หน้าอื่นไม่พัง
 ⚠️ ต้องรัน `db/phase3-13.sql` ใน Supabase — ตาราง `sale_targets` (เป้ารายเดือน "รายคน") · ไม่รันก็ยังใช้ได้ (adapter คืน [] ถ้าตารางยังไม่มี · เป้ารายทีมยังทำงานปกติ)
 ⚠️ ต้องรัน `db/phase3-12.sql` ใน Supabase — คอลัมน์ `customers.age` (เก็บอายุกรณีไม่รู้วันเกิด · ~90% ของลูกค้า)
    ไม่รันก็ยังบันทึกลูกค้าได้ (adapter ตัด `age` ให้อัตโนมัติ) แค่ยังไม่เก็บช่องอายุ · **มีวันเกิดจริง = คำนวณอายุเสมอ ไม่เก็บ age ดิบ**
