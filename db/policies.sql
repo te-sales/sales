@@ -154,12 +154,18 @@ create policy teams_write on teams
 
 -- ── profiles ──
 -- อ่าน: ตัวเอง · admin เห็นหมด · sale เห็นเพื่อนร่วมทีม (ต้องใช้แสดงชื่อผู้รับผิดชอบ)
+-- ⭐ ใช้ can_access_team() (ไม่ใช่ team_id = my_team_id() ตรง ๆ) เพื่อให้เข้ากติกากลาง
+--    ตอนติดตั้งครั้งแรก can_access_team = เวอร์ชันง่าย (= ทีมตัวเอง) → ได้ผลเท่าเดิม
+--    หลัง phase2-4/phase3-10 ยกระดับ → หัวหน้าเห็นสมาชิกทีมที่ได้สิทธิ์ team_access ด้วย
+--    รัน policies.sql ซ้ำก็ไม่พัง (อ้าง can_access_team เวอร์ชันปัจจุบันเสมอ)
+--    🔴 เคยเป็นบั๊ก: เขียน team_id = my_team_id() ตรง ๆ → หัวหน้าเห็น "คน" แค่ทีมตัวเอง
+--       ทั้งที่ได้สิทธิ์ข้ามทีม (ดรอปดาวน์ "ดูของ" ขึ้นแค่ตัวเอง) — แก้ 27 ก.ค. 2569
 create policy profiles_select on profiles
   for select to authenticated
   using (
     id = auth.uid()
     or is_admin()
-    or (team_id is not null and team_id = my_team_id())
+    or can_access_team(team_id)
   );
 
 -- แก้: ตัวเอง (เฉพาะชื่อ — role/team/สถานะถูก trigger บล็อกไว้) · admin แก้ได้หมด

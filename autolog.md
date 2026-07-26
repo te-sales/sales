@@ -27,6 +27,18 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-27 · ยังไม่ commit · 🔴 แก้ดรอปดาวน์ "ดูของ" ไม่มีชื่อ sale คนอื่น ทั้งที่ได้สิทธิ์แล้ว
+**step:** — (เจ้าของแจ้ง + แนบรูป) | **ประเภท:** แก้บั๊ก (RLS/DB)
+- อาการ: nanthawan ได้ team_access ครบทุกทีม (view+edit) · "งาน/ลูกค้า" เห็นข้ามทีมได้แล้ว (12 โปรเจกต์) แต่ดรอปดาวน์ "ดูของ (รายคน)" ขึ้นแค่ตัวเอง — ไม่มีชื่อ sale คนอื่น
+- **ต้นเหตุ:** `policies.sql` เขียน `profiles_select` แบบ `team_id = my_team_id()` (ไม่อ่าน team_access) · phase3-2 แก้ให้ใช้ can_access_team · แต่รัน policies.sql ซ้ำ**ทับ**กลับเป็นเวอร์ชันเก่า · และ `fix-cross-team-access.sql` รอบก่อน**ไม่ได้ re-apply profiles_select** → listProfiles คืนแค่ทีมตัวเอง → ดรอปดาวน์มีแค่ตัวเอง
+  (คนละจุดกับบั๊ก can_access_team รอบก่อน: รอบนั้นแก้ "งาน" · รอบนี้คือ "รายชื่อคน")
+- **แก้:**
+  1. `db/policies.sql` — เปลี่ยน profiles_select ใช้ `can_access_team(team_id)` (ตอนติดตั้งแรก can_access_team ยังเป็นเวอร์ชันง่าย = ได้ผลเท่าเดิม · รันซ้ำไม่ revert อีก)
+  2. `db/fix-cross-team-access.sql` — เพิ่ม re-apply `profiles_select` (can_access_team) → **เจ้าของต้องรันไฟล์นี้ซ้ำ 1 รอบ** (อัปเดตแล้ว)
+- **ไม่แตะ frontend · ไม่ bump VERSION**
+**ไฟล์:** db/policies.sql · db/fix-cross-team-access.sql · CLAUDE.md · autolog.md
+**ทดสอบ:** PGlite (Postgres จริง) เพิ่มเซล 4 คนต่างทีม → **22/22 ผ่าน** (นันทวันเห็นสมาชิก 5 คนของทีมที่ได้สิทธิ์ · เห็นเซล GOV3 ข้ามทีม · ไม่เห็นเซล GOV4 · จำลองบั๊ก profiles=3 → รันไฟล์แก้ → 5 · รัน policies.sql ซ้ำไม่ revert)
+
 ## 2026-07-27 · ยังไม่ commit · แก้ดรอปดาวน์ "ดูของ" ไม่โผล่ (Pending + Book 3 สี)
 **step:** — (เจ้าของแจ้ง) | **ประเภท:** แก้บั๊ก UX
 - อาการ: ดรอปดาวน์เลือกรายคน "ยังไม่มา" (ไม่โผล่) บนหน้า Pending + Book 3 สี

@@ -83,7 +83,23 @@ as $$
 $$;
 
 -- ══════════════════════════════════════════════════════════
--- 3) คืน policy ให้ อ่าน = can_access_team · เขียน = can_edit_team
+-- 3) profiles_select — หัวหน้าเห็น "สมาชิก" ของทีมที่ได้สิทธิ์ team_access
+--    🔴 บั๊กที่ทำให้ดรอปดาวน์ "ดูของ (รายคน)" ขึ้นแค่ตัวเอง:
+--       policies.sql เวอร์ชันเก่าเขียน team_id = my_team_id() ตรง ๆ (ไม่อ่าน team_access)
+--       รัน policies.sql ซ้ำ → ทับ profiles_select ที่ phase3-2 แก้ไว้ → listProfiles คืนแค่ทีมตัวเอง
+--    → คืนให้ใช้ can_access_team() (เห็นคนของทุกทีมที่ดูได้ · ไล่ทีมแม่ด้วย)
+-- ══════════════════════════════════════════════════════════
+drop policy if exists profiles_select on profiles;
+create policy profiles_select on profiles
+  for select to authenticated
+  using (
+    id = auth.uid()
+    or is_admin()
+    or can_access_team(team_id)
+  );
+
+-- ══════════════════════════════════════════════════════════
+-- 4) คืน policy ให้ อ่าน = can_access_team · เขียน = can_edit_team
 --    (เผื่อ policies.sql ที่รันทับ ทำให้ policy เขียนกลับไปใช้ can_access_team)
 -- ══════════════════════════════════════════════════════════
 
