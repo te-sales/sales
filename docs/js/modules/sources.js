@@ -1,32 +1,21 @@
-// F7 — แหล่งงาน + ทีมขาย + playbook กลยุทธ์ (Phase 3.1 → 3.2)
+// F7 — แหล่งงาน: ข่าวประจำสัปดาห์ + เส้นทางหางาน + playbook กลยุทธ์ (Phase 3.1 → 3.2 → 3.14)
 //
-// 4 แถบในหน้าเดียว:
-//   "เส้นทางหางาน"   — 8 เส้นทาง พร้อมลิงก์ที่กดเข้าไปทำงานได้เลย (หัวหน้าแก้ลิงก์ได้)
-//   "Thai Water Expo" — กองลีดจากงานแสดงสินค้า ★ ตัวที่ควรโทรก่อนขึ้นบนสุด
-//   "ทีมขาย"          — 5 ทีม พร้อมตัวเลขจริงของแต่ละทีม (step 3.2)
+// 3 แถบในหน้าเดียว:
+//   "ข่าวประจำสัปดาห์" — รายงานข่าวโอกาสงาน (HTML จาก Claude Code) ใหม่สุดขึ้นก่อน · เก็บใน Supabase (phase 3.14)
+//   "เส้นทางหางาน"    — 8 เส้นทาง พร้อมลิงก์ที่กดเข้าไปทำงานได้เลย (หัวหน้าแก้ลิงก์ได้)
 //   "กลยุทธ์"         — playbook รายเส้นทาง + เช็กลิสต์ชนะงาน 7 ข้อ (step 3.2)
+// (แถบ "Thai Water Expo" + "ทีมขาย" ถอดออก 26 ก.ค. 2569 ตามที่เจ้าของสั่ง)
 //
-// ⚠️ รายชื่อลูกค้าจริงไม่ได้อยู่ในโค้ดหรือใน repo — นำเข้าผ่าน tools/import-json.html
-//    หรือกรอกเองจากหน้านี้ ข้อมูลอยู่ใน Supabase เท่านั้น (repo เป็น public)
+// ⚠️ รายชื่อลูกค้าจริงไม่ได้อยู่ในโค้ดหรือใน repo — ข้อมูลอยู่ใน Supabase เท่านั้น (repo เป็น public)
 
 import { adapter } from '../data/adapter.js';
-import { CONFIG } from '../config.js';
 import { canSign } from '../ui/signoff.js';
-import { monthOf } from './dashboard.js';
 import { todayISO } from '../ui/datepicker.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 
 const LS_TAB = 'te-dashboard:sources-tab';
-
-const STATUS = [
-  { id: 'new',       label: 'ยังไม่ติดต่อ' },
-  { id: 'working',   label: 'กำลังติดตาม' },
-  { id: 'converted', label: 'ยกเป็นงานแล้ว' },
-  { id: 'dropped',   label: 'ไม่ไปต่อ' },
-];
-const statusOf = (id) => STATUS.find(s => s.id === id) || STATUS[0];
 
 /**
  * ลิงก์ต้องเป็น http/https เท่านั้น
@@ -121,74 +110,25 @@ export function checkGaps(rows, today = todayISO()) {
   });
 }
 
-// ══════════════════════════════════════════════════════════
-// ตัวเลขรายทีม
-// ══════════════════════════════════════════════════════════
-
-/**
- * รวมตัวเลขของแต่ละทีมจากรายการ pending ชุดเดียว
- *
- * @param visible  Set ของ team_id ที่ผู้ใช้คนนี้มีสิทธิ์เห็น (null = เห็นหมด เช่น admin)
- *                 ทีมที่ไม่มีสิทธิ์จะได้ locked: true → หน้าจอต้องขึ้น "ดูไม่ได้"
- *                 ⚠️ ห้ามปล่อยให้ขึ้นเลข 0 เฉย ๆ — RLS กรองแถวออกแบบเงียบ ๆ
- *                    คนอ่านจะเข้าใจว่าทีมนั้นไม่มีงานเลย ทั้งที่จริงแค่ตัวเองไม่มีสิทธิ์เห็น
- */
-export function teamRollup(rows, teams, opt = {}) {
-  const from    = opt.from ?? CONFIG.TARGET_FROM;
-  const to      = opt.to   ?? CONFIG.TARGET_TO;
-  const visible = opt.visible ?? null;
-  const live    = (rows || []).filter(r => r.is_active !== false);
-  const inRange = (ym) => !!ym && ym >= from && ym <= to;
-
-  const roll = (list) => {
-    const openRows = list.filter(r => r.stage !== 'won' && r.stage !== 'lost');
-    const wonRows  = list.filter(r => r.stage === 'won' && inRange(monthOf(r)));
-    return {
-      openCount: openRows.length,
-      pipeline:  openRows.reduce((a, r) => a + Number(r.value_baht || 0), 0),
-      wonCount:  wonRows.length,
-      won:       wonRows.reduce((a, r) => a + Number(r.value_baht || 0), 0),
-    };
-  };
-
-  const list = (teams || []).map(t => ({
-    id: t.id, code: t.code, name: t.name, description: t.description || '',
-    locked: visible ? !visible.has(t.id) : false,
-    ...roll(live.filter(r => r.team_id === t.id)),
-  }));
-
-  // งานที่ยังไม่ระบุทีม — เห็นได้เฉพาะ admin (can_access_team คืน false ให้ team_id ว่าง)
-  // ต้องโชว์ ไม่ใช่ทิ้ง ไม่งั้นยอดรวมรายทีมจะไม่เท่ากับยอดรวมในหน้าภาพรวม แล้วหาไม่เจอว่าหายไปไหน
-  const orphan = live.filter(r => !r.team_id);
-  const total  = roll(live);
-
-  return {
-    teams: list,
-    orphan: orphan.length ? { count: orphan.length, ...roll(orphan) } : null,
-    total,
-    hiddenTeams: list.filter(t => t.locked).length,
-  };
-}
-
 export default {
   title: 'แหล่งงาน',
-  subtitle: 'เส้นทางหาโครงการ · ทีมขาย · กลยุทธ์ชนะงาน',
+  subtitle: 'ข่าวประจำสัปดาห์ · เส้นทางหาโครงการ · กลยุทธ์ชนะงาน',
   render: (root) => renderSources(root),
 };
 
+const TABS = ['news', 'paths', 'play'];
+
 async function renderSources(root) {
   const me = (await adapter.getSession())?.user || null;
-  let tab = 'paths';
-  try { tab = localStorage.getItem(LS_TAB) || 'paths'; } catch {}
+  let tab = 'news';   // ค่าเริ่มต้น = ข่าวประจำสัปดาห์ (ให้ข่าวใหม่เด่นสุด)
+  try { const s = localStorage.getItem(LS_TAB); if (TABS.includes(s)) tab = s; } catch {}
 
   root.innerHTML = `
     <div class="toolbar toolbar-sub">
       <div class="segmented" id="sTab" role="tablist" aria-label="มุมมอง">
+        <button type="button" data-tab="news"  class="${tab === 'news'  ? 'on' : ''}">📰 ข่าวประจำสัปดาห์
+          <span class="seg-badge" id="sNewsN" hidden></span></button>
         <button type="button" data-tab="paths" class="${tab === 'paths' ? 'on' : ''}">เส้นทางหางาน</button>
-        <button type="button" data-tab="expo"  class="${tab === 'expo'  ? 'on' : ''}">
-          Thai Water Expo <span class="seg-badge" id="sExpoN" hidden></span>
-        </button>
-        <button type="button" data-tab="team"  class="${tab === 'team'  ? 'on' : ''}">ทีมขาย</button>
         <button type="button" data-tab="play"  class="${tab === 'play'  ? 'on' : ''}">กลยุทธ์</button>
       </div>
     </div>
@@ -206,22 +146,20 @@ async function renderSources(root) {
     });
   });
 
-  // ป้ายนับลีดที่ยังไม่ได้ตาม — เห็นตั้งแต่ยังไม่กดเข้าแถบ
+  // ป้ายนับจำนวนข่าว — เห็นตั้งแต่ยังไม่กดเข้าแถบ
   (async () => {
     try {
-      const rows = await adapter.listExpoCustomers({ limit: 1000 });
-      const n = rows.filter(r => r.status === 'new').length;
-      const el = root.querySelector('#sExpoN');
-      if (el) { el.textContent = n; el.hidden = n === 0; }
-    } catch { /* ยังไม่ได้รัน SQL ก็ไม่ต้องโชว์ */ }
+      const rows = await adapter.listNews();
+      const el = root.querySelector('#sNewsN');
+      if (el) { el.textContent = rows.length; el.hidden = rows.length === 0; }
+    } catch { /* ยังไม่ได้รัน phase3-14 ก็ไม่ต้องโชว์ */ }
   })();
 
   async function draw() {
     body.innerHTML = '<div class="skeleton">กำลังโหลด…</div>';
     if (tab === 'paths') return drawPaths(body, root, me, draw);
-    if (tab === 'team')  return drawTeams(body, me);
     if (tab === 'play')  return drawPlaybook(body, root, me, draw);
-    return drawExpo(body, root, me, draw);
+    return drawNews(body, root, me, draw);
   }
   await draw();
 }
@@ -231,10 +169,6 @@ async function renderSources(root) {
 // ══════════════════════════════════════════════════════════
 
 async function drawPaths(body, root, me, redraw) {
-  // ข่าวสารประจำสัปดาห์โหลดแยก — ถ้ายังไม่ได้รัน phase3-14 ก็ไม่ทำให้ทั้งแถบพัง
-  let news = [];
-  try { news = await adapter.listNews(); } catch { news = []; }
-
   let rows = [], srcHtml = '';
   try {
     rows = await adapter.listLeadSources();
@@ -273,12 +207,7 @@ async function drawPaths(body, root, me, redraw) {
       </div>`;
   }
 
-  body.innerHTML = newsSectionHtml(news) + srcHtml;
-
-  // เปิดอ่านข่าว (ทุกคนที่ล็อกอินอ่านได้) — เต็มจอผ่าน iframe
-  body.querySelectorAll('[data-news]').forEach(b => {
-    b.addEventListener('click', () => openNewsReader(root.querySelector('#sPanel'), b.dataset.news));
-  });
+  body.innerHTML = srcHtml;
 
   body.querySelectorAll('[data-edit-src]').forEach(b => {
     b.addEventListener('click', () =>
@@ -286,33 +215,98 @@ async function drawPaths(body, root, me, redraw) {
   });
 }
 
-// ── การ์ดข่าวโอกาสงานประจำสัปดาห์ (การ์ดแรก · ตัวใหม่สุดไฮไลต์ "ใหม่สัปดาห์นี้") ──
-function newsSectionHtml(news) {
-  if (!news || !news.length) return '';
-  const dateOf = (r) => esc(r.week_label || r.report_date || '');
-  const [latest, ...older] = news;
+// ══════════════════════════════════════════════════════════
+// แถบ — ข่าวสารโอกาสงานประจำสัปดาห์ (phase 3.14)
+//   ทุกคนที่ล็อกอินอ่านได้ · admin เพิ่ม/ลบได้ · ใหม่สุดขึ้นก่อน (ไฮไลต์ "ใหม่สัปดาห์นี้")
+// ══════════════════════════════════════════════════════════
 
-  return `
-    <div class="newswrap">
-      <button type="button" class="newscard newscard-hot" data-news="${esc(latest.id)}"
-              aria-label="อ่านข่าวโอกาสงานใหม่สัปดาห์นี้">
-        <span class="news-ico">📰</span>
-        <span class="news-main">
-          <span class="news-badge">🆕 ข่าวโอกาสงานใหม่สัปดาห์นี้</span>
-          <strong>${esc(latest.title)}</strong>
-          <span class="news-date">${dateOf(latest)}</span>
-        </span>
-        <span class="news-go">อ่านรายงาน →</span>
-      </button>
-      ${older.length ? `<div class="news-old">
-        <span class="news-old-h">ข่าวย้อนหลัง</span>
-        ${older.map(r => `<button type="button" class="news-oldrow" data-news="${esc(r.id)}">
-          <span class="news-ico">📄</span>
-          <span class="news-main"><strong>${esc(r.title)}</strong><span class="news-date">${dateOf(r)}</span></span>
-          <span class="news-go">อ่าน →</span>
-        </button>`).join('')}
-      </div>` : ''}
-    </div>`;
+async function drawNews(body, root, me, redraw) {
+  let news = [];
+  try { news = await adapter.listNews(); }
+  catch (e) {
+    const missing = /ยังไม่ได้สร้างตาราง|does not exist|42P01/i.test(e.message);
+    body.innerHTML = `<div class="empty">
+        <strong>${missing ? 'ยังไม่ได้สร้างตารางข่าว' : 'โหลดข่าวไม่สำเร็จ'}</strong>
+        ${missing ? 'เอาไฟล์ <code>db/phase3-14.sql</code> ไปรันใน Supabase → SQL Editor ก่อน'
+                  : esc(e.message)}
+      </div>`;
+    return;
+  }
+
+  const isAdmin = me?.role === 'admin';
+  const dateOf = (r) => esc(r.week_label || r.report_date || '');
+  const delBtn = (id) => isAdmin
+    ? `<button type="button" class="btn btn-ghost btn-sm nw-del" data-news-del="${esc(id)}">🗑 ลบ</button>` : '';
+
+  const adminBar = isAdmin ? `
+    <div class="toolbar" style="margin-bottom:12px">
+      <button class="btn btn-primary btn-sm" id="nwAdd">+ เพิ่มข่าวประจำสัปดาห์</button>
+      <span class="sec-foot" style="margin:0">เลือก/วางไฟล์ HTML ที่สร้างจาก Claude Code — เก็บใน Supabase เห็นเฉพาะทีม</span>
+    </div>
+    <p class="login-err" id="nwErr" role="alert" hidden></p>` : '';
+
+  if (!news.length) {
+    body.innerHTML = adminBar + `<div class="empty">
+        <strong>ยังไม่มีข่าวประจำสัปดาห์</strong>
+        ${isAdmin ? 'กด "+ เพิ่มข่าวประจำสัปดาห์" เพื่อเลือกไฟล์หรือวางโค้ด HTML'
+                  : 'หัวหน้าจะเพิ่มข่าวโอกาสงานให้เร็ว ๆ นี้'}
+      </div>`;
+  } else {
+    const [latest, ...older] = news;
+    body.innerHTML = adminBar + `
+      <div class="newswrap">
+        <div class="newscard-wrap">
+          <button type="button" class="newscard newscard-hot" data-news="${esc(latest.id)}"
+                  aria-label="อ่านข่าวโอกาสงานใหม่สัปดาห์นี้">
+            <span class="news-ico">📰</span>
+            <span class="news-main">
+              <span class="news-badge">🆕 ข่าวโอกาสงานใหม่สัปดาห์นี้</span>
+              <strong>${esc(latest.title)}</strong>
+              <span class="news-date">${dateOf(latest)}</span>
+            </span>
+            <span class="news-go">อ่านรายงาน →</span>
+          </button>
+          ${delBtn(latest.id)}
+        </div>
+        ${older.length ? `<div class="news-old">
+          <span class="news-old-h">ข่าวย้อนหลัง</span>
+          ${older.map(r => `<div class="newscard-wrap">
+            <button type="button" class="news-oldrow" data-news="${esc(r.id)}">
+              <span class="news-ico">📄</span>
+              <span class="news-main"><strong>${esc(r.title)}</strong><span class="news-date">${dateOf(r)}</span></span>
+              <span class="news-go">อ่าน →</span>
+            </button>
+            ${delBtn(r.id)}
+          </div>`).join('')}
+        </div>` : ''}
+      </div>`;
+  }
+
+  // เปิดอ่านเต็มจอ (ทุกคนที่ล็อกอิน)
+  body.querySelectorAll('[data-news]').forEach(b => {
+    b.addEventListener('click', () => openNewsReader(root.querySelector('#sPanel'), b.dataset.news));
+  });
+
+  // admin: เพิ่มข่าว
+  body.querySelector('#nwAdd')?.addEventListener('click', () =>
+    openNewsAdd(root.querySelector('#sPanel'), redraw));
+
+  // admin: ลบข่าว (กด 2 ครั้งยืนยัน — ลบแล้วกู้ไม่ได้)
+  body.querySelectorAll('[data-news-del]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (btn.dataset.armed !== '1') {
+        btn.dataset.armed = '1'; btn.textContent = '⚠️ กดยืนยันลบ';
+        setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ''; btn.textContent = '🗑 ลบ'; } }, 3000);
+        return;
+      }
+      try { await adapter.deleteNews(btn.dataset.newsDel); await redraw(); }
+      catch (err) {
+        const el = body.querySelector('#nwErr');
+        if (el) { el.textContent = err.message; el.hidden = false; }
+      }
+    });
+  });
 }
 
 /**
@@ -359,6 +353,110 @@ async function openNewsReader(host, id) {
     const bodyEl = q('#nwBody');
     if (bodyEl) bodyEl.innerHTML = `<div class="empty" style="padding:30px">${esc(e.message)}</div>`;
   }
+}
+
+/** ดึงชื่อจาก <title> ของ HTML ที่วาง/อัพโหลด */
+function titleFromHtml(html) {
+  const m = String(html || '').match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  return m ? m[1].replace(/\s+/g, ' ').trim() : '';
+}
+
+// เพิ่มข่าว (admin) — เลือกไฟล์ .html หรือวางโค้ด · อ่านไฟล์เป็น UTF-8 กันไทยเพี้ยน
+function openNewsAdd(host, onSaved) {
+  host.innerHTML = `
+    <div class="modal" id="nwaModal">
+      <form class="modal-box" id="nwaForm">
+        <div class="modal-head">
+          <strong>เพิ่มข่าวประจำสัปดาห์</strong>
+          <button type="button" class="btn btn-ghost btn-sm" id="nwaClose">ปิด</button>
+        </div>
+        <div class="modal-body">
+          <p class="sec-foot" style="margin:0 0 10px">
+            เลือกไฟล์ HTML ที่สร้างจาก Claude Code หรือวางโค้ดทั้งไฟล์ — ระบบดึงชื่อจาก &lt;title&gt; ให้อัตโนมัติ
+            · อ่านไฟล์เป็น UTF-8 ให้แล้ว ไทยไม่เพี้ยน
+          </p>
+          <div class="bk-actions" style="margin-bottom:12px">
+            <label class="btn btn-ghost btn-sm bk-file">
+              📁 เลือกไฟล์ HTML
+              <input type="file" id="nwaFile" accept=".html,.htm,text/html" hidden>
+            </label>
+            <span class="lg-hint" id="nwaFileName"></span>
+          </div>
+          <div class="fgrid">
+            <label class="fld"><span>ป้ายสัปดาห์ (อ่านง่าย)</span>
+              <input type="text" name="week_label" placeholder="เช่น 26 ก.ค. 2569"></label>
+            <label class="fld"><span>ชื่อรายงาน</span>
+              <input type="text" name="title" placeholder="เว้นว่างได้ — ดึงจาก <title>"></label>
+            <label class="fld fld-wide"><span>โค้ด HTML ทั้งไฟล์ *</span>
+              <textarea name="html" rows="9" required
+                placeholder="เลือกไฟล์ด้านบน หรือวาง <!doctype html> … </html> ที่นี่"></textarea></label>
+          </div>
+          <p class="sec-foot" id="nwaHint"></p>
+        </div>
+        <p class="login-err" id="nwaErr" role="alert" hidden></p>
+        <div class="modal-foot">
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-ghost" id="nwaCancel">ยกเลิก</button>
+          <button type="submit" class="btn btn-primary" id="nwaSave">บันทึก</button>
+        </div>
+      </form>
+    </div>`;
+
+  const q = (s) => host.querySelector(s);
+  const close = () => { host.innerHTML = ''; };
+  const fail = (m) => { q('#nwaErr').textContent = m; q('#nwaErr').hidden = false; };
+  q('#nwaClose').addEventListener('click', close);
+  q('#nwaCancel').addEventListener('click', close);
+  q('#nwaModal').addEventListener('mousedown', (e) => { if (e.target.id === 'nwaModal') close(); });
+
+  const showTitle = (html) => {
+    const t = titleFromHtml(html);
+    q('#nwaHint').textContent = t ? `ดึงชื่อได้: "${t}"` : '';
+  };
+
+  // อัพโหลดไฟล์ → อ่านเป็นข้อความ UTF-8 → เติมลงช่อง + ดึงชื่อ
+  q('#nwaFile').addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const html = String(reader.result || '');
+      q('[name="html"]').value = html;
+      q('#nwaFileName').textContent = `เลือกไฟล์: ${file.name}`;
+      const tEl = q('[name="title"]');
+      if (!tEl.value.trim()) { const t = titleFromHtml(html); if (t) tEl.value = t; }
+      showTitle(html);
+    };
+    reader.onerror = () => fail('อ่านไฟล์ไม่สำเร็จ');
+    reader.readAsText(file, 'UTF-8');
+  });
+
+  q('[name="html"]').addEventListener('input', (e) => showTitle(e.target.value));
+
+  q('#nwaForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    q('#nwaErr').hidden = true;
+    const f = Object.fromEntries(new FormData(ev.target).entries());
+    const html = String(f.html || '').trim();
+    if (!html) return fail('เลือกไฟล์ หรือวางโค้ด HTML ของข่าวก่อน');
+    const title = String(f.title || '').trim() || titleFromHtml(html) || 'ข่าวสารประจำสัปดาห์';
+
+    const btn = q('#nwaSave');
+    btn.disabled = true; btn.textContent = 'กำลังบันทึก…';
+    try {
+      await adapter.saveNews({
+        title,
+        week_label: String(f.week_label || '').trim() || null,
+        report_date: todayISO(),
+        html,
+      });
+      close();
+      await onSaved();
+    } catch (e) {
+      fail(e.message);
+      btn.disabled = false; btn.textContent = 'บันทึก';
+    }
+  });
 }
 
 function openSourceEdit(host, src, onSaved) {
@@ -447,350 +545,6 @@ function openSourceEdit(host, src, onSaved) {
       btn.disabled = false; btn.textContent = 'บันทึก';
     }
   });
-}
-
-// ══════════════════════════════════════════════════════════
-// แถบ 2 — Thai Water Expo
-// ══════════════════════════════════════════════════════════
-
-async function drawExpo(body, root, me, redraw) {
-  let rows = [];
-  try { rows = await adapter.listExpoCustomers({ limit: 1000 }); }
-  catch (e) {
-    const missing = /ยังไม่ได้สร้างตาราง|does not exist|42P01/i.test(e.message);
-    body.innerHTML = `<div class="empty">
-        <strong>${missing ? 'ยังไม่ได้สร้างตารางลูกค้างานแสดงสินค้า' : 'โหลดข้อมูลไม่สำเร็จ'}</strong>
-        ${missing ? 'เอาไฟล์ <code>db/phase3-1.sql</code> ไปรันใน Supabase → SQL Editor ก่อน'
-                  : esc(e.message)}
-      </div>`;
-    return;
-  }
-
-  if (!rows.length) {
-    body.innerHTML = `<div class="empty">
-        <strong>ยังไม่มีรายชื่อจากงานแสดงสินค้า</strong>
-        นำเข้าได้ที่ <code>docs/tools/import-json.html</code> หรือกด "+ เพิ่มรายชื่อ" ด้านล่าง<br>
-        <span class="t2">ข้อมูลลูกค้าจริงไม่ได้อยู่ในโค้ด — เก็บใน Supabase เท่านั้น</span>
-      </div>
-      <div class="toolbar" style="margin-top:12px">
-        <button class="btn btn-primary btn-sm" id="exNew">+ เพิ่มรายชื่อ</button>
-      </div>`;
-    body.querySelector('#exNew').addEventListener('click', () =>
-      openExpo(root.querySelector('#sPanel'), null, redraw));
-    return;
-  }
-
-  const prospects = rows.filter(r => r.is_prospect);
-  const byStatus = (id) => rows.filter(r => r.status === id).length;
-
-  body.innerHTML = `
-    <div class="grid cols-4">
-      <div class="card"><div class="stat-label">รายชื่อทั้งหมด</div>
-        <div class="stat-value">${rows.length}</div>
-        <div class="stat-note">จากงานแสดงสินค้า</div></div>
-      <div class="card"><div class="stat-label">★ ควรตามก่อน</div>
-        <div class="stat-value">${prospects.length}</div>
-        <div class="stat-note">ระบุความสนใจชัด</div></div>
-      <div class="card"><div class="stat-label">ยังไม่ติดต่อ</div>
-        <div class="stat-value">${byStatus('new')}</div>
-        <div class="stat-note">รอคนรับไปดูแล</div></div>
-      <div class="card"><div class="stat-label">ยกเป็นงานแล้ว</div>
-        <div class="stat-value">${byStatus('converted')}</div>
-        <div class="stat-note">เข้า Pending Project</div></div>
-    </div>
-
-    <div class="toolbar toolbar-sub" style="margin-top:16px">
-      <input class="inp inp-search" id="exSearch" type="search"
-             placeholder="ค้นหาชื่อ / กิจการ / ผู้ติดต่อ…" autocapitalize="off">
-      <div class="segmented" id="exFilter" role="tablist">
-        <button type="button" data-f="all" class="on">ทั้งหมด</button>
-        <button type="button" data-f="prospect">★ ควรตามก่อน</button>
-        <button type="button" data-f="new">ยังไม่ติดต่อ</button>
-      </div>
-      <button class="btn btn-primary btn-sm" id="exNew">+ เพิ่มรายชื่อ</button>
-    </div>
-
-    <ul class="exlist" id="exList"></ul>`;
-
-  const listEl = body.querySelector('#exList');
-  let filter = 'all', term = '';
-
-  function paint() {
-    let view = rows;
-    if (filter === 'prospect') view = view.filter(r => r.is_prospect);
-    if (filter === 'new')      view = view.filter(r => r.status === 'new');
-    const t = term.trim().toLowerCase();
-    if (t) view = view.filter(r =>
-      [r.name, r.org, r.contact].some(v => String(v || '').toLowerCase().includes(t)));
-
-    listEl.innerHTML = view.length
-      ? view.map(r => `
-        <li class="exrow ${r.is_prospect ? 'is-prospect' : ''}" data-id="${esc(r.id)}"
-            role="button" tabindex="0">
-          <span class="ex-star" title="${r.is_prospect ? 'ควรตามก่อน' : ''}">${r.is_prospect ? '★' : '☆'}</span>
-          <div class="ex-main">
-            <div class="ex-name">${esc(r.name)}</div>
-            <div class="ex-meta">${esc([r.org, r.interest].filter(Boolean).join(' · '))}</div>
-            ${r.contact ? `<div class="ex-contact">${esc(r.contact)}</div>` : ''}
-          </div>
-          <div class="ex-right">
-            <span class="so-tag ${r.status === 'converted' ? 'so-ok' : r.status === 'dropped' ? 'so-none' : ''}">
-              ${esc(statusOf(r.status).label)}</span>
-            ${r.sale_name ? `<span class="rv-upd">${esc(r.sale_name)}</span>` : ''}
-          </div>
-        </li>`).join('')
-      : '<li class="empty" style="padding:24px">ไม่มีรายชื่อที่ตรงกับเงื่อนไข</li>';
-  }
-  paint();
-
-  let t = null;
-  body.querySelector('#exSearch').addEventListener('input', (e) => {
-    clearTimeout(t); term = e.target.value; t = setTimeout(paint, 250);
-  });
-  body.querySelectorAll('#exFilter [data-f]').forEach(b => {
-    b.addEventListener('click', () => {
-      filter = b.dataset.f;
-      body.querySelectorAll('#exFilter [data-f]').forEach(x => x.classList.toggle('on', x === b));
-      paint();
-    });
-  });
-  body.querySelector('#exNew').addEventListener('click', () =>
-    openExpo(root.querySelector('#sPanel'), null, redraw));
-
-  listEl.addEventListener('click', (e) => {
-    const hit = e.target.closest('[data-id]');
-    if (hit) openExpo(root.querySelector('#sPanel'), rows.find(r => r.id === hit.dataset.id), redraw);
-  });
-  listEl.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    const hit = e.target.closest('[data-id]');
-    if (!hit) return;
-    e.preventDefault();
-    openExpo(root.querySelector('#sPanel'), rows.find(r => r.id === hit.dataset.id), redraw);
-  });
-}
-
-function openExpo(host, row, onSaved) {
-  const id = row?.id || null;
-  const v = (k, d = '') => row?.[k] ?? d;
-  const converted = !!row?.pending_id;
-
-  host.innerHTML = `
-    <div class="modal" id="exModal">
-      <form class="modal-box modal-sm" id="exForm">
-        <div class="modal-head">
-          <strong>${id ? 'รายชื่อจากงานแสดงสินค้า' : 'เพิ่มรายชื่อ'}</strong>
-          ${converted ? '<span class="tag" style="--tag-c:var(--green)">ยกเป็นงานแล้ว</span>' : ''}
-          <button type="button" class="btn btn-ghost btn-sm" id="exClose">ปิด</button>
-        </div>
-        <div class="modal-body">
-          <div class="fgrid">
-            <label class="fld fld-wide"><span>ชื่อบริษัท / หน่วยงาน *</span>
-              <input type="text" name="name" value="${esc(v('name'))}" required></label>
-            <label class="fld"><span>ประเภทกิจการ</span>
-              <input type="text" name="org" value="${esc(v('org'))}"></label>
-            <label class="fld"><span>ผู้รับไปดูแล</span>
-              <input type="text" name="sale_name" value="${esc(v('sale_name'))}"></label>
-            <label class="fld fld-wide"><span>สนใจอะไร</span>
-              <textarea name="interest" rows="2">${esc(v('interest'))}</textarea></label>
-            <label class="fld fld-wide"><span>ผู้ติดต่อ / เบอร์ / อีเมล</span>
-              <textarea name="contact" rows="2">${esc(v('contact'))}</textarea></label>
-            <label class="fld fld-wide"><span>ผลการติดตาม</span>
-              <textarea name="result" rows="2">${esc(v('result'))}</textarea></label>
-            <label class="fld"><span>สถานะ</span>
-              <select name="status">
-                ${STATUS.map(s => `<option value="${s.id}" ${v('status', 'new') === s.id ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}
-              </select></label>
-            <label class="fld"><span>★ ควรตามก่อน</span>
-              <label class="sw"><input type="checkbox" name="is_prospect" ${v('is_prospect') ? 'checked' : ''}>
-                <span>ใช่ — ระบุความสนใจชัด</span></label></label>
-          </div>
-        </div>
-        <p class="login-err" id="exErr" role="alert" hidden></p>
-        <div class="modal-foot">
-          ${id && !converted ? `<button type="button" class="btn btn-ghost btn-sm" id="exToPending"
-                  title="สร้างงานใหม่ในแถบ Pending Project จากรายชื่อนี้">↗ ยกขึ้นเป็น Pending Project</button>` : ''}
-          <span class="spacer"></span>
-          <button type="button" class="btn btn-ghost" id="exCancel">ยกเลิก</button>
-          <button type="submit" class="btn btn-primary" id="exSave">บันทึก</button>
-        </div>
-      </form>
-    </div>`;
-
-  const q = (s) => host.querySelector(s);
-  const close = () => { host.innerHTML = ''; };
-  const fail = (m) => { q('#exErr').textContent = m; q('#exErr').hidden = false; };
-
-  q('#exClose').addEventListener('click', close);
-  q('#exCancel').addEventListener('click', close);
-  q('#exModal').addEventListener('mousedown', (e) => { if (e.target.id === 'exModal') close(); });
-
-  q('#exForm').addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    q('#exErr').hidden = true;
-    const f = Object.fromEntries(new FormData(ev.target).entries());
-    f.is_prospect = !!ev.target.is_prospect.checked;   // checkbox ที่ไม่ติ๊กจะไม่มาใน FormData
-    if (id) f.id = id;
-    if (!String(f.name || '').trim()) return fail('กรอกชื่อบริษัท/หน่วยงานก่อน');
-
-    const btn = q('#exSave');
-    btn.disabled = true; btn.textContent = 'กำลังบันทึก…';
-    try {
-      await adapter.saveExpoCustomer(f);
-      close();
-      await onSaved();
-    } catch (e) {
-      fail(e.message);
-      btn.disabled = false; btn.textContent = 'บันทึก';
-    }
-  });
-
-  // ── ยกขึ้นเป็น Pending Project ──
-  // โยง pending_id กลับมาด้วย จะได้เห็นว่ายกไปแล้วและกดซ้ำไม่ได้
-  q('#exToPending')?.addEventListener('click', async () => {
-    const btn = q('#exToPending');
-    const name = q('[name="name"]').value.trim();
-    if (!name) return fail('กรอกชื่อบริษัท/หน่วยงานก่อน');
-    btn.disabled = true; btn.textContent = 'กำลังสร้าง…';
-    try {
-      const p = await adapter.savePending({
-        project_name:   `งานของ ${name}`,
-        customer_name:  name,
-        stage:          'lead',
-        value_baht:     0,
-        lead_source:    'Thai Water Expo',
-        customer_needs: q('[name="interest"]').value.trim() || null,
-      });
-      if (p?.id) {
-        await adapter.saveContacts(p.id, [
-          { slot: 1, name: q('[name="contact"]').value.trim() || name }, { slot: 2 }, { slot: 3 },
-        ]);
-        await adapter.saveExpoCustomer({ id, pending_id: p.id, status: 'converted' });
-      }
-      btn.textContent = '✓ สร้างแล้ว — ดูในแถบ Pending Project';
-      btn.classList.add('is-done');
-      await onSaved();
-    } catch (e) {
-      fail('สร้างงานไม่สำเร็จ: ' + e.message);
-      btn.disabled = false; btn.textContent = '↗ ยกขึ้นเป็น Pending Project';
-    }
-  });
-}
-
-// ══════════════════════════════════════════════════════════
-// แถบ 3 — ทีมขาย (step 3.2)
-// ══════════════════════════════════════════════════════════
-
-/**
- * ทีมที่ผู้ใช้คนนี้มีสิทธิ์เห็น
- * admin → null (เห็นหมด) · manager → ทีมตัวเอง + ทีมที่ได้รับสิทธิ์ · sale → ทีมตัวเอง
- *
- * ตัวนี้ใช้ตัดสินแค่ "จะเขียนอะไรบนหน้าจอ" ไม่ใช่มาตรการความปลอดภัย
- * ของจริง RLS กรองแถวให้ตั้งแต่ที่ DB แล้ว ต่อให้คำนวณตรงนี้ผิดก็ไม่มีข้อมูลรั่ว
- */
-async function visibleTeamIds(me) {
-  if (!me || me.role === 'admin') return null;
-  const ids = new Set(me.team_id ? [me.team_id] : []);
-  if (me.role === 'manager') {
-    try {
-      const rows = await adapter.listTeamAccess(me.id);
-      (rows || []).forEach(r => ids.add(r.team_id));
-    } catch { /* ยังไม่ได้รัน phase2-4.sql ก็ถือว่ามีแค่ทีมตัวเอง */ }
-  }
-  return ids;
-}
-
-async function drawTeams(body, me) {
-  let teams = [], rows = [], profiles = [];
-  try {
-    [teams, rows] = await Promise.all([
-      adapter.listTeams(),
-      adapter.listPending({ status: 'all', limit: 1000 }),
-    ]);
-  } catch (e) {
-    body.innerHTML = `<div class="empty"><strong>โหลดข้อมูลทีมไม่สำเร็จ</strong>${esc(e.message)}</div>`;
-    return;
-  }
-  // รายชื่อสมาชิกเป็นของแถม — RLS อาจกันไว้ ห้ามให้ทั้งหน้าพังเพราะอันนี้
-  try { profiles = await adapter.listProfiles(); } catch { profiles = []; }
-
-  const visible = await visibleTeamIds(me);
-  const sum = teamRollup(rows, teams, { visible });
-
-  const members = (tid) => profiles.filter(p => p.team_id === tid && p.is_active !== false);
-  const maxPipe = Math.max(1, ...sum.teams.filter(t => !t.locked).map(t => t.pipeline));
-
-  const card = (t) => {
-    const mem = members(t.id);
-    if (t.locked) return `
-      <div class="card tmcard is-locked">
-        <div class="tm-h"><strong>${esc(t.name)}</strong>
-          <span class="tm-code">${esc(t.code)}</span></div>
-        <p class="tm-desc">${esc(t.description)}</p>
-        <p class="tm-lock">🔒 คุณไม่มีสิทธิ์ดูข้อมูลทีมนี้ —
-          ตัวเลขจึงไม่แสดง (ไม่ใช่ว่าทีมนี้ไม่มีงาน)</p>
-      </div>`;
-
-    return `
-      <div class="card tmcard">
-        <div class="tm-h"><strong>${esc(t.name)}</strong>
-          <span class="tm-code">${esc(t.code)}</span></div>
-        <p class="tm-desc">${esc(t.description)}</p>
-
-        <div class="tm-nums">
-          <div><span class="tm-n">${fmtMB(t.won)}</span><span class="tm-l">ปิดได้แล้ว (ล้านบาท)</span></div>
-          <div><span class="tm-n">${fmtMB(t.pipeline)}</span><span class="tm-l">ยังเดินอยู่ (ล้านบาท)</span></div>
-          <div><span class="tm-n">${t.openCount}</span><span class="tm-l">งานที่เดินอยู่</span></div>
-        </div>
-
-        <div class="tm-bar" role="img"
-             aria-label="สัดส่วนงานที่ยังเดินอยู่ ${fmtMB(t.pipeline)} ล้านบาท">
-          <span style="width:${Math.round((t.pipeline / maxPipe) * 100)}%"></span>
-        </div>
-
-        <div class="tm-mem">
-          ${mem.length
-            ? mem.map(p => `<span class="ateam">${esc(p.full_name || p.email || '—')}</span>`).join('')
-            : '<span class="tm-nomem">— ยังไม่มีสมาชิกที่คุณเห็นได้ —</span>'}
-        </div>
-      </div>`;
-  };
-
-  body.innerHTML = `
-    <div class="grid cols-4">
-      <div class="card"><div class="stat-label">ปิดได้แล้ว</div>
-        <div class="stat-value">${fmtMB(sum.total.won)}</div>
-        <div class="stat-note">ล้านบาท · ${esc(CONFIG.TARGET_PERIOD)}</div></div>
-      <div class="card"><div class="stat-label">ยังเดินอยู่</div>
-        <div class="stat-value">${fmtMB(sum.total.pipeline)}</div>
-        <div class="stat-note">ล้านบาท · ${sum.total.openCount} งาน</div></div>
-      <div class="card"><div class="stat-label">ทีมขาย</div>
-        <div class="stat-value">${sum.teams.length}</div>
-        <div class="stat-note">${sum.hiddenTeams ? `ดูได้ ${sum.teams.length - sum.hiddenTeams} ทีม` : 'ดูได้ทุกทีม'}</div></div>
-      <div class="card"><div class="stat-label">คนในทีม</div>
-        <div class="stat-value">${profiles.filter(p => p.is_active !== false).length}</div>
-        <div class="stat-note">เท่าที่คุณมีสิทธิ์เห็น</div></div>
-    </div>
-
-    ${sum.hiddenTeams ? `<p class="sec-foot" style="margin:14px 0 0">
-      🔒 มี ${sum.hiddenTeams} ทีมที่คุณดูข้อมูลไม่ได้ — ตัวเลขรวมด้านบนจึงนับเฉพาะทีมที่คุณเห็น
-      ถ้าต้องดูข้ามทีม ให้ผู้ดูแลระบบเปิดสิทธิ์ให้ในหน้าตั้งค่าระบบ</p>` : ''}
-
-    ${sum.orphan ? `<div class="card warncard" style="margin-top:14px">
-      <strong>⚠️ มี ${sum.orphan.count} งานที่ยังไม่ระบุทีม</strong>
-      <p>รวม ${fmtMB(sum.orphan.pipeline + sum.orphan.won)} ล้านบาท —
-         งานเหล่านี้ไม่ถูกนับเข้าทีมไหนเลย และคนที่ไม่ใช่ผู้ดูแลระบบจะมองไม่เห็น
-         ให้เปิดงานในแถบ Pending Project แล้วเลือกทีมให้เรียบร้อย</p>
-    </div>` : ''}
-
-    <div class="srcgrid" style="margin-top:16px">
-      ${sum.teams.map(card).join('')}
-    </div>
-
-    <p class="sec-foot" style="margin-top:14px">
-      "ปิดได้แล้ว" นับงานที่สถานะเป็นปิดการขายและตกอยู่ในช่วงเป้า ${esc(CONFIG.TARGET_PERIOD)}
-      · "ยังเดินอยู่" คืองานที่ยังไม่ปิดและยังไม่แพ้ — กติกาเดียวกับหน้าภาพรวม
-    </p>`;
 }
 
 // ══════════════════════════════════════════════════════════

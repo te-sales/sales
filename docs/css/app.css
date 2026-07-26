@@ -2025,6 +2025,10 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 .news-oldrow .news-ico { font-size: 18px; }
 .news-oldrow .news-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
 .news-oldrow strong { font-size: 13.5px; font-weight: 600; }
+/* การ์ด + ปุ่มลบ (admin) วางข้างกัน */
+.newscard-wrap { display: flex; align-items: stretch; gap: 8px; }
+.newscard-wrap .newscard, .newscard-wrap .news-oldrow { flex: 1; min-width: 0; }
+.newscard-wrap .nw-del { flex: none; align-self: center; }
 
 /* หน้าต่างอ่านข่าวเต็มจอ — iframe แสดงไฟล์ HTML ทั้งหน้า */
 .modal-full { padding: 0; align-items: stretch; }

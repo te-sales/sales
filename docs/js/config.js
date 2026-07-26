@@ -8,7 +8,7 @@
 
 export const CONFIG = {
   APP_NAME: 'TE Sales Dashboard',
-  VERSION: '0.48.0',
+  VERSION: '0.49.0',
 
   // 'local'    = เก็บใน localStorage (ไม่ต้องมี backend · ใช้ตอน dev/ออฟไลน์)
   // 'supabase' = ต่อ Supabase จริง (ต้องล็อกอินก่อนถึงใช้งานได้)
