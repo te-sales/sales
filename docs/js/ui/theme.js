@@ -15,11 +15,13 @@ const LS_ACCENT = 'te-dashboard:accent';
 const LS_FONT   = 'te-dashboard:font';
 
 export const THEMES = [
-  { id: 'noir',     label: 'Noir · ม่วงเข้ม', note: 'ค่าเริ่มต้น · ดีไซน์จาก Claude' },
-  { id: 'brown',    label: 'Brown · กระดาษ', note: 'ดีไซน์จาก Claude · โทนน้ำตาลอุ่น' },
-  { id: 'dark',     label: 'Linear Dark', note: 'ธีมเดิม · เข้าตา ใช้ในร่ม' },
-  { id: 'light',    label: 'สว่าง',        note: 'พื้นขาว · อ่านง่ายบนจอสว่าง' },
-  { id: 'contrast', label: 'คอนทราสต์สูง', note: 'ดำสนิท ตัวอักษรชัด · กลางแดด/สายตาไม่ชัด' },
+  { id: 'noir',         label: 'Noir · ม่วงเข้ม', note: 'ค่าเริ่มต้น · ดีไซน์จาก Claude' },
+  { id: 'doslife',      label: 'DOS Life · ขาว-เขียว',        note: 'แบรนด์ DOS Life · พื้นขาว เน้นเขียว' },
+  { id: 'greenovation', label: 'DOS Greenovation · น้ำตาล-ขาว', note: 'แบรนด์ DOS Greenovation · โทนน้ำตาลอุ่น' },
+  { id: 'brown',        label: 'Brown · กระดาษ', note: 'ดีไซน์จาก Claude · โทนน้ำตาลอุ่น' },
+  { id: 'dark',         label: 'Linear Dark', note: 'ธีมเดิม · เข้าตา ใช้ในร่ม' },
+  { id: 'light',        label: 'สว่าง',        note: 'พื้นขาว · อ่านง่ายบนจอสว่าง' },
+  { id: 'contrast',     label: 'คอนทราสต์สูง', note: 'ดำสนิท ตัวอักษรชัด · กลางแดด/สายตาไม่ชัด' },
 ];
 
 // สีเน้น — คัดมาแล้ว CVD-safe (ตรงกับ [data-accent] ใน app.css)
@@ -34,11 +36,14 @@ export const ACCENTS = [
 // ฟอนต์ — bundle offline (ไม่พึ่ง CDN) · Sarabun subset ไทยอยู่ใน docs/fonts/
 //   ไทย = ฟอนต์ที่เลือก · ตัวเลข/อังกฤษ = Inter (per-glyph fallback ใน --font)
 export const FONTS = [
-  { id: 'inter',   label: 'Inter',   note: 'ค่าเริ่มต้น · โมเดิร์น สะอาดตา' },
-  { id: 'sarabun', label: 'Sarabun', note: 'ฟอนต์เอกสารไทย · เข้ากับฟอร์มที่พิมพ์' },
-  { id: 'ibmplex', label: 'IBM Plex Sans Thai', note: 'ตัวเหลี่ยมโมเดิร์น · อ่านชัด' },
-  { id: 'noto',    label: 'Noto Sans Thai',     note: 'อ่านง่าย เป็นกลาง · มาตรฐาน' },
-  { id: 'system',  label: 'ระบบ',    note: 'ฟอนต์เนทีฟของเครื่อง · เบาสุด' },
+  { id: 'inter',    label: 'Inter',   note: 'ค่าเริ่มต้น · โมเดิร์น สะอาดตา' },
+  { id: 'sarabun',  label: 'Sarabun', note: 'ฟอนต์เอกสารไทย · เข้ากับฟอร์มที่พิมพ์' },
+  { id: 'ibmplex',  label: 'IBM Plex Sans Thai', note: 'ตัวเหลี่ยมโมเดิร์น · อ่านชัด' },
+  { id: 'noto',     label: 'Noto Sans Thai',     note: 'อ่านง่าย เป็นกลาง · มาตรฐาน' },
+  { id: 'itim',     label: 'Itim · ลายมือ',   note: 'ลายมือกลม ๆ อ่านง่าย · นิยมใช้' },
+  { id: 'mali',     label: 'Mali · ลายมือ',   note: 'ลายมือมนโค้ง · เป็นกันเอง' },
+  { id: 'sriracha', label: 'Sriracha · ลายมือ', note: 'ลายมือเอียงมีสไตล์ · นิยมใช้' },
+  { id: 'system',   label: 'ระบบ',    note: 'ฟอนต์เนทีฟของเครื่อง · เบาสุด' },
 ];
 
 const THEME_IDS  = new Set(THEMES.map(t => t.id));

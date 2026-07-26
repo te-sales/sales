@@ -15,13 +15,15 @@
    ══════════════════════════════════════════════════════════ */
 
 /* ① ─────────── base: เค้าโครงฟอร์ม (จอ + พิมพ์ ใช้ร่วมกัน) ───────────
-   ⚠️ ต้องระบุฟอนต์เองตรงนี้ ห้ามพึ่ง app.css — ตอนพิมพ์ ถ้าไม่ระบุ เบราว์เซอร์
-   ตกไปใช้ฟอนต์ serif เริ่มต้น ตัวอังกฤษบนฟอร์มออกมาเป็นตัวมีเชิง ไม่เหมือนต้นฉบับ */
+   ⚠️ ต้องระบุ font-family เองตรงนี้ (ผ่าน var --font) ห้ามปล่อยให้ inherit เฉย ๆ —
+   ตอนพิมพ์ ถ้าไม่ระบุ เบราว์เซอร์ตกไปใช้ฟอนต์ serif เริ่มต้น ตัวอังกฤษออกมาเป็นตัวมีเชิง
+   ใช้ var(--font) = ฟอนต์ที่เลือกในธีม (ค่าจริงใน app.css :root/[data-font]) เพื่อให้พิมพ์เหมือนที่เห็นบนจอ
+   · ท้าย var ใส่ fallback สแตกไว้เสมอ (ปิดท้าย sans-serif) กันตัวอังกฤษกลายเป็น serif ถ้า --font ไม่ resolve */
 #printRoot {
   display: none;
   color: #000;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Thai",
-               "Sarabun", Roboto, Arial, sans-serif;
+  font-family: var(--font, -apple-system, BlinkMacSystemFont, "Segoe UI",
+               "Noto Sans Thai", "Sarabun", Roboto, Arial, sans-serif);
   font-size: 10pt;
   line-height: 1.5;
 }

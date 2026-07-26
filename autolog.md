@@ -27,6 +27,16 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-26 · ยังไม่ commit · ฟอนต์ลายมือ 3 ตัว + ธีมแบรนด์ DOS 2 ธีม + พิมพ์ตามฟอนต์ธีม — v0.50.0
+**step:** — (คำขอเจ้าของ 3/5 ข้อ) | **ประเภท:** ฟีเจอร์
+- **[พิมพ์ตามธีม]** print.css `#printRoot` เปลี่ยนจากสแตกตายตัว → `var(--font, …fallback)` = พิมพ์ PDF (Pending/Book3) ใช้ฟอนต์เดียวกับที่เลือกในธีม (fallback ปิดท้าย sans-serif กันอังกฤษเป็น serif)
+- **[ฟอนต์ลายมือไทย 3]** เพิ่ม Itim · Mali · Sriracha (นิยม · SIL OFL · โหลด woff2 latin+thai รวมไฟล์ผ่าน gwfh · bundle offline) → docs/fonts/ + @font-face + `html[data-font=…]` + ตัวอย่างใน picker + FONTS ใน theme.js
+- **[ธีมแบรนด์ DOS 2]** `[data-theme="doslife"]` (ขาว-เขียว · accent #1f9d57) · `[data-theme="greenovation"]` (น้ำตาล-ขาว · accent #7a5230) → app.css + THEMES ใน theme.js (accent แบรนด์ baked-in แต่ data-accent ยังทับได้)
+- bump VERSION 0.49→0.50 · เพิ่มฟอนต์ 3 ไฟล์ใน sw SHELL
+**ไฟล์:** css/app.css · css/print.css · js/ui/theme.js · fonts/{itim,mali,sriracha}-thai-400.woff2 · sw.js · config.js
+**ทดสอบ:** theme-test 14/14 ผ่าน (ฟอนต์ 200+โหลดเข้า document.fonts · picker มีธีม/ฟอนต์ใหม่ · doslife/greenovation ใช้สีแบรนด์ · body+#printRoot ใช้ Itim · ไม่มี error)
+**ค้าง:** task 3 (dropdown เป้ารายคนบน dashboard) + task 4 (backup อัตโนมัติขึ้น Google Drive — ต้องคุยสถาปัตยกรรม) ยังไม่ทำในรายการนี้
+
 ## 2026-07-26 · ยังไม่ commit · ข่าว = แท็บแยก + อัพโหลดไฟล์ + ถอด 2 แท็บ — v0.49.0
 **step:** — (คำขอเจ้าของ) | **ประเภท:** ฟีเจอร์/รีแฟกเตอร์
 - เจ้าของสั่ง 3 อย่าง: ① ทำข่าวเป็น **แท็บแยก** "📰 ข่าวประจำสัปดาห์" (ใหม่สุดขึ้นก่อน) ② **ลบแท็บ "ทีมขาย" + "Thai Water Expo"** ③ หน้าเพิ่มข่าวเพิ่ม **ปุ่มอัพโหลดไฟล์ HTML** + admin ลบได้

@@ -58,6 +58,24 @@
   unicode-range: U+0E00-0E7F, U+200B, U+25CC;
 }
 
+/* ── ฟอนต์ลายมือไทย (นิยมใช้ · SIL OFL · bundle offline ไม่พึ่ง CDN) ──
+   ไฟล์รวม latin+thai ในไฟล์เดียว จึงไม่จำกัด unicode-range (ให้ทั้งไทย+อังกฤษเป็นลายมือ) */
+@font-face {
+  font-family: 'Itim';
+  font-style: normal; font-weight: 400; font-display: swap;
+  src: url('../fonts/itim-thai-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Mali';
+  font-style: normal; font-weight: 400; font-display: swap;
+  src: url('../fonts/mali-thai-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Sriracha';
+  font-style: normal; font-weight: 400; font-display: swap;
+  src: url('../fonts/sriracha-thai-400.woff2') format('woff2');
+}
+
 :root {
   --bg:          #0d0e12;
   --bg-panel:    #14161c;
@@ -139,6 +157,10 @@ html[data-font="sarabun"] { --font: "Sarabun", "Inter", -apple-system, BlinkMacS
 html[data-font="ibmplex"] { --font: "IBM Plex Sans Thai", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 html[data-font="noto"]    { --font: "Noto Sans Thai", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 html[data-font="system"]  { --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Thonburi", sans-serif; }
+/* ฟอนต์ลายมือไทย — ครอบทั้งไทย+อังกฤษ (ไฟล์รวม latin+thai) · fallback ปลอดภัยท้ายสแตก */
+html[data-font="itim"]     { --font: "Itim", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+html[data-font="mali"]     { --font: "Mali", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+html[data-font="sriracha"] { --font: "Sriracha", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 
 /* ═══════════════════════════════════════════════════════════
    ธีม (step 3.7) — เขียนทับเฉพาะสีพื้น/ตัวอักษร/ขอบ
@@ -213,6 +235,32 @@ html[data-font="system"]  { --font: -apple-system, BlinkMacSystemFont, "Segoe UI
   --stage-lead:#a99e8c; --stage-qualify:#5e3d1c; --stage-present:#7a4c20;
   --stage-quote:#9c5a26; --stage-nego:#c67139; --stage-won:#7a8a5e; --stage-lost:#c04a37;
   --chart-1:#9c5a26; --chart-2:#c67139; --chart-3:#7a8a5e; --chart-4:#a5720d; --chart-5:#c04a37; --chart-6:#94897a;
+}
+
+/* ── ธีมแบรนด์ DOS (เจ้าของสั่ง 26 ก.ค. 2569) ──
+   ตั้ง --accent เป็นสีแบรนด์ให้ดูตรงแบรนด์ทันที · ผู้ใช้ยังเลือกสีเน้นทับได้ (data-accent มาทีหลัง) */
+/* DOS life — ขาว-เขียว */
+[data-theme="doslife"] {
+  --bg:#f2f7f2; --bg-panel:#ffffff; --bg-elev:#e9f1e9; --bg-hover:#dceadc;
+  --border:#c7ddc7; --border-soft:#dfeadf;
+  --text:#13251a; --text-dim:#3d5445; --text-mute:#788d7e;
+  --accent:#1f9d57;
+  --green:#1a9e4b; --yellow:#b0790f; --red:#d93a30; --blue:#2a72d0;
+  --green-line: color-mix(in srgb, var(--green) 40%, transparent);
+  --red-line:   color-mix(in srgb, var(--red) 40%, transparent);
+  --chart-1:#1f9d57; --chart-2:#2a72d0; --chart-3:#7bb661; --chart-4:#b0790f; --chart-5:#d9556f; --chart-6:#8a8f98;
+}
+
+/* DOS greenovation — น้ำตาล-ขาว */
+[data-theme="greenovation"] {
+  --bg:#f7f4ed; --bg-panel:#ffffff; --bg-elev:#efe8db; --bg-hover:#e6dccb;
+  --border:#d8ccb4; --border-soft:#e8dfce;
+  --text:#2a2016; --text-dim:#5c4f3d; --text-mute:#948674;
+  --accent:#7a5230;
+  --green:#4c7c3c; --yellow:#a5720d; --red:#c04a37; --blue:#2a72d0;
+  --green-line: color-mix(in srgb, var(--green) 40%, transparent);
+  --red-line:   color-mix(in srgb, var(--red) 40%, transparent);
+  --chart-1:#7a5230; --chart-2:#4c7c3c; --chart-3:#c67139; --chart-4:#a5720d; --chart-5:#c04a37; --chart-6:#94897a;
 }
 
 /* ── สีเน้น (accent presets) — คัดมาแล้ว CVD-safe · เปลี่ยนแค่ --accent ที่เหลือ derive เอง ──
@@ -1853,6 +1901,9 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 .th-fontsample[data-font="ibmplex"] { font-family: "IBM Plex Sans Thai","Inter",sans-serif; }
 .th-fontsample[data-font="noto"]    { font-family: "Noto Sans Thai","Inter",sans-serif; }
 .th-fontsample[data-font="system"]  { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+.th-fontsample[data-font="itim"]     { font-family: "Itim","Inter",sans-serif; }
+.th-fontsample[data-font="mali"]     { font-family: "Mali","Inter",sans-serif; }
+.th-fontsample[data-font="sriracha"] { font-family: "Sriracha","Inter",sans-serif; }
 
 @media (max-width: 430px) {
   .th-themes, .th-fonts { grid-template-columns: 1fr; }
