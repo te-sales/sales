@@ -20,8 +20,9 @@ export function safePhoto(u) {
   return (/^data:image\//i.test(s) || /^https?:\/\//i.test(s)) ? s : '';
 }
 
-/** อ่านไฟล์รูป → ย่อผ่าน canvas → คืน data URL (JPEG) */
-export function fileToDataUrl(file) {
+/** อ่านไฟล์รูป → ย่อผ่าน canvas → คืน data URL (JPEG)
+ *  opt.maxSide / opt.quality: ปรับได้ (รูปบุคคล = 512 · นามบัตรต้องอ่านออก+ซูม = ใหญ่กว่า) */
+export function fileToDataUrl(file, { maxSide = MAX_SIDE, quality = QUALITY } = {}) {
   return new Promise((resolve, reject) => {
     if (!file || !/^image\//.test(file.type)) return reject(new Error('ไฟล์ต้องเป็นรูปภาพ'));
     const fr = new FileReader();
@@ -31,14 +32,14 @@ export function fileToDataUrl(file) {
       img.onerror = () => reject(new Error('ไฟล์รูปเสียหรือเปิดไม่ได้'));
       img.onload = () => {
         let { width: w, height: h } = img;
-        if (w > MAX_SIDE || h > MAX_SIDE) {
-          const r = Math.min(MAX_SIDE / w, MAX_SIDE / h);
+        if (w > maxSide || h > maxSide) {
+          const r = Math.min(maxSide / w, maxSide / h);
           w = Math.round(w * r); h = Math.round(h * r);
         }
         const cv = document.createElement('canvas');
         cv.width = w; cv.height = h;
         cv.getContext('2d').drawImage(img, 0, 0, w, h);
-        try { resolve(cv.toDataURL('image/jpeg', QUALITY)); }
+        try { resolve(cv.toDataURL('image/jpeg', quality)); }
         catch (e) { reject(new Error('แปลงรูปไม่สำเร็จ: ' + e.message)); }
       };
       img.src = fr.result;

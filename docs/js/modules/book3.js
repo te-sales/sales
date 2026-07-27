@@ -10,6 +10,7 @@ import { signoffState, signoffBarHtml, bindSignoff, canSign,
          signoffHistoryHtml, bindSignoffHistory } from '../ui/signoff.js';
 import { printCustomer } from '../ui/formprint.js';
 import { photoFieldHtml, bindPhotoField } from '../ui/photofield.js';
+import { cardFieldHtml, bindCardField } from '../ui/cardfield.js';
 import { openAIImport, openAILog } from './ai-intake.js';
 import { mountTeamScope } from '../ui/teamscope.js';
 import { mountPersonScope, ownerSelectHtml } from '../ui/personscope.js';
@@ -539,8 +540,17 @@ async function openDetail(host, id, onSaved, teams, people) {
         <div class="modal-body">
           ${id && soState ? signoffBarHtml(soState, canSign(me)) : ''}
           <section class="fgroup">
-            <h3>รูปลูกค้า</h3>
-            ${photoFieldHtml(row?.photo_url)}
+            <h3>รูปลูกค้า & นามบัตร</h3>
+            <div class="photo-card-row">
+              <div class="pc-photo">
+                <div class="pf-label">รูปลูกค้า</div>
+                ${photoFieldHtml(row?.photo_url)}
+              </div>
+              <div class="pc-cards">
+                <div class="pf-label">นามบัตร <span class="pf-hint" style="font-weight:400">สูงสุด 2 รูป · กดที่รูปเพื่อดูเต็ม/ซูม</span></div>
+                ${cardFieldHtml(row?.card_front_url, row?.card_back_url)}
+              </div>
+            </div>
           </section>
           ${FORM.map(g => `
             <section class="fgroup">
@@ -596,6 +606,9 @@ async function openDetail(host, id, onSaved, teams, people) {
   // ช่องรูปลูกค้า (step 3.9+) — bindPhotoField จัดการเลือก/ย่อ/ลบ + เก็บลง input[name=photo_url]
   const photoEl = host.querySelector('.photofield');
   if (photoEl) bindPhotoField(photoEl, { onError: fail });
+  // ช่องนามบัตร 2 รูป (ด้านหน้า/ด้านหลัง) → เก็บลง input[name=card_front_url|card_back_url] · กดดูซูมได้
+  const cardEl = host.querySelector('.cardfield');
+  if (cardEl) bindCardField(cardEl, { onError: fail });
 
   // ── มีวันเกิดจริง → คำนวณอายุให้ (ล็อกช่อง) · ไม่มีวันเกิด → กรอกอายุเองได้ (ไม่สร้างวันเกิดปลอม) ──
   const bdayHidden = host.querySelector('[name="birthday"]');

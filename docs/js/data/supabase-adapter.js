@@ -730,11 +730,14 @@ const supabaseAdapter = {
     try {
       return await send(body);
     } catch (e) {
-      // ยังไม่ได้รัน db/phase3-12.sql (คอลัมน์ age ยังไม่มี) → ตัด age ทิ้งแล้วบันทึกส่วนอื่นให้ผ่าน
-      //   ไม่ให้ทั้งฟอร์มลูกค้าพังเพราะ column เดียวที่ยังไม่มี
-      if ('age' in body && /\bage\b.*(column|does not exist)|could not find.*age|PGRST204/i.test(e.message || '')) {
-        const { age, ...rest2 } = body;
-        return await send(rest2);
+      // คอลัมน์เสริมที่อาจยังไม่ได้ migrate: age (phase3-12) · นามบัตร (phase3-16)
+      //   ยังไม่รัน → ตัดคอลัมน์เหล่านี้ทิ้งแล้วบันทึกส่วนอื่นให้ผ่าน (ไม่ให้ทั้งฟอร์มพังเพราะ column เดียว)
+      const OPTIONAL = ['age', 'card_front_url', 'card_back_url'];
+      const missingCol = /does not exist|could not find|schema cache|PGRST204/i.test(e.message || '');
+      if (missingCol && OPTIONAL.some(c => c in body)) {
+        const b2 = { ...body };
+        for (const c of OPTIONAL) delete b2[c];
+        return await send(b2);
       }
       throw e;
     }

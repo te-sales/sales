@@ -72,7 +72,7 @@ async function renderAdmin(root) {
         adapter.getSettings().catch(() => ({})),
         adapter.listAllTeamTargets().catch(() => []),
         adapter.listAllSaleTargets().catch(() => []),
-        adapter.listBackupLog(6).catch(() => []),   // ยังไม่ได้รัน phase3-15 ก็ไม่พังทั้งหน้า
+        adapter.listBackupLog(50).catch(() => []),   // ยังไม่ได้รัน phase3-15 ก็ไม่พังทั้งหน้า
       ]);
     } catch (e) {
       const missing = /ยังไม่ได้สร้างตาราง|does not exist|42P01/i.test(e.message);
@@ -226,13 +226,9 @@ async function renderAdmin(root) {
           <div><span class="gd-l">กำหนดครั้งถัดไป</span><b>${esc(nextBackupText())}</b></div>
           <div><span class="gd-l">สำรองล่าสุด</span><b>${esc(lastBkText)}</b></div>
         </div>
-        ${backups.length ? `<ul class="nw-adminlist" style="margin-top:10px">
-          ${backups.map(r => `<li>
-            <span class="nw-ali-main"><b>${r.status === 'ok' ? '✓' : '✗'} ${esc(r.file_name || '(สำรองล้มเหลว)')}</b>
-              <span class="t2">${esc(fmtWhen(r.created_at))} · ${r.triggered_by === 'cron' ? 'อัตโนมัติ' : 'กดเอง'}${r.status !== 'ok' && r.error ? ' · ' + esc(r.error) : ''}</span></span>
-            ${r.drive_view_url ? `<a class="btn btn-ghost btn-sm" href="${esc(r.drive_view_url)}" target="_blank" rel="noopener noreferrer">เปิด ↗</a>` : ''}
-          </li>`).join('')}
-        </ul>` : '<p class="tm-nomem" style="padding:4px 0">ยังไม่มีประวัติการสำรอง — กด "สำรองขึ้น Drive เดี๋ยวนี้" เพื่อทดสอบหลังตั้งค่าเสร็จ</p>'}
+        ${backups.length
+          ? `<button type="button" class="btn btn-ghost btn-sm" id="gdHistory" style="margin-top:10px">📋 ดูประวัติการสำรอง (${backups.length})</button>`
+          : '<p class="tm-nomem" style="padding:4px 0">ยังไม่มีประวัติการสำรอง — กด "สำรองขึ้น Drive เดี๋ยวนี้" เพื่อทดสอบหลังตั้งค่าเสร็จ</p>'}
         <p class="login-err" id="gdErr" role="alert" hidden></p>
       </div>` : ''}
 
@@ -366,6 +362,32 @@ async function renderAdmin(root) {
         $('#gdErr').textContent = e.message; $('#gdErr').hidden = false;
         btn.disabled = false; btn.textContent = old;
       }
+    });
+
+    // ── ประวัติการสำรอง: เก็บเป็นหน้าใน (modal) ไม่ให้รายการยาวรกหน้า setting ──
+    $('#gdHistory')?.addEventListener('click', () => {
+      const host = $('#aPanel');
+      const rowHtml = (r) => `<li>
+        <span class="nw-ali-main"><b>${r.status === 'ok' ? '✓' : '✗'} ${esc(r.file_name || '(สำรองล้มเหลว)')}</b>
+          <span class="t2">${esc(fmtWhen(r.created_at))} · ${r.triggered_by === 'cron' ? 'อัตโนมัติ' : 'กดเอง'}${r.status !== 'ok' && r.error ? ' · ' + esc(r.error) : ''}</span></span>
+        ${r.drive_view_url ? `<a class="btn btn-ghost btn-sm" href="${esc(r.drive_view_url)}" target="_blank" rel="noopener noreferrer">เปิด ↗</a>` : ''}
+      </li>`;
+      host.innerHTML = `
+        <div class="modal" id="bkHistModal">
+          <div class="modal-box modal-sm">
+            <div class="modal-head"><strong>ประวัติการสำรองขึ้น Google Drive <span class="sec-sub">${backups.length} รายการล่าสุด</span></strong>
+              <button type="button" class="btn btn-ghost btn-sm" id="bkHistClose">ปิด</button></div>
+            <div class="modal-body">
+              <ul class="nw-adminlist">${backups.map(rowHtml).join('')}</ul>
+            </div>
+            <div class="modal-foot"><span class="spacer"></span>
+              <button type="button" class="btn btn-primary" id="bkHistDone">เสร็จ</button></div>
+          </div>
+        </div>`;
+      const close = () => { host.innerHTML = ''; };
+      $('#bkHistClose').addEventListener('click', close);
+      $('#bkHistDone').addEventListener('click', close);
+      $('#bkHistModal').addEventListener('mousedown', (e) => { if (e.target.id === 'bkHistModal') close(); });
     });
 
     // กู้คืน — ยืนยัน 2 ขั้น เพราะเขียนทับข้อมูลปัจจุบัน

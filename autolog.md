@@ -27,6 +27,17 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-27 · ยังไม่ commit · นามบัตร 2 รูป (Book 3 สี) + lightbox ซูม · ย้าย log สำรองเป็นหน้าใน
+**step:** — (เจ้าของสั่ง + รูป) | **ประเภท:** ฟีเจอร์
+- **(1) log สำรอง Google Drive → หน้าใน:** admin.js เปลี่ยนรายการยาวเป็นปุ่ม "📋 ดูประวัติการสำรอง (N)" → เปิด modal (ไม่รกหน้า setting) · โหลด 50 รายการล่าสุด
+- **(2) นามบัตรใน Book 3 สี:** เพิ่มได้สูงสุด 2 รูป (ด้านหน้า/ด้านหลัง) · เพิ่ม/แก้ไข/ลบได้ · desktop/iPad = อยู่ขวาของรูปบุคคล · มือถือ = ใต้รูปบุคคล (flex + media query 640px) · กดที่รูป → lightbox เต็มจอ ซูมเข้า-ออก (ปุ่ม +/− · ล้อเมาส์ · ปินช์ 2 นิ้ว · ลาก · ดับเบิลคลิก)
+  - คอมโพเนนต์ใหม่: `js/ui/cardfield.js` (2 ช่อง เก็บ card_front_url/card_back_url) · `js/ui/lightbox.js` (ซูม/แพน/ปินช์)
+  - `photofield.js` `fileToDataUrl` รับ opt {maxSide,quality} — นามบัตรย่อ 1280px/0.8 (ใหญ่กว่ารูปบุคคล 512 เพื่ออ่าน/ซูม)
+  - `db/phase3-16.sql` (ใหม่) เพิ่มคอลัมน์ card_front_url/card_back_url · adapter saveCustomer ตัดคอลัมน์เสริม (age/card_*) อัตโนมัติถ้ายังไม่ migrate → **เจ้าของต้องรัน phase3-16.sql** ถึงจะเก็บนามบัตรได้
+- bump VERSION 0.59.0 → 0.60.0 + precache cardfield/lightbox
+**ไฟล์:** docs/js/ui/cardfield.js (ใหม่) · docs/js/ui/lightbox.js (ใหม่) · docs/js/ui/photofield.js · docs/js/modules/book3.js · docs/js/modules/admin.js · docs/js/data/supabase-adapter.js · docs/css/app.css · docs/sw.js · docs/js/config.js · db/phase3-16.sql (ใหม่)
+**ทดสอบ:** Chrome จริงผ่าน CDP → **12/12 ผ่าน** (2 ช่อง หน้า/หลัง · แก้ไข/ลบ/เพิ่ม · lightbox เปิด+ซูม scale เปลี่ยน+รีเซ็ต+ปิด · save round-trip นามบัตรเก็บจริง · admin โหลดได้) + rerun team-person 11/11 · order 8/8 · ไม่มี JS error
+
 ## 2026-07-27 · ยังไม่ commit · ดรอปดาวน์ "ดูของ/เป้ารายคน" กรองรายชื่อตามทีมที่เลือก (3 หน้า)
 **step:** — (เจ้าของสั่ง + รูป) | **ประเภท:** ปรับ UX
 - เจ้าของขอ: กด "รวมทุกทีม" → ดรอปดาวน์รายคนแสดงครบ · กดทีม GOV.1 → เหลือเฉพาะสมาชิกทีมนั้น (ยังเคารพ RLS ที่ admin ตั้ง) · ทำทั้ง ภาพรวม/Pending/Book 3 สี
