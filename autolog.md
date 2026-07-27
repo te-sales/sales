@@ -27,6 +27,16 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-27 · ยังไม่ commit · ดรอปดาวน์ "ดูของ/เป้ารายคน" กรองรายชื่อตามทีมที่เลือก (3 หน้า)
+**step:** — (เจ้าของสั่ง + รูป) | **ประเภท:** ปรับ UX
+- เจ้าของขอ: กด "รวมทุกทีม" → ดรอปดาวน์รายคนแสดงครบ · กดทีม GOV.1 → เหลือเฉพาะสมาชิกทีมนั้น (ยังเคารพ RLS ที่ admin ตั้ง) · ทำทั้ง ภาพรวม/Pending/Book 3 สี
+- personscope.js: `visiblePeople()` = สมาชิกของทีมที่เลือก (subtree · ให้สิทธิ์ทีมแม่เห็นทีมลูก) · เพิ่มเมธอด `setTeam(teamId)` วาดตัวเลือกใหม่ตามทีม (เลือกทีมใหม่ = กลับไป "ทุกคน" ของทีม) · ย้าย default=me เข้า component (`defaultSelf`)
+- pending.js + book3.js: teamscope onChange → `pscope.setTeam(id)` + sync `view.person`
+- dashboard.js: `scopedPeople()`/`personOptionsHtml()` + `renderPersonOptions()` เรียกตอนสลับทีม → dashPerson แสดงเฉพาะสมาชิกทีมที่เลือก
+- bump VERSION 0.58.0 → 0.59.0
+**ไฟล์:** docs/js/ui/personscope.js · docs/js/modules/pending.js · docs/js/modules/book3.js · docs/js/modules/dashboard.js · docs/js/config.js · docs/sw.js
+**ทดสอบ:** Chrome จริงผ่าน CDP (seed 4 คนต่างทีม) → **11/11 ผ่าน** (ทุกทีม=ทุกคน · GOV.1=สมาชิก GOV.1 · TE-IMP=เห็นทีมลูก IMP1 · Book3/ภาพรวมเหมือนกัน) + rerun ชุดเดิม default 9/9 · appears 7/7 · order 8/8 · ไม่มี JS error
+
 ## 2026-07-27 · ยังไม่ commit · Book 3 สี: ย้าย "สีความสัมพันธ์" + "SALE ผู้ดูแล" ขึ้นบนสุดใกล้ทีม
 **step:** — (เจ้าของสั่ง) | **ประเภท:** ปรับ UX
 - เจ้าของขอ: ในฟอร์มลูกค้า Book 3 สี ย้าย สีความสัมพันธ์ + SALE ผู้ดูแล จากกลุ่มล่าง "การจัดกลุ่ม & ผู้ดูแล" ขึ้นไปไว้บนสุดใกล้ "ทีมผู้ดูแล"

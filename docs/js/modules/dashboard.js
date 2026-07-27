@@ -565,6 +565,14 @@ export default {
     let selected = new Set();               // ว่าง = ทั้งองค์กร (รวม)
     if (isSale && myTeam) selected = new Set([myTeam]);
 
+    // รายชื่อในดรอปดาวน์ "เป้ารายคน" = สมาชิกของทีมที่เลือก (subtree) · ไม่เลือกทีม = ทุกคน
+    // (เจ้าของขอ 27 ก.ค. 2569 — ให้ตรงกับ Pending/Book 3 สี)
+    const scopedPeople = () => selected.size
+      ? activePeople.filter(p => expandTeams(teams, [...selected]).has(p.team_id))
+      : activePeople;
+    const personOptionsHtml = () => `<option value="">— ดูตามทีม/องค์กร —</option>` +
+      scopedPeople().map(p => `<option value="${esc(p.id)}" ${person === p.id ? 'selected' : ''}>${esc(p.full_name || p.email || '—')}${p.id === me?.id ? ' (ฉัน)' : ''}${p.team_id ? ' · ' + esc(teams.find(t => t.id === p.team_id)?.code || '') : ''}</option>`).join('');
+
     // ── โครงหน้า: ตัวกรองทีมบนสุด (รวม/แยก) + เนื้อหาที่กรองได้ ──
     root.innerHTML = `
       ${showFilter ? `<div class="dash-scope" id="dashScope">
@@ -576,8 +584,7 @@ export default {
       ${activePeople.length ? `<div class="dash-scope" id="dashPersonRow">
         <span class="dash-scope-l">เป้ารายคน:</span>
         <select class="inp inp-sm" id="dashPerson" aria-label="เลือกดูเป้ายอดขายรายคน">
-          <option value="">— ดูตามทีม/องค์กร —</option>
-          ${activePeople.map(p => `<option value="${esc(p.id)}">${esc(p.full_name || p.email || '—')}${p.id === me?.id ? ' (ฉัน)' : ''}${p.team_id ? ' · ' + esc(teams.find(t => t.id === p.team_id)?.code || '') : ''}</option>`).join('')}
+          ${personOptionsHtml()}
         </select>
       </div>` : ''}
       <div id="dashBody"></div>
@@ -703,6 +710,12 @@ export default {
     }
 
     const personSel = root.querySelector('#dashPerson');
+    // วาดตัวเลือกในดรอปดาวน์ "เป้ารายคน" ใหม่ตามทีมที่เลือก (คนที่เลือกอยู่หลุดทีม → รีเซ็ต)
+    const renderPersonOptions = () => {
+      if (!personSel) return;
+      if (person && !scopedPeople().some(p => p.id === person)) person = '';
+      personSel.innerHTML = personOptionsHtml();
+    };
 
     if (showFilter) {
       const scope = root.querySelector('#dashScope');
@@ -715,6 +728,7 @@ export default {
         else { const id = btn.dataset.team; if (selected.has(id)) selected.delete(id); else selected.add(id); }
         scope.querySelector('[data-scope="all"]').classList.toggle('on', selected.size === 0);
         scope.querySelectorAll('[data-scope="team"]').forEach(b => b.classList.toggle('on', selected.has(b.dataset.team)));
+        renderPersonOptions();   // รายชื่อในดรอปดาวน์ตามทีมที่เลือกใหม่
         paintBody();
       });
     }

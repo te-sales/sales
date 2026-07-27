@@ -4,8 +4,10 @@
 // กรองด้วย owner_id (เจ้าของแถวจากการ login) — กติกาเดียวกับดรอปดาวน์เป้ารายคนบนหน้าภาพรวม
 //   ⚠️ ห้ามกรองด้วย sale_name (free text) — คนละคนพิมพ์ชื่อไม่ตรงกัน จับคู่พลาด
 // ข้อมูลถูก RLS คัดมาแล้ว ที่นี่แค่กรอง "ในสิ่งที่เห็นได้" ตามคนที่เลือก ไม่ได้ข้ามสิทธิ์
-// แสดงเฉพาะเมื่อผู้ใช้เห็นคนได้มากกว่า 1 คน (admin/หัวหน้า/ทีมที่มีหลายคน) — sale เดี่ยวไม่ต้องมี
-// ⭐ ใช้คู่กับ mountTeamScope: เลือกทีมก่อน แล้วค่อยเจาะรายคน (กรองต่อกัน ไม่ทับกัน)
+// ⭐ ใช้คู่กับ mountTeamScope: รายชื่อในดรอปดาวน์ = สมาชิกของ "ทีมที่เลือก" (subtree)
+//    เลือก "รวมทุกทีม" → เห็นทุกคน · เลือก GOV.1 → เห็นเฉพาะสมาชิก GOV.1 (เจ้าของขอ 27 ก.ค. 2569)
+
+import { teamSubtree } from './teamscope.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -19,45 +21,67 @@ function personLabel(p, teams, meId) {
 
 /**
  * วาดดรอปดาวน์เลือกคนลง host แล้วผูก event
- * @param opt { people:[], teams:[], meId, initial }   people = profiles ที่ RLS ให้เห็น
+ * @param opt { people:[], teams:[], meId, ownerField, teamId, initial, defaultSelf }
+ *            people = profiles ที่ RLS ให้เห็น · teamId = ทีมที่เลือกอยู่ ('' = ทุกทีม)
+ *            defaultSelf = true → ครั้งแรกตั้งต้นที่ตัวเอง (ถ้าอยู่ในลิสต์ที่เห็น)
  * @param onChange (selectedId) => void    selectedId = '' คือทุกคน
- * @returns { selected():string, filter(rows):rows[] }
+ * @returns { selected():string, filter(rows):rows[], setTeam(teamId) }
  */
 export function mountPersonScope(host, opt = {}, onChange = () => {}) {
-  if (!host) return { selected: () => '', filter: (r) => r || [] };
+  const noop = { selected: () => '', filter: (r) => r || [], setTeam: () => {} };
+  if (!host) return noop;
   const teams = opt.teams || [];
   const meId  = opt.meId || null;
   // ฟิลด์เจ้าของแถว: Pending = owner_id · Book 3 สี = sale_id (คนละชื่อคอลัมน์)
   const ownerField = opt.ownerField || 'owner_id';
 
   // เฉพาะคนที่ยัง active · ตัวเองขึ้นบนสุด แล้วเรียงตามชื่อไทย (เหมือนหน้าภาพรวม)
-  const people = (opt.people || [])
+  const allPeople = (opt.people || [])
     .filter(p => p && p.is_active !== false)
     .sort((a, b) => (a.id === meId ? -1 : b.id === meId ? 1 : 0)
                  || String(a.full_name || a.email || '').localeCompare(String(b.full_name || b.email || ''), 'th'));
 
-  // โผล่เสมอถ้ามีอย่างน้อย 1 คน (ตัวเราเอง) — ให้เลือก "ตัวเอง ↔ ทุกคน ↔ คนอื่น" ได้
-  // (เดิมซ่อนเมื่อ ≤1 คน ทำให้บางบัญชีไม่เห็นดรอปดาวน์เลย — เจ้าของแจ้ง 27 ก.ค. 2569)
-  if (people.length < 1) { host.innerHTML = ''; return { selected: () => '', filter: (r) => r || [] }; }
+  let currentTeam = opt.teamId || '';   // ทีมที่เลือกจาก teamscope ('' = ทุกทีม)
+  let selected = '';
 
-  let selected = people.some(p => p.id === opt.initial) ? opt.initial : '';
+  // รายชื่อที่โชว์ = สมาชิกของทีมที่เลือก (ทีมนั้น + ทีมลูกทั้งหมด) · '' = ทุกทีม → ทุกคน
+  const visiblePeople = () => {
+    if (!currentTeam) return allPeople;
+    const ids = teamSubtree(teams, currentTeam);
+    return allPeople.filter(p => ids.has(p.team_id));
+  };
 
-  host.innerHTML = `
-    <div class="person-scope">
-      <span class="person-scope-l">ดูของ</span>
-      <select class="inp inp-sm" id="personScopeSel" aria-label="เลือกดูงานของแต่ละคน">
-        <option value="">— ทุกคน —</option>
-        ${people.map(p => `<option value="${esc(p.id)}" ${selected === p.id ? 'selected' : ''}>${esc(personLabel(p, teams, meId))}</option>`).join('')}
-      </select>
-    </div>`;
+  // ค่าเริ่มต้น (ครั้งแรกเท่านั้น): ค่าที่ส่งมา → ตัวเอง (ถ้า defaultSelf) → ทุกคน
+  const init0 = visiblePeople();
+  selected = init0.some(p => p.id === opt.initial) ? opt.initial
+           : (opt.defaultSelf && meId && init0.some(p => p.id === meId)) ? meId
+           : '';
 
-  const sel = host.querySelector('#personScopeSel');
-  sel.addEventListener('change', () => { selected = sel.value; onChange(selected); });
+  function render() {
+    const people = visiblePeople();
+    // ทีมที่เลือกไม่มีสมาชิกที่เห็นได้ → ไม่ต้องมีดรอปดาวน์
+    if (people.length < 1) { host.innerHTML = ''; return; }
+    // คนที่เลือกอยู่หลุดจากทีมที่เลือกใหม่ → กลับไป "ทุกคน" (ของทีมนั้น)
+    if (selected && !people.some(p => p.id === selected)) selected = '';
+    host.innerHTML = `
+      <div class="person-scope">
+        <span class="person-scope-l">ดูของ</span>
+        <select class="inp inp-sm" id="personScopeSel" aria-label="เลือกดูงานของแต่ละคน">
+          <option value="">— ทุกคน —</option>
+          ${people.map(p => `<option value="${esc(p.id)}" ${selected === p.id ? 'selected' : ''}>${esc(personLabel(p, teams, meId))}</option>`).join('')}
+        </select>
+      </div>`;
+    host.querySelector('#personScopeSel')
+        .addEventListener('change', (e) => { selected = e.target.value; onChange(selected); });
+  }
+  render();
 
   return {
     selected: () => selected,
     // กรองตามเจ้าของแถว (owner_id / sale_id) — ว่าง = ไม่กรอง = ทุกคน
     filter: (rows) => selected ? (rows || []).filter(r => r[ownerField] === selected) : (rows || []),
+    // เปลี่ยนทีม → รายชื่อในดรอปดาวน์ตามทีมนั้น · เลือกทีมใหม่ = กลับไป "ทุกคน" ของทีม
+    setTeam: (teamId) => { currentTeam = teamId || ''; selected = ''; render(); },
   };
 }
 

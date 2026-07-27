@@ -98,8 +98,6 @@ export default {
     // แก้ sale_id (บัญชี) → ชื่อจากโปรไฟล์ปัจจุบัน · เปลี่ยนชื่อในตั้งค่าระบบแล้วอัปเดตตามทันที (ไม่ก๊อปชื่อลงแถว)
     const peopleById = new Map((people || []).map(p => [p.id, p]));
     const ownerName  = (id) => { const p = peopleById.get(id); return p ? (p.full_name || p.email || '') : ''; };
-    // ค่าเริ่มต้นตัวกรอง "ดูของ" = ตัวเอง (แสดงลูกค้าของ user ที่ล็อกอิน) — ถ้ายังไม่ได้เลือกเจาะจงคนอื่น
-    if (!view.person && meId && people.some(p => p.id === meId)) view.person = meId;
 
     root.innerHTML = `
       <div class="toolbar">
@@ -155,14 +153,18 @@ export default {
 
     // แถบเลือกทีม (admin/หัวหน้าที่เห็นหลายทีม) — กรองฝั่งเบราว์เซอร์ ไม่โหลดใหม่
     scope = mountTeamScope($('bScope'), teams, view.team || '', (id) => {
-      view.team = id; saveView(view);
+      view.team = id;
+      // เปลี่ยนทีม → รายชื่อในดรอปดาวน์ "ดูของ" ตามสมาชิกทีมนั้น
+      if (pscope) { pscope.setTeam(id); view.person = pscope.selected(); }
+      saveView(view);
       applyScopes();
       paint();
     });
 
-    // ดรอปดาวน์เลือกดูรายบุคคล — กรองต่อจากทีม (เจาะดูลูกค้าของ sale คนเดียว)
+    // ดรอปดาวน์เลือกดูรายบุคคล — รายชื่อ = สมาชิกของทีมที่เลือก · กรองต่อจากทีม
     // ⚠️ Book 3 สี ใช้ sale_id เป็นเจ้าของแถว (ไม่ใช่ owner_id เหมือน Pending)
-    pscope = mountPersonScope($('bPersonScope'), { people, teams, meId, ownerField: 'sale_id', initial: view.person || '' }, (id) => {
+    pscope = mountPersonScope($('bPersonScope'),
+      { people, teams, meId, ownerField: 'sale_id', teamId: view.team || '', initial: view.person || '', defaultSelf: true }, (id) => {
       view.person = id; saveView(view);
       applyScopes();
       paint();
