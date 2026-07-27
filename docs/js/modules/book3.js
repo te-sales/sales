@@ -16,6 +16,7 @@ import { mountTeamScope } from '../ui/teamscope.js';
 import { mountPersonScope, ownerSelectHtml } from '../ui/personscope.js';
 import { lastLogSpan, mountLogHover } from '../ui/loghover.js';
 import { listViewHtml, bindListView, applyListView } from '../ui/listview.js';
+import { richFieldHtml, bindRichFields } from '../ui/richtext.js';
 
 // ── สี 3 ระดับ ── (ความหมายจากฟอร์มกระดาษ)
 export const COLORS = [
@@ -25,8 +26,18 @@ export const COLORS = [
 ];
 const colorOf = (id) => COLORS.find(c => c.id === id) || COLORS[2];
 
+// ── DOCC — ประเภทลูกค้าในงานก่อสร้าง (D-O-C-C · เจ้าของขอ 27 ก.ค. 2569) ──
+// ตัว C ซ้ำ 2 แบบ (Contractor/Consult) → เก็บ "คำเต็ม" ในฐานข้อมูล · หน้าจอโชว์ตัวย่อ
+export const DOCC = [
+  { id: 'designer',   letter: 'D', label: 'Designer (ผู้ออกแบบ)' },
+  { id: 'owner',      letter: 'O', label: 'Owner (เจ้าของงาน)' },
+  { id: 'contractor', letter: 'C', label: 'Contractor (ผู้รับเหมา)' },
+  { id: 'consult',    letter: 'C', label: 'Consult (ที่ปรึกษา)' },
+];
+const doccOf = (id) => DOCC.find(d => d.id === id) || null;
+
 const LS_VIEW = 'te-dashboard:book3-view';
-const DEFAULT_VIEW = { color: '', search: '', status: 'active', sort: 'updated_at', dir: 'desc', team: '', person: '' };
+const DEFAULT_VIEW = { color: '', docc: '', search: '', status: 'active', sort: 'updated_at', dir: 'desc', team: '', person: '' };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -119,6 +130,11 @@ export default {
             </button>`).join('')}
         </div>
 
+        <select class="inp inp-sm" id="bDocc" title="กรองตามประเภทลูกค้า (DOCC)">
+          <option value="">ทุกประเภท (DOCC)</option>
+          ${DOCC.map(d => `<option value="${d.id}" ${view.docc === d.id ? 'selected' : ''}>${d.letter} · ${esc(d.label)}</option>`).join('')}
+        </select>
+
         <div class="segmented" id="bStatus" role="tablist" aria-label="สถานะ">
           <button type="button" data-status="active"   class="${view.status === 'active'   ? 'on' : ''}">ที่ติดต่ออยู่</button>
           <button type="button" data-status="archived" class="${view.status === 'archived' ? 'on' : ''}">
@@ -142,15 +158,38 @@ export default {
     mountLogHover(listEl);   // ชี้เมาส์ที่ความคืบหน้า → เด้ง popup เต็ม
     bindListView(root, listEl);   // ปุ่มสลับ ตาราง/การ์ด (laptop/iPad)
     let rawRows = [];   // ทั้งหมดที่ RLS ให้เห็น
-    let rows = [];      // หลังกรองทีม + คนที่เลือก
+    let rows = [];      // หลังกรองทีม + คน + DOCC
     let scope = null, pscope = null;
+    let allActive = [], arcRows = [], arcHidden = 0;   // ป้ายจำนวน (สี/Archive) — นับตามขอบเขต ทีม/คน (#11)
 
-    // กรองทีม → แล้วเจาะรายบุคคล (ต่อกัน) — ใช้ที่เดียวทั้งตอนโหลดใหม่และตอนสลับตัวกรอง
-    const applyScopes = () => {
-      let r = scope ? scope.filter(rawRows) : rawRows;
+    // กรองทีม → เจาะรายบุคคล (ต่อกัน) — ใช้ทั้งการนับป้ายและการแสดงรายการ
+    const scopeTP = (list) => {
+      let r = scope ? scope.filter(list) : list;
       r = pscope ? pscope.filter(r) : r;
-      rows = r;
+      return r;
     };
+
+    // กรองทีม → คน → DOCC — ใช้ที่เดียวทั้งตอนโหลดใหม่และตอนสลับตัวกรอง
+    const applyScopes = () => {
+      let r = scopeTP(rawRows);
+      if (view.docc) r = r.filter(x => x.docc === view.docc);   // กรองประเภทลูกค้า (ฝั่งเบราว์เซอร์)
+      rows = r;
+      updateBadges();
+    };
+
+    // ป้ายจำนวน 🟢🟡🔴 + Archive — นับเฉพาะ "ของตัวเอง/ทีมที่เลือก" (เจ้าของขอ 27 ก.ค. 2569)
+    function updateBadges() {
+      const scopedActive = scopeTP(allActive);
+      for (const c of COLORS) {
+        const el = root.querySelector(`[data-count="${c.id}"]`);
+        const n = scopedActive.filter(r => r.color === c.id).length;
+        if (el) { el.textContent = n; el.hidden = n === 0; }
+      }
+      const arc = scopeTP(arcRows).length;
+      arcHidden = Math.max(0, arcRows.length - arc);   // งานในคลังนอกทีม/คนที่เลือก (บอกผู้ใช้ ห้ามซ่อนเงียบ)
+      const ae = $('bArcCount');
+      if (ae) { ae.textContent = arc; ae.hidden = arc === 0; }
+    }
 
     // แถบเลือกทีม (admin/หัวหน้าที่เห็นหลายทีม) — กรองฝั่งเบราว์เซอร์ ไม่โหลดใหม่
     scope = mountTeamScope($('bScope'), teams, view.team || '', (id) => {
@@ -192,24 +231,11 @@ export default {
         $('bSum').textContent = '';
         return;
       }
-      applyScopes();   // กรองตามทีม + คนที่เลือก
+      // ข้อมูลสำหรับป้ายจำนวน (สี + Archive) — นับตามขอบเขตทีม/คน (เจ้าของขอ 27 ก.ค. 2569)
+      try { allActive = await adapter.listCustomers({ status: 'active',   limit: 2000 }); } catch { allActive = []; }
+      try { arcRows   = await adapter.listCustomers({ status: 'archived', limit: 2000 }); } catch { arcRows = []; }
+      applyScopes();   // กรองตามทีม + คน + DOCC + อัปเดตป้ายจำนวน
       paint();
-      refreshCounts();
-    }
-
-    /** ป้ายจำนวนบนแถบสี + Archive — เห็นภาพรวมโดยไม่ต้องกดเข้าไปทีละแถบ */
-    async function refreshCounts() {
-      try {
-        const all = await adapter.listCustomers({ status: 'active', limit: 2000 });
-        for (const c of COLORS) {
-          const el = root.querySelector(`[data-count="${c.id}"]`);
-          const n = all.filter(r => r.color === c.id).length;
-          if (el) { el.textContent = n; el.hidden = n === 0; }
-        }
-        const arc = await adapter.countCustomers('archived');
-        const ae = $('bArcCount');
-        if (ae) { ae.textContent = arc; ae.hidden = arc === 0; }
-      } catch { /* นับไม่ได้ไม่เป็นไร ไม่ใช่ข้อมูลสำคัญ */ }
     }
 
     function paint() {
@@ -221,9 +247,16 @@ export default {
           }).join('')
         : '';
 
+      // อยู่แท็บ Archive แต่มีลูกค้าในคลังนอกทีม/คนที่เลือก → บอกให้ชัด (เหมือนหน้า Pending)
+      const arcNote = (view.status === 'archived' && arcHidden) ? `
+        <div class="filter-hidden-note">
+          🔒 มีลูกค้าในคลังอีก <b>${arcHidden}</b> รายที่อยู่นอกทีม/คนที่เลือก จึงไม่แสดงตอนนี้
+          — กด <b>รวมทุกทีม</b> หรือเลือก <b>— ทุกคน —</b> ในตัวกรองด้านบนเพื่อดู
+        </div>` : '';
+
       if (!rows.length) {
-        const filtered = view.search || view.color;
-        listEl.innerHTML = `<div class="empty">
+        const filtered = view.search || view.color || view.docc;
+        listEl.innerHTML = arcNote + `<div class="empty">
             <strong>ยังไม่มีลูกค้าที่ตรงกับเงื่อนไข</strong>
             ${filtered ? 'ลองล้างตัวกรอง หรือกด "+ เพิ่มลูกค้า"'
                        : 'กด "+ เพิ่มลูกค้า" เพื่อเริ่มบันทึกรายแรก'}
@@ -231,7 +264,7 @@ export default {
         return;
       }
 
-      listEl.innerHTML = `
+      listEl.innerHTML = arcNote + `
         <div class="tbl-wrap">
           <table class="tbl">
             <thead><tr>
@@ -290,6 +323,13 @@ export default {
         root.querySelectorAll('#bColor [data-color]').forEach(x => x.classList.toggle('on', x === b));
         reload();
       });
+    });
+
+    // กรอง DOCC (ประเภทลูกค้า) — ฝั่งเบราว์เซอร์ ไม่ต้องโหลดใหม่
+    $('bDocc').addEventListener('change', (e) => {
+      view.docc = e.target.value; saveView(view);
+      applyScopes();
+      paint();
     });
 
     root.querySelectorAll('#bStatus [data-status]').forEach(b => {
@@ -429,6 +469,7 @@ const FORM = [
     // (เดิมเป็นช่องพิมพ์ sale_name — คงคอลัมน์ไว้ใน DB สำหรับข้อมูลเก่าที่ยังจับคู่บัญชีไม่ได้)
     ['sale_id',  'SALE NAME (sale ผู้ดูแล)', 'owner'],
     ['color',    'สีความสัมพันธ์',          'color'],
+    ['docc',     'DOCC (ประเภทลูกค้า)',     'docc'],
     ['no',       'No. (รหัสในสมุด)', 'text'],
     ['name',     'ชื่อ-สกุล *',       'text'],
     ['nickname', 'ชื่อเล่น',           'text'],
@@ -459,9 +500,15 @@ function fieldHtml([key, label, type], row, teams, people, meId) {
   if (type === 'owner')
     return ownerSelectHtml(key, label, v, people, meId);
 
+  // ช่องข้อความยาว = rich text (ไฮไลต์/หนา/เอียง/ขีดเส้น/สีเข้ม) — เจ้าของขอ 27 ก.ค. 2569
   if (type === 'area')
-    return `<label class="fld fld-wide"><span>${esc(label)}</span>
-      <textarea name="${key}" rows="2">${esc(v)}</textarea></label>`;
+    return richFieldHtml(key, v, { label });
+
+  if (type === 'docc')
+    return `<label class="fld"><span>${esc(label)}</span><select name="${key}">
+      <option value="">— ยังไม่ระบุ —</option>
+      ${DOCC.map(d => `<option value="${d.id}" ${v === d.id ? 'selected' : ''}>${d.letter} · ${esc(d.label)}</option>`).join('')}
+    </select></label>`;
 
   if (type === 'date')
     return `<label class="fld"><span>${esc(label)}</span>${dateField(key, v, { label })}</label>`;
@@ -603,12 +650,16 @@ async function openDetail(host, id, onSaved, teams, people) {
   const close = () => { host.innerHTML = ''; };
   const fail = (m) => { q('#bErr').textContent = m; q('#bErr').hidden = false; };
 
+  // ลบรูปได้เฉพาะ admin หรือ "เจ้าของลูกค้า" (sale_id ตรงกับเรา) · ลูกค้าใหม่/ยังไม่ระบุผู้ดูแล = ลบได้
+  const canDeleteImg = !id || me?.role === 'admin' || !row?.sale_id || row.sale_id === me?.id;
   // ช่องรูปลูกค้า (step 3.9+) — bindPhotoField จัดการเลือก/ย่อ/ลบ + เก็บลง input[name=photo_url]
   const photoEl = host.querySelector('.photofield');
-  if (photoEl) bindPhotoField(photoEl, { onError: fail });
+  if (photoEl) bindPhotoField(photoEl, { onError: fail, canDelete: canDeleteImg });
   // ช่องนามบัตร 2 รูป (ด้านหน้า/ด้านหลัง) → เก็บลง input[name=card_front_url|card_back_url] · กดดูซูมได้
   const cardEl = host.querySelector('.cardfield');
-  if (cardEl) bindCardField(cardEl, { onError: fail });
+  if (cardEl) bindCardField(cardEl, { onError: fail, canDelete: canDeleteImg });
+  // ช่องข้อความมีรูปแบบ (rich text) — ผูกแถบเครื่องมือ + sync HTML ที่ล้างแล้วลง hidden input
+  bindRichFields(host);
 
   // ── มีวันเกิดจริง → คำนวณอายุให้ (ล็อกช่อง) · ไม่มีวันเกิด → กรอกอายุเองได้ (ไม่สร้างวันเกิดปลอม) ──
   const bdayHidden = host.querySelector('[name="birthday"]');

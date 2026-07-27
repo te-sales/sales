@@ -58,18 +58,24 @@ export function fileToDataUrl(file, { maxSide = MAX_SIDE, quality = QUALITY } = 
  *   </div>
  * คืนฟังก์ชันอ่านค่า (data URL ปัจจุบัน) เผื่อ submit อยากอ่านตรง ๆ
  */
-export function bindPhotoField(root, { onError } = {}) {
+export function bindPhotoField(root, { onError, canDelete = true } = {}) {
   const thumb = root.querySelector('[data-thumb]');
   const file  = root.querySelector('[data-file]');
   const hidden = root.querySelector('[data-photo]');
   const clear = root.querySelector('[data-clear]');
+  let armed = false, armT = null;   // ลบต้องกด 2 ครั้ง กันกดพลาด
 
+  const disarm = () => {
+    armed = false; clearTimeout(armT);
+    if (clear) { clear.textContent = 'ลบรูป'; clear.classList.remove('is-armed'); }
+  };
   const paint = () => {
     const u = safePhoto(hidden.value);
     thumb.innerHTML = u
       ? `<img src="${u}" alt="รูปลูกค้า">`
       : '<span class="pf-thumb-x">ยังไม่มีรูป</span>';
-    if (clear) clear.hidden = !u;
+    if (clear) clear.hidden = !u || !canDelete;   // ไม่มีสิทธิ์ลบ (admin/เจ้าของเท่านั้น) → ซ่อนปุ่ม
+    disarm();
   };
   paint();
 
@@ -87,7 +93,18 @@ export function bindPhotoField(root, { onError } = {}) {
     }
   });
 
-  clear?.addEventListener('click', () => { hidden.value = ''; paint(); });
+  // ลบรูป — ต้องกด 2 ครั้งยืนยัน (กันลบพลาด · เจ้าของขอ 27 ก.ค. 2569)
+  clear?.addEventListener('click', () => {
+    if (!canDelete) return;
+    if (!armed) {
+      armed = true;
+      clear.textContent = 'ยืนยันลบรูป?';
+      clear.classList.add('is-armed');
+      armT = setTimeout(disarm, 4000);
+      return;
+    }
+    hidden.value = ''; paint();
+  });
 
   return () => hidden.value;
 }

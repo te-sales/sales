@@ -12,12 +12,18 @@
 
 import { adapter } from '../data/adapter.js';
 import { thaiDate } from './datepicker.js';
+import { sanitizeHtml, richToText } from './richtext.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 
 /** ค่าที่วางบนเส้นประ — ว่างก็ต้องคงความสูงบรรทัดไว้ ไม่งั้นฟอร์มยุบ */
 const V = (v) => `<span class="pf-v">${esc(v ?? '') || '&nbsp;'}</span>`;
+
+/** ค่าที่อาจมีรูปแบบ (rich text) — ล้าง HTML แล้ววาง (ตัวหนา/ไฮไลต์/ขีดเส้นออกบนกระดาษได้) */
+const VH = (v) => `<span class="pf-v">${sanitizeHtml(v) || '&nbsp;'}</span>`;
+/** rich text → ข้อความล้วน (สำหรับช่องที่ต้องตัดเป็นบรรทัด เช่น PROJECT DETAIL / EDUCATION) */
+const plain = (v) => richToText(v);
 
 const money = (n) =>
   (n === null || n === undefined || n === '') ? ''
@@ -73,7 +79,8 @@ export function pendingFormHtml(row, contacts, products, logs) {
   const c = (slot) => (contacts || []).find(x => Number(x.slot) === slot) || {};
 
   // PROJECT DETAIL ต้นฉบับมี 4 ช่อง — ตารางเก็บช่องเดียว จึงตัดตามบรรทัดมาลง 1–4
-  const detail = String(row.project_detail || '').split('\n');
+  // (ช่องนี้เป็น rich text ได้ → ตัดเหลือข้อความล้วนก่อนแบ่งบรรทัด)
+  const detail = plain(row.project_detail).split('\n');
   const d = (i) => detail[i] || '';
 
   // ตารางสินค้า 9 แถวเสมอ (เท่าฟอร์มกระดาษ) แถวที่ไม่มีข้อมูลปล่อยว่าง
@@ -146,7 +153,7 @@ export function pendingFormHtml(row, contacts, products, logs) {
       <div class="pf-row"><span class="pf-l">ADDRESS</span>
         ${V([c(i).address, c(i).phone, c(i).email].filter(Boolean).join(' · '))}</div>`).join('')}
 
-    <div class="pf-row"><span class="pf-l">COMPETITOR</span> ${V(row.competitors)}</div>
+    <div class="pf-row"><span class="pf-l">COMPETITOR</span> ${VH(row.competitors)}</div>
 
     <div class="pf-row"><span class="pf-l">RESULT</span>
       <span class="pf-chk"><span class="pf-box">${row.stage === 'won' ? '✓' : '&nbsp;'}</span> Success (ได้งาน)</span>
@@ -154,9 +161,14 @@ export function pendingFormHtml(row, contacts, products, logs) {
       <span class="pf-l">BECAUSE</span> ${V(row.result_because)}</div>
   </section>`;
 
+  // หน้า 2 เป็นต้นไป — ใส่หัวชื่องาน/ลูกค้า ให้รู้ว่าเป็นของงานไหน (เจ้าของขอ 27 ก.ค. 2569)
   const logPages = pages.map((chunk, i) => `
   <section class="pf-page">
-    <div class="pf-hdr-r"><span class="pf-l">PAGE</span> ${V(i + 2)}</div>
+    <div class="pf-hdr-name">
+      <span class="pf-l">PENDING</span> ${V(row.project_name)}
+      <span class="pf-l">ลูกค้า</span> ${V(row.customer_name)}
+      <span class="pf-l pf-l-no">PAGE</span> ${V(i + 2)}
+    </div>
     <div class="pf-hdr-c"><span class="pf-l">PENDING NO.</span> ${V(row.pending_no)}</div>
     <table class="pf-tbl pf-log">
       <thead><tr><th>DATE</th><th>BY</th><th>PRESPONSE</th><th>NEXT DOING</th></tr></thead>
@@ -217,18 +229,18 @@ export function customerFormHtml(row, logs) {
       <div class="pf-row"><span class="pf-l"></span>
         <span class="pf-n">(EMAIL)</span> ${V(row.email)}</div>
 
-      <div class="pf-row"><span class="pf-l">ADDRESS(OFFICE)</span> ${V(row.addr_office)}</div>
-      <div class="pf-row"><span class="pf-l">ADDRESS(HOME)</span> ${V(row.addr_home)}</div>
-      <div class="pf-row"><span class="pf-l">ADDRESS(HOMETOWN)</span> ${V(row.addr_hometown)}</div>
+      <div class="pf-row"><span class="pf-l">ADDRESS(OFFICE)</span> ${VH(row.addr_office)}</div>
+      <div class="pf-row"><span class="pf-l">ADDRESS(HOME)</span> ${VH(row.addr_home)}</div>
+      <div class="pf-row"><span class="pf-l">ADDRESS(HOMETOWN)</span> ${VH(row.addr_hometown)}</div>
 
       ${(() => {
-        const ed = String(row.education || '').split('\n');
+        const ed = plain(row.education).split('\n');   // education เป็น rich text ได้ → ตัดข้อความล้วนก่อนแบ่งบรรทัด
         return [1, 2, 3].map(i => `
           <div class="pf-row"><span class="pf-l">${i === 1 ? 'EDUCATION' : ''}</span>
             <span class="pf-n">${i}.)</span> ${V(ed[i - 1] || '')}</div>`).join('');
       })()}
 
-      <div class="pf-row"><span class="pf-l">FAMILY</span> ${V(row.family)}</div>
+      <div class="pf-row"><span class="pf-l">FAMILY</span> ${VH(row.family)}</div>
       <div class="pf-row"><span class="pf-l">HOBBY</span> ${V(row.hobby)}</div>
       <div class="pf-row"><span class="pf-l">FAVORITE</span> ${V(row.favorite)}</div>
 
@@ -239,8 +251,14 @@ export function customerFormHtml(row, logs) {
     </div>
   </section>`;
 
-  const more = restPages.map(chunk => `
+  // หน้า 2 เป็นต้นไป — ใส่หัวชื่อ-สกุล/หน่วยงาน ให้รู้ว่าเป็นของใคร (เจ้าของขอ 27 ก.ค. 2569)
+  const more = restPages.map((chunk, i) => `
   <section class="pf-page">
+    <div class="pf-hdr-name">
+      <span class="pf-l">NAME</span> ${V(row.name)}
+      <span class="pf-l">หน่วยงาน</span> ${V(row.org)}
+      <span class="pf-l pf-l-no">PAGE</span> ${V(i + 2)}
+    </div>
     <table class="pf-tbl pf-log">
       <thead><tr><th>DATE</th><th>BY</th><th>RESPONSE</th><th>NEXT DOING</th></tr></thead>
       <tbody>${logRows(chunk, CUST_LOG_ROWS_P2)}</tbody>

@@ -40,8 +40,12 @@ export function cardFieldHtml(front, back) {
   </div>`;
 }
 
-/** ต่อ event ให้ทุกช่องนามบัตรใน root */
-export function bindCardField(root, { onError } = {}) {
+/**
+ * ต่อ event ให้ทุกช่องนามบัตรใน root
+ * @param opt.canDelete ลบรูปได้ไหม (admin / เจ้าของลูกค้าเท่านั้น · เจ้าของขอ 27 ก.ค. 2569)
+ *        false → ซ่อนปุ่มลบ (แก้/เพิ่มยังทำได้ตามสิทธิ์แก้ไขปกติ)
+ */
+export function bindCardField(root, { onError, canDelete = true } = {}) {
   root.querySelectorAll('.card-slot').forEach(slot => {
     const thumb  = slot.querySelector('[data-cthumb]');
     const file   = slot.querySelector('[data-cfile]');
@@ -49,15 +53,21 @@ export function bindCardField(root, { onError } = {}) {
     const pick   = slot.querySelector('[data-cpick]');
     const clear  = slot.querySelector('[data-cclear]');
     const label  = slot.querySelector('.card-slot-h')?.textContent || 'นามบัตร';
+    let armed = false, armT = null;   // ลบต้องกด 2 ครั้ง กันกดพลาด
 
+    const disarm = () => {
+      armed = false; clearTimeout(armT);
+      if (clear) { clear.textContent = '🗑 ลบ'; clear.classList.remove('is-armed'); }
+    };
     const paint = () => {
       const u = safePhoto(hidden.value);
       thumb.classList.toggle('has-img', !!u);
       thumb.innerHTML = u ? `<img src="${u}" alt="${esc(label)}">` : '<span class="pf-thumb-x">ยังไม่มีรูป</span>';
-      if (clear) clear.hidden = !u;
+      if (clear) clear.hidden = !u || !canDelete;   // ไม่มีสิทธิ์ลบ → ซ่อนปุ่มลบ
       if (pick)  pick.textContent = u ? '✎ แก้ไข' : '📷 เพิ่ม';
       if (u) { thumb.setAttribute('role', 'button'); thumb.setAttribute('tabindex', '0'); thumb.title = 'กดเพื่อดูรูปเต็ม + ซูม'; }
       else   { thumb.removeAttribute('role'); thumb.removeAttribute('tabindex'); thumb.removeAttribute('title'); }
+      disarm();
     };
     paint();
 
@@ -69,7 +79,18 @@ export function bindCardField(root, { onError } = {}) {
       try { hidden.value = await fileToDataUrl(f, { maxSide: 1280, quality: 0.8 }); paint(); }
       catch (e) { onError?.(e.message); }
     });
-    clear?.addEventListener('click', () => { hidden.value = ''; paint(); });
+    // ลบรูป — ต้องกด 2 ครั้งยืนยัน (กันลบพลาด · เจ้าของขอ 27 ก.ค. 2569)
+    clear?.addEventListener('click', () => {
+      if (!canDelete) return;
+      if (!armed) {
+        armed = true;
+        clear.textContent = 'ยืนยันลบรูป?';
+        clear.classList.add('is-armed');
+        armT = setTimeout(disarm, 4000);
+        return;
+      }
+      hidden.value = ''; paint();
+    });
 
     // กดที่รูป (มีรูปแล้ว) → เปิด lightbox ซูมได้
     const view = () => { const u = safePhoto(hidden.value); if (u) openLightbox(u, 'นามบัตร ' + label); };

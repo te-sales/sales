@@ -16,7 +16,7 @@
 import { adapter } from '../data/adapter.js';
 import { todayISO } from '../ui/datepicker.js';
 
-export const SOURCES = ['namecard', 'form', 'text', 'voice'];
+export const SOURCES = ['namecard', 'book3form', 'form', 'text', 'voice'];
 
 // ══════════════════════════════════════════════════════════
 // BYO API key (ทางเลือก) — เจ้าของขอ "เชื่อม API key ให้ AI เป็นสมองกรอกฟอร์ม" (24 ก.ค. 2569)
@@ -113,6 +113,14 @@ async function aiExtract(payload) {
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 
+// ให้ textarea สูงพอดีเนื้อหา — โชว์ข้อความเต็มกรอบ ไม่ต้องเลื่อนในกรอบ (เจ้าของขอ 27 ก.ค. 2569)
+function autoGrow(el) {
+  if (!el || el.tagName !== 'TEXTAREA') return;
+  el.style.height = 'auto';
+  el.style.height = (el.scrollHeight + 2) + 'px';
+}
+const growAll = (root) => root?.querySelectorAll('textarea.ai-grow').forEach(autoGrow);
+
 const hasVal = (v) => v != null && String(v).trim() !== '';
 const normDigits = (s) => String(s || '').replace(/\D/g, '');
 
@@ -208,14 +216,15 @@ const FIELDS = {
 const REQUIRED = { customer: 'name', pending: 'project_name' };
 const DEST_LABEL = { customer: 'ลูกค้าใน Book 3 สี', pending: 'งานใน Pending Project', log: 'บันทึกติดตามงาน' };
 const SOURCE_LABEL = {
-  namecard: '📇 รูปนามบัตร', form: '📄 ฟอร์มกระดาษ / ลายมือ',
+  namecard: '📇 รูปนามบัตร', book3form: '📄 รูปฟอร์ม Book 3 สี (ลายมือ)',
+  form: '📄 ฟอร์มกระดาษ / ลายมือ',
   text: '📋 ข้อความที่คัดลอก', voice: '🎤 ข้อความจากเสียงพูด',
 };
-// แหล่งที่เหมาะกับแต่ละปลายทาง — รูปเฉพาะทาง (ฟอร์ม → Pending · นามบัตร → ลูกค้า)
+// แหล่งที่เหมาะกับแต่ละปลายทาง — รูปเฉพาะทาง (ฟอร์ม → Pending · นามบัตร/ฟอร์ม Book 3 สี → ลูกค้า)
 // + "ข้อความที่คัดลอก / ข้อความจากเสียงพูด" ใช้ได้ทั้งสองปลายทาง (เจ้าของขอ 25 ก.ค. 2569)
-// (ตัด Obsidian / Notion ออกตามคำสั่งเจ้าของ 24 ก.ค. 2569)
+// (ตัด Obsidian / Notion ออกตามคำสั่งเจ้าของ 24 ก.ค. 2569 · เพิ่มรูปฟอร์ม Book 3 สี ลายมือ 27 ก.ค. 2569)
 const SOURCES_FOR = {
-  customer: ['namecard', 'text', 'voice'],
+  customer: ['namecard', 'book3form', 'text', 'voice'],
   pending:  ['form', 'text', 'voice'],
   log:      ['text', 'voice', 'form'],   // บันทึกความก้าวหน้า: พิมพ์/เสียง เป็นหลัก + รูปโน้ต/ลายมือ
 };
@@ -282,9 +291,10 @@ function promptFor(targetType, source) {
   const contactLine = targetType === 'pending'
     ? '\n  ผู้ติดต่อหลัก: "contact_name" (ชื่อ), "contact_position" (ตำแหน่ง), "contact_phone" (โทร), "contact_email" (อีเมล)' : '';
   const srcHint = {
-    namecard: 'ฉันจะแนบรูปนามบัตร',
-    form:     'ฉันจะแนบรูปฟอร์มกระดาษ/ลายมือ',
-    text:     'ฉันจะวางข้อความที่คัดลอกมา (เช่น จากแชท/ไลน์/อีเมล/โน้ต)',
+    namecard:  'ฉันจะแนบรูปนามบัตร',
+    book3form: 'ฉันจะแนบรูปฟอร์ม Book 3 สี (Potential) ที่กรอกด้วยลายมือ — อ่านลายมือไทยให้ครบทุกช่อง',
+    form:      'ฉันจะแนบรูปฟอร์มกระดาษ/ลายมือ',
+    text:      'ฉันจะวางข้อความที่คัดลอกมา (เช่น จากแชท/ไลน์/อีเมล/โน้ต)',
     voice:    'ฉันจะวางข้อความที่ถอดจากเสียงพูด — อาจมีคำสะกดผิด เว้นวรรคเพี้ยน หรือเป็นภาษาพูดจากการถอดเสียง ช่วยตีความให้ด้วย',
     note:     'ฉันจะวางข้อความบันทึก/โน้ตยาว ๆ',
   }[source] || 'ฉันจะแนบข้อมูล';
@@ -462,7 +472,7 @@ function fieldHtml([key, label, type], fields, conf, reqKey) {
 
   let control;
   if (type === 'area')
-    control = `<textarea class="inp${lowCls}" data-f="${key}" rows="2"${lowTip}>${esc(v)}</textarea>`;
+    control = `<textarea class="inp ai-grow${lowCls}" data-f="${key}" rows="2"${lowTip}>${esc(v)}</textarea>`;
   else if (type === 'color')
     control = `<select class="inp${lowCls}" data-f="${key}"${lowTip}>
       ${COLOR_OPTS.map(([id, lb]) => `<option value="${id}" ${v === id ? 'selected' : ''}>${esc(lb)}</option>`).join('')}
@@ -909,6 +919,7 @@ export function openAIImport(targetType = 'customer', opts = {}) {
       el.addEventListener('input', () => {
         w[el.dataset.f] = el.value;
         el.classList.remove('ai-low');
+        autoGrow(el);                        // โตตามข้อความ ไม่ต้องเลื่อนในกรอบ
         // แก้ช่องที่ใช้จับซ้ำ → ค้นซ้ำใหม่
         if (['tel', 'name', 'org', 'pending_no', 'project_name', 'customer_name'].includes(el.dataset.f)) {
           clearTimeout(el._t);
@@ -916,6 +927,9 @@ export function openAIImport(targetType = 'customer', opts = {}) {
         }
       });
     });
+    // แสดงข้อความเต็มกรอบตั้งแต่เปิด + ตอนกางช่องเพิ่มเติม (เจ้าของขอ 27 ก.ค. 2569)
+    growAll(card);
+    card.querySelector('.ai-more')?.addEventListener('toggle', () => growAll(card));
 
     async function runDedup() {
       const box = card.querySelector('[data-dup]');
@@ -1194,7 +1208,7 @@ export function openAILog(targetType = 'pending', opts = {}) {
         </div>`;
       const cerr = (m) => { const e = card.querySelector('[data-cerr]'); if (!m) { e.hidden = true; return; } e.textContent = m; e.hidden = false; };
       card.querySelectorAll('[data-f]').forEach(el =>
-        el.addEventListener('input', () => { w[el.dataset.f] = el.value; el.classList.remove('ai-low'); }));
+        el.addEventListener('input', () => { w[el.dataset.f] = el.value; el.classList.remove('ai-low'); autoGrow(el); }));
       card.querySelector('[data-add]').addEventListener('click', async () => {
         cerr('');
         const payload = buildPayload('log', w);
@@ -1212,6 +1226,7 @@ export function openAILog(targetType = 'pending', opts = {}) {
       list.appendChild(card);
     });
     wrap.hidden = false;
+    growAll(list);   // ต้องโตหลังกล่องแสดงแล้ว (ตอน hidden scrollHeight=0 จะไม่โต)
   }
 
   // วาง JSON เอง (โหมดฟรี)

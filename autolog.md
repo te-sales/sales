@@ -27,6 +27,22 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-27 · ยังไม่ commit · ชุดคำสั่งเจ้าของ 11 ข้อ (DOCC · rich text · print · สิทธิ์ · archive badge)
+**step:** ต่อยอด (นอก roadmap) | **ประเภท:** ฟีเจอร์ + แก้บั๊ก
+- **#1 ลบรูปนามบัตร/รูปลูกค้า** ต้องกดยืนยัน 2 ครั้ง + ให้สิทธิ์เฉพาะ admin/เจ้าของ (`canDelete` ใน cardfield/photofield · book3 คำนวณจาก sale_id)
+- **#2 Archive badge "ค้าง"** — เดิมนับทั้งหมด (RLS) เลข 5 แต่รายการว่าง → นับตามขอบเขตทีม/คน + ขึ้นโน้ต "มีในคลังนอกทีม N งาน" (pending + book3)
+- **#3 DOCC** (Designer/Owner/Contractor/Consult) ช่องในฟอร์ม + ดรอปดาวน์กรอง (`db/phase3-17.sql` · เก็บคำเต็ม กัน C ซ้ำ)
+- **#4 บันทึกตรงไหนก็ได้** — `.modal-body{flex:1;min-height:0}` กันฟอร์มยาวดันปุ่มบันทึกทะลุ 90vh แล้วโดน overflow ตัดหาย
+- **#5 หน้าจอ AI Import** ช่องข้อความโตตามเนื้อหา (autoGrow) โชว์เต็มไม่ต้องเลื่อนในกรอบ
+- **#6 AI Import** เพิ่มแหล่ง "รูปฟอร์ม Book 3 สี (ลายมือ)" (book3form) → สร้าง prompt
+- **#7 rich text** (ไฮไลต์/หนา/เอียง/ขีดเส้น/สีเข้ม) ช่องข้อความยาวใน Pending/Book 3 สี — `js/ui/richtext.js` (sanitize allowlist เข้ม + พาเลตสีคงที่)
+- **#8 พิมพ์หน้า 2+** โชว์ชื่อ-สกุล/หน่วยงาน (`.pf-hdr-name`) · **#9 ข้อมูลที่ user กรอก = สีน้ำเงิน** ตอนพิมพ์
+- **#10 บันทึกด่วน** sale เห็น/เลือกเฉพาะงาน-ลูกค้าของตัวเอง · หัวหน้า/admin เห็นหมด
+- **#11 จำนวนลูกค้า 🟢🟡🔴** นับตามขอบเขต ตัวเอง/ทีมที่เลือก (เดิมนับทุกคนที่ RLS เห็น)
+**ไฟล์:** docs/js/ui/richtext.js(ใหม่) · cardfield.js · photofield.js · formprint.js · modules/book3.js · pending.js · ai-intake.js · quicklog.js · data/supabase-adapter.js · css/app.css · css/print.css · config.js · sw.js(v0.61.0) · db/phase3-17.sql(ใหม่)
+**ทดสอบ:** CDP — ชุด B 17/17 (AI/quicklog/print) · ชุด A 27/30 (3 fail = evaluate stall ของฮาร์เนส · diag ยืนยันหน้า Pending ถูกต้อง badge/rich/ไม่มี error) · cards regression 12/12 · sanitizeHtml กัน script/onerror/สีนอกพาเลต ผ่าน · ไม่มี JS error
+**ค้าง:** เจ้าของต้องรัน `db/phase3-17.sql` (คอลัมน์ docc) · rich text เก็บ HTML ที่ sanitize แล้ว — ช่อง project_detail/education ตอนพิมพ์ตัดเหลือข้อความล้วน (คงการแบ่งบรรทัดในฟอร์ม)
+
 ## 2026-07-27 · ยังไม่ commit · นามบัตร 2 รูป (Book 3 สี) + lightbox ซูม · ย้าย log สำรองเป็นหน้าใน
 **step:** — (เจ้าของสั่ง + รูป) | **ประเภท:** ฟีเจอร์
 - **(1) log สำรอง Google Drive → หน้าใน:** admin.js เปลี่ยนรายการยาวเป็นปุ่ม "📋 ดูประวัติการสำรอง (N)" → เปิด modal (ไม่รกหน้า setting) · โหลด 50 รายการล่าสุด

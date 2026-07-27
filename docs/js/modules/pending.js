@@ -14,6 +14,7 @@ import { mountTeamScope } from '../ui/teamscope.js';
 import { mountPersonScope, ownerSelectHtml } from '../ui/personscope.js';
 import { lastLogSpan, mountLogHover } from '../ui/loghover.js';
 import { listViewHtml, bindListView, applyListView } from '../ui/listview.js';
+import { richFieldHtml, bindRichFields } from '../ui/richtext.js';
 
 // ── ขั้นตอนงานขาย ── ยกจาก prototype v3 แต่เปลี่ยน hex เป็นตัวแปร CSS ตามกติกาธีม
 export const STAGES = [
@@ -276,8 +277,17 @@ export default {
 
     let rawRows = [];      // ทั้งหมดที่ RLS ให้เห็น
     let rows = [];         // หลังกรองทีม + คน + เดือน
+    let arcRows = [];      // งานในคลังทั้งหมด (RLS) — ใช้นับป้าย Archive ตามขอบเขต
+    let arcHidden = 0;     // งานในคลังที่อยู่นอกทีม/คนที่เลือก (บอกผู้ใช้ ห้ามซ่อนเงียบ)
     let hiddenNoDate = 0;  // งานที่ถูกช่วงเดือนซ่อนเพราะยังไม่ระบุเดือน (ต้องบอกผู้ใช้ ห้ามซ่อนเงียบ)
     let scope = null, pscope = null;
+
+    // กรองทีม → คน (ต่อกัน) — ใช้ทั้งการนับป้ายและการแสดงรายการ
+    const scopeTP = (list) => {
+      let r = scope ? scope.filter(list) : list;
+      r = pscope ? pscope.filter(r) : r;
+      return r;
+    };
 
     // แถบเลือกทีม (admin/หัวหน้าที่เห็นหลายทีม) — เลือกแล้วกรองในฝั่งเบราว์เซอร์ ไม่ต้องโหลดใหม่
     scope = mountTeamScope($('pScope'), teams, view.team || '', (id) => {
@@ -313,14 +323,18 @@ export default {
         $('pSum').textContent = '';
         return;
       }
+      // งานในคลัง (Archive) สำหรับนับป้ายตามขอบเขต — ใช้ rawRows เลยถ้าอยู่แท็บ Archive แล้ว
+      if (view.status === 'archived') arcRows = rawRows;
+      else {
+        try { arcRows = await adapter.listPending({ status: 'archived', limit: 2000, sort: 'updated_at', dir: 'desc' }); }
+        catch { arcRows = []; }
+      }
       applyFilters();
-      refreshArcBadge();   // อัปเดตเลขบนแถบ Archive ทุกครั้ง (กดเก็บ/ปลุกกลับแล้วเลขตามทันที)
     }
 
     // กรองทีม + คน + ช่วงเดือน ฝั่งเบราว์เซอร์ (ไม่โหลดใหม่) แล้ววาด
     function applyFilters() {
-      let teamRows = scope ? scope.filter(rawRows) : rawRows;
-      teamRows = pscope ? pscope.filter(teamRows) : teamRows;   // เจาะรายบุคคลต่อจากทีม
+      let teamRows = scopeTP(rawRows);   // ทีม → เจาะรายบุคคล
       // Archive = งานจบแล้ว "เดือนคาดปิด" ไม่มีความหมาย จึงไม่กรองเดือน
       const range = view.status !== 'archived' && (view.from || view.to);
       hiddenNoDate = 0;
@@ -335,18 +349,18 @@ export default {
       } else {
         rows = teamRows;
       }
+      updateArcBadge();
       paint();
     }
 
-    // ป้ายบอกว่ามีงานค้างใน Archive กี่งาน — เรียกทุก reload ให้ตรงเสมอ
-    async function refreshArcBadge() {
+    // ป้าย Archive = งานในคลัง "เฉพาะในขอบเขตทีม/คนที่เลือก" (เจ้าของขอ 27 ก.ค. 2569)
+    //   เดิมนับทั้งหมดที่ RLS เห็น → เลขบนป้าย (5) ไม่ตรงกับที่กดเข้าไปเห็น (0) เพราะงานอยู่คนละทีม
+    //   → นับตามขอบเขต + เก็บ arcHidden ไว้บอกว่ามีงานในคลังนอกขอบเขตกี่งาน (ห้ามซ่อนเงียบ)
+    function updateArcBadge() {
+      const scoped = scopeTP(arcRows).length;
+      arcHidden = Math.max(0, arcRows.length - scoped);
       const el = $('pArcCount');
-      if (!el) return;
-      try {
-        const n = await adapter.countPending('archived');
-        el.textContent = n;
-        el.hidden = !(n > 0);
-      } catch { /* นับไม่ได้ก็ไม่เป็นไร ไม่ใช่ข้อมูลสำคัญ */ }
+      if (el) { el.textContent = scoped; el.hidden = !(scoped > 0); }
     }
 
     function paint() {
@@ -366,12 +380,21 @@ export default {
           <button type="button" class="btn btn-ghost btn-sm" id="pShowAll">ดูทั้งหมด (ล้างช่วงเดือน)</button>
         </div>` : '';
 
+      // อยู่แท็บ Archive แต่มีงานในคลังนอกทีม/คนที่เลือก → บอกให้ชัด (ป้าย 5 แต่รายการว่าง = งง)
+      const arcNote = (view.status === 'archived' && arcHidden) ? `
+        <div class="filter-hidden-note">
+          🔒 มีงานในคลังอีก <b>${arcHidden}</b> งานที่อยู่นอกทีม/คนที่เลือก จึงไม่แสดงตอนนี้
+          — กด <b>รวมทุกทีม</b> หรือเลือก <b>— ทุกคน —</b> ในตัวกรองด้านบนเพื่อดู
+        </div>` : '';
+
       if (!rows.length) {
         const filtered = view.search || view.stage || view.from || view.to;
-        listEl.innerHTML = hiddenNote + `<div class="empty">
-            <strong>ยังไม่มีงานที่ตรงกับเงื่อนไข</strong>
-            ${filtered ? 'ลองล้างตัวกรอง หรือกด "+ เพิ่มงาน"'
-                       : 'กด "+ เพิ่มงาน" เพื่อเริ่มบันทึกโครงการแรก'}
+        listEl.innerHTML = hiddenNote + arcNote + `<div class="empty">
+            <strong>${view.status === 'archived' ? 'ไม่มีงานในคลังในขอบเขตนี้' : 'ยังไม่มีงานที่ตรงกับเงื่อนไข'}</strong>
+            ${view.status === 'archived'
+                ? (arcHidden ? 'งานในคลังอยู่ในทีม/คนอื่น — ปรับตัวกรองด้านบนเพื่อดู' : 'ยังไม่มีงานที่เก็บเข้าคลัง')
+                : (filtered ? 'ลองล้างตัวกรอง หรือกด "+ เพิ่มงาน"'
+                            : 'กด "+ เพิ่มงาน" เพื่อเริ่มบันทึกโครงการแรก')}
           </div>`;
         return;
       }
@@ -380,7 +403,7 @@ export default {
       const arrow = (k) => view.sort === k ? (view.dir === 'asc' ? ' ▲' : ' ▼') : '';
 
       // ตาราง (desktop) + การ์ด (มือถือ) — CSS เลือกแสดงอันเดียวตามความกว้างจอ
-      listEl.innerHTML = hiddenNote + `
+      listEl.innerHTML = hiddenNote + arcNote + `
         <div class="tbl-wrap">
           <table class="tbl">
             <thead><tr>
@@ -712,9 +735,9 @@ function fieldHtml([key, label, type, ph], row, teams, people, meId) {
   if (type === 'owner')
     return ownerSelectHtml(key, label, v, people, meId);
 
+  // ช่องข้อความยาว = rich text (ไฮไลต์/หนา/เอียง/ขีดเส้น/สีเข้ม) — เจ้าของขอ 27 ก.ค. 2569
   if (type === 'area')
-    return `<label class="fld fld-wide"><span>${esc(label)}</span>
-      <textarea name="${key}" rows="3"${p}>${esc(v)}</textarea></label>`;
+    return richFieldHtml(key, v, { label });
 
   if (type === 'stage')
     return `<label class="fld"><span>${esc(label)}</span><select name="${key}">
@@ -890,6 +913,9 @@ async function openDetail(host, id, onSaved, teams, people) {
 
   const q = (s) => host.querySelector(s);
   const close = () => { host.innerHTML = ''; };
+
+  // ช่องข้อความมีรูปแบบ (rich text) — ผูกแถบเครื่องมือ + sync HTML ที่ล้างแล้วลง hidden input
+  bindRichFields(host);
 
   if (id && soState && canSign(me)) {
     bindSignoff(host, 'pending_projects', id, adapter.addSignoff, async () => {

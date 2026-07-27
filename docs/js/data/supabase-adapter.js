@@ -730,9 +730,9 @@ const supabaseAdapter = {
     try {
       return await send(body);
     } catch (e) {
-      // คอลัมน์เสริมที่อาจยังไม่ได้ migrate: age (phase3-12) · นามบัตร (phase3-16)
+      // คอลัมน์เสริมที่อาจยังไม่ได้ migrate: age (phase3-12) · นามบัตร (phase3-16) · DOCC (phase3-17)
       //   ยังไม่รัน → ตัดคอลัมน์เหล่านี้ทิ้งแล้วบันทึกส่วนอื่นให้ผ่าน (ไม่ให้ทั้งฟอร์มพังเพราะ column เดียว)
-      const OPTIONAL = ['age', 'card_front_url', 'card_back_url'];
+      const OPTIONAL = ['age', 'card_front_url', 'card_back_url', 'docc'];
       const missingCol = /does not exist|could not find|schema cache|PGRST204/i.test(e.message || '');
       if (missingCol && OPTIONAL.some(c => c in body)) {
         const b2 = { ...body };

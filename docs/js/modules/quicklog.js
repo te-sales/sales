@@ -27,7 +27,7 @@ const LS_TAB = 'te-dashboard:quicklog-tab';   // จำแท็บล่าส�
 // ── ตั้งค่าต่อปลายทาง (customer = Book 3 สี · pending = Pending Project) ──
 const TAB = {
   customer: {
-    label: '🎨 Book 3 สี', view: 'book3',
+    label: '🎨 Book 3 สี', view: 'book3', ownerField: 'sale_id',
     searchPh: 'ค้นหาชื่อลูกค้า / หน่วยงาน / เบอร์…',
     newLabel: '+ เพิ่มลูกค้าใหม่',
     list:  () => adapter.listCustomers({ status: 'active', limit: 2000 }),
@@ -37,7 +37,7 @@ const TAB = {
     addLog: (id, d) => adapter.addCustomerLog({ ...d, customer_id: id }),
   },
   pending: {
-    label: '▤ Pending', view: 'pending',
+    label: '▤ Pending', view: 'pending', ownerField: 'owner_id',
     searchPh: 'ค้นหาชื่องาน / ลูกค้า / PENDING NO.…',
     newLabel: '+ เพิ่มงานใหม่',
     list:  () => adapter.listPending({ status: 'active', limit: 2000 }),
@@ -93,8 +93,15 @@ export async function openQuickLog(opts = {}) {
   q('[data-close]').addEventListener('click', close);
   host.addEventListener('mousedown', (e) => { if (e.target === host) close(); });
 
+  // sale เห็น/เลือกได้เฉพาะงาน/ลูกค้า "ของตัวเอง" · หัวหน้า+admin เห็นทั้งหมด (เจ้าของขอ 27 ก.ค. 2569)
+  const ownOnly = me?.role === 'sale' && !!me?.id;
   async function records() {
-    if (!cache[tab]) { try { cache[tab] = await TAB[tab].list(); } catch { cache[tab] = []; } }
+    if (!cache[tab]) {
+      let list;
+      try { list = await TAB[tab].list(); } catch { list = []; }
+      if (ownOnly) list = list.filter(r => r[TAB[tab].ownerField] === me.id);
+      cache[tab] = list;
+    }
     return cache[tab];
   }
 
