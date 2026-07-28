@@ -9,6 +9,7 @@
 import { adapter } from '../data/adapter.js';
 import { CONFIG } from '../config.js';
 import { STAGES } from './pending.js';
+import { DOCC } from './book3.js';
 import { bucketize, dueNow, ACT_TYPES } from './activities.js';
 import { thaiDate, todayISO } from '../ui/datepicker.js';
 
@@ -636,6 +637,7 @@ export default {
         ${isPerson
           ? `<div class="dash-scope-note">กำลังดูเป้า<b>รายคน</b>: <b>${esc(picked)}</b> · นับเฉพาะงานที่ระบุผู้ดูแลเป็นคนนี้${targetBaht ? '' : ' · ⚠ ยังไม่ได้ตั้งเป้ารายคนช่วงนี้ (ตั้งที่ ตั้งค่าระบบ → เป้ารายเดือนต่อทีม → รายคน)'}</div>`
           : (selected.size && !isSale ? `<div class="dash-scope-note">กำลังดูเฉพาะ <b>${esc(picked)}</b> · ตัวเลขด้านล่างนับเฉพาะขอบเขตนี้</div>` : '')}
+        ${custs.length ? doccCard(scopedC, picked, isPerson || selected.size > 0) : ''}
         <div class="grid cols-4">
           <div class="card stat-clickable" data-target-drill role="button" tabindex="0"
                title="คลิกดูรายละเอียดเป้ารายเดือน/ไตรมาส/ครึ่งปี/ปี">
@@ -830,6 +832,34 @@ function recentPendingSection(scoped) {
         </table>
       </div>
       <p class="sec-foot"><a class="lnk" href="#pending">เปิด Pending Project →</a></p>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════
+// ลูกค้าตามประเภท DOCC — การ์ดลำดับแรกบนภาพรวม (เจ้าของขอ 28 ก.ค. 2569)
+//   นับจากลูกค้า Book 3 สี "ในขอบเขตที่เลือก" (ทั้งองค์กร / ทีม / รายคน) — ใช้ scopedC เดียวกับการ์ดสี
+//   ⚠️ ต้องรัน db/phase3-17.sql ก่อน (คอลัมน์ docc) ไม่งั้นทุกคนจะไปตกช่อง "ยังไม่ระบุ"
+// ══════════════════════════════════════════════════════════
+function doccCard(custs, picked, scoped) {
+  const list  = custs || [];
+  const total = list.length;
+  const counts = DOCC.map(d => ({ ...d, n: list.filter(c => c.docc === d.id).length }));
+  const none   = list.filter(c => !c.docc).length;
+
+  const item = (letter, n, label, cls = '') => `
+    <div class="docc-item ${cls}">
+      <span class="docc-letter">${esc(letter)}</span>
+      <span class="docc-text"><b class="docc-n">${n}</b><span class="docc-lbl">${esc(label)}</span></span>
+    </div>`;
+
+  return `
+    <div class="card sec docc-card">
+      <h3 class="sec-h">ลูกค้าตามประเภท (DOCC)
+        <span class="sec-sub">${scoped ? esc(picked) : 'ทั้งองค์กร'} · ${total} ราย</span></h3>
+      <div class="docc-grid">
+        ${counts.map(d => item(d.letter, d.n, d.label)).join('')}
+        ${none ? item('–', none, 'ยังไม่ระบุ', 'docc-none') : ''}
+      </div>
     </div>`;
 }
 

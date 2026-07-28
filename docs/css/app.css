@@ -2135,6 +2135,24 @@ textarea.ai-grow { resize: none; overflow: hidden; }
 .cust-c b { font-size: 18px; color: var(--text); }
 .cust-dot { font-size: 15px; }
 
+/* ── การ์ดลูกค้าตามประเภท DOCC (ภาพรวม · 28 ก.ค. 2569) ── */
+.docc-grid { display: flex; flex-wrap: wrap; gap: 10px; padding: 2px 0; }
+.docc-item {
+  flex: 1 1 150px; min-width: 140px;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg-elev); border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm); padding: 10px 12px;
+}
+.docc-letter {
+  flex: 0 0 auto; width: 34px; height: 34px; line-height: 34px; text-align: center;
+  border-radius: 50%; background: var(--accent-soft); color: var(--accent-text);
+  font-weight: 700; font-size: 16px;
+}
+.docc-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.docc-n { font-size: 22px; font-weight: 700; color: var(--text); }
+.docc-lbl { font-size: 12px; color: var(--text-dim); }
+.docc-none .docc-letter { background: var(--bg-panel); color: var(--text-mute); }
+
 /* ══════════ ข่าวสารโอกาสงานประจำสัปดาห์ (news_reports · phase 3.14) ══════════ */
 /* การ์ดข่าวการ์ดแรกในแถบแหล่งงาน — ตัวใหม่สุดไฮไลต์ "ใหม่สัปดาห์นี้" */
 .newswrap { margin: 0 0 18px; }
