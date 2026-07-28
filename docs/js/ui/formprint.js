@@ -307,7 +307,7 @@ function doPrint(html, title) {
       <span class="pfp-title">${esc(title)}</span>
       <button type="button" class="pfp-btn" data-pf="close">✕ ปิด</button>
     </div>
-    <p class="pfp-hint">ตัวอย่างก่อนพิมพ์ · ตอนสั่งพิมพ์ให้ตั้ง <b>Margins = None</b> และเปิด <b>Background graphics</b> เพื่อให้มุมสี/เส้นตารางครบ</p>
+    <p class="pfp-hint">📄 มุมมองแบบฟอร์มต้นฉบับ · กด <b>🖨 พิมพ์ / บันทึก PDF</b> ได้เลย (ตอนพิมพ์ตั้ง <b>Margins = None</b> + เปิด <b>Background graphics</b> ให้มุมสี/เส้นตารางครบ)</p>
     <div class="pfp-pages">${html}</div>`;
 
   el.classList.add('pfp-show');
@@ -362,34 +362,73 @@ function mergeLogsWithSignoffs(logs, signoffs) {
     .sort((a, b) => String(a.log_date).localeCompare(String(b.log_date)));
 }
 
-export async function printPending(id) {
+/** สร้าง HTML ฟอร์ม 1 งาน Pending + ชื่อไฟล์ — คืน null ถ้าไม่พบ (ใช้ทั้งพิมพ์เดี่ยว/รวม) */
+async function pendingRecord(id) {
   const row = await adapter.getPending(id);
-  if (!row) throw new Error('ไม่พบงานนี้ (อาจถูกลบหรือไม่มีสิทธิ์เข้าถึง)');
-
+  if (!row) return null;
   // getPending แนบ contacts/logs มาให้อยู่แล้ว · รายการสินค้าดึงเพิ่ม
   let products = [];
   try { products = await adapter.listPendingProducts(id); }
   catch { products = []; }        // ยังไม่ได้รัน phase3-9.sql ก็พิมพ์ตารางเปล่าไปก่อน
-
   const logs = row.follow_logs || await adapter.listFollowLogs(id);
   // แทรกประวัติการเซ็นรับทราบเข้าไปในไทม์ไลน์ด้วย (เห็นว่ามีตรวจ + คอมเมนต์ช่วงไหน)
   let signoffs = [];
   try { signoffs = await adapter.listSignoffHistory('pending_projects', id); } catch { signoffs = []; }
   const sorted = mergeLogsWithSignoffs(logs, signoffs);   // เก่า→ใหม่ เหมือนเขียนไล่ลงกระดาษ
-
-  doPrint(pendingFormHtml(row, row.project_contacts || [], products, sorted),
-          fileName(`Pending ${row.pending_no || ''} ${row.project_name || ''}`));
+  return { html: pendingFormHtml(row, row.project_contacts || [], products, sorted),
+           title: fileName(`Pending ${row.pending_no || ''} ${row.project_name || ''}`) };
 }
 
-export async function printCustomer(id) {
+/** สร้าง HTML ฟอร์ม 1 ลูกค้า Book 3 สี + ชื่อไฟล์ — คืน null ถ้าไม่พบ */
+async function customerRecord(id) {
   const row = await adapter.getCustomer(id);
-  if (!row) throw new Error('ไม่พบลูกค้ารายนี้ (อาจถูกลบหรือไม่มีสิทธิ์เข้าถึง)');
-
+  if (!row) return null;
   const logs = row.customer_logs || await adapter.listCustomerLogs(id);
   let signoffs = [];
   try { signoffs = await adapter.listSignoffHistory('customers', id); } catch { signoffs = []; }
   const sorted = mergeLogsWithSignoffs(logs, signoffs);
+  return { html: customerFormHtml(row, sorted),
+           title: fileName(`Book3 ${row.no || ''} ${row.name || ''}`) };
+}
 
-  doPrint(customerFormHtml(row, sorted),
-          fileName(`Book3 ${row.no || ''} ${row.name || ''}`));
+/** ดู/พิมพ์ฟอร์มงานเดียว (มุมมองฟอร์มต้นฉบับบนจอ + ปุ่มพิมพ์ในตัว) */
+export async function printPending(id) {
+  const r = await pendingRecord(id);
+  if (!r) throw new Error('ไม่พบงานนี้ (อาจถูกลบหรือไม่มีสิทธิ์เข้าถึง)');
+  doPrint(r.html, r.title);
+}
+
+export async function printCustomer(id) {
+  const r = await customerRecord(id);
+  if (!r) throw new Error('ไม่พบลูกค้ารายนี้ (อาจถูกลบหรือไม่มีสิทธิ์เข้าถึง)');
+  doPrint(r.html, r.title);
+}
+
+// ══════════════════════════════════════════════════════════
+// พิมพ์ "หลายรายการรวมเป็นไฟล์เดียว" (เจ้าของขอ 28 ก.ค. 2569)
+//   แต่ละรายการคือ .pf-page หลายหน้าอยู่แล้ว · ต่อกันได้เลย เบราว์เซอร์คั่นหน้าให้จาก page-break
+//   ดึงข้อมูลทีละรายการ (ตามลำดับ) — รายงานความคืบหน้าผ่าน onProgress(i, n) กันผู้ใช้คิดว่าค้าง
+// ══════════════════════════════════════════════════════════
+
+async function collectHtml(ids, getRecord, onProgress) {
+  const parts = [];
+  const n = (ids || []).length;
+  let i = 0;
+  for (const id of ids || []) {
+    onProgress?.(++i, n);
+    try { const r = await getRecord(id); if (r) parts.push(r.html); } catch { /* ข้ามรายการที่เปิดไม่ได้ */ }
+  }
+  return parts;
+}
+
+export async function printPendingBatch(ids, onProgress) {
+  const parts = await collectHtml(ids, pendingRecord, onProgress);
+  if (!parts.length) throw new Error('ไม่มีรายการให้พิมพ์');
+  doPrint(parts.join(''), `Pending รวม ${parts.length} รายการ`);
+}
+
+export async function printCustomerBatch(ids, onProgress) {
+  const parts = await collectHtml(ids, customerRecord, onProgress);
+  if (!parts.length) throw new Error('ไม่มีรายการให้พิมพ์');
+  doPrint(parts.join(''), `Book 3 สี รวม ${parts.length} รายการ`);
 }

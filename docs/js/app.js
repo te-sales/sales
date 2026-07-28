@@ -8,6 +8,7 @@ import { CONFIG } from './config.js';
 import { initAdapter, adapter } from './data/adapter.js';
 import { initPWA } from './ui/pwa.js';
 import { applyTheme, openThemePicker } from './ui/theme.js';
+import { openProfile } from './ui/profile.js';
 
 import dashboard  from './modules/dashboard.js';
 import pending    from './modules/pending.js';
@@ -85,10 +86,22 @@ function showLogin() {
   el.loginEmail?.focus();
 }
 
+let currentUser = null;   // ผู้ใช้ที่ล็อกอินอยู่ — ใช้เปิดหน้าโปรไฟล์ (แก้ชื่อ/รหัสผ่าน)
+
 function showApp(user) {
   el.login.hidden = true;
   el.app.hidden = false;
+  currentUser = user;
   paintUser(user);
+}
+
+/** เปิดหน้าโปรไฟล์ — แก้ชื่อแล้วอัปเดตแถบหัว/แถบข้างทันที */
+function openMyProfile() {
+  if (!currentUser) return;
+  openProfile(currentUser, (name) => {
+    currentUser = { ...currentUser, full_name: name };
+    paintUser(currentUser);
+  });
 }
 
 function paintUser(user) {
@@ -302,6 +315,8 @@ async function boot() {
   bindPasswordReset();
   document.getElementById('logoutBtn')?.addEventListener('click', signOut);
   document.getElementById('logoutBtnTop')?.addEventListener('click', signOut);
+  document.getElementById('profileBtn')?.addEventListener('click', openMyProfile);
+  document.getElementById('profileBtnTop')?.addEventListener('click', openMyProfile);
   document.getElementById('themeBtn')?.addEventListener('click', openThemePicker);
   document.getElementById('quickLogBtn')?.addEventListener('click', openQL);   // ⚡ บันทึกเร็ว (แถบหัว)
 

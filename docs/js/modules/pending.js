@@ -8,7 +8,7 @@ import { dateField, thaiDate, initDatePicker, todayISO } from '../ui/datepicker.
 import { logListHtml, bindLogEditing } from '../ui/loglist.js';
 import { signoffState, signoffBarHtml, bindSignoff, canSign,
          signoffHistoryHtml, bindSignoffHistory } from '../ui/signoff.js';
-import { printPending } from '../ui/formprint.js';
+import { printPending, printPendingBatch } from '../ui/formprint.js';
 import { openAIImport, openAILog } from './ai-intake.js';
 import { mountTeamScope } from '../ui/teamscope.js';
 import { mountPersonScope, ownerSelectHtml } from '../ui/personscope.js';
@@ -262,6 +262,8 @@ export default {
 
         ${listViewHtml()}
         <button class="btn btn-ghost btn-sm" id="pCsv">⭳ CSV</button>
+        <button class="btn btn-ghost btn-sm" id="pPrintAll"
+                title="พิมพ์ทุกงานที่กรองอยู่ตอนนี้ รวมเป็น PDF ไฟล์เดียว (ตามฟอร์มต้นฉบับ)">🖨 พิมพ์ทั้งหมด</button>
       </div>
 
       <div id="pScope"></div>
@@ -533,6 +535,22 @@ export default {
       openDetail(root.querySelector('#pPanel'), null, reload, teams, people));
     $('pAI').addEventListener('click', () => openAIImport('pending', { onSaved: reload }));
     $('pCsv').addEventListener('click', () => exportCsv(rows, ownerName));
+
+    // พิมพ์รวมหลายงานเป็น PDF เดียว (ตามฟอร์มต้นฉบับ) — ใช้ชุดที่กรองอยู่ตอนนี้
+    $('pPrintAll').addEventListener('click', async () => {
+      const btn = $('pPrintAll');
+      const orig = '🖨 พิมพ์ทั้งหมด';
+      if (!rows.length) { btn.textContent = 'ไม่มีรายการให้พิมพ์'; setTimeout(() => { btn.textContent = orig; }, 1600); return; }
+      btn.disabled = true;
+      try {
+        await printPendingBatch(rows.map(r => r.id), (i, n) => { btn.textContent = `กำลังเตรียม ${i}/${n}…`; });
+      } catch (e) {
+        btn.textContent = 'พิมพ์ไม่สำเร็จ'; setTimeout(() => { btn.textContent = orig; }, 2000);
+        console.warn('พิมพ์รวมไม่สำเร็จ:', e.message);
+      } finally {
+        btn.disabled = false; if (btn.textContent.startsWith('กำลัง')) btn.textContent = orig;
+      }
+    });
 
     await reload();
 
@@ -904,7 +922,7 @@ async function openDetail(host, id, onSaved, teams, people) {
                     title="ลบออกจากฐานข้อมูลถาวร — กู้กลับไม่ได้">🗑 ลบถาวร</button>` : ''}
           <span class="spacer"></span>
           ${id ? `<button type="button" class="btn btn-ghost" id="pPrint"
-                    title="พิมพ์ตามฟอร์มกระดาษต้นฉบับ หรือบันทึกเป็น PDF">🖨 พิมพ์ / PDF</button>` : ''}
+                    title="ดูงานนี้เป็นมุมมองแบบฟอร์มต้นฉบับบนจอ · พิมพ์/บันทึก PDF ได้ในตัว">📄 ดูแบบฟอร์ม / พิมพ์</button>` : ''}
           <button type="button" class="btn btn-ghost" id="pCancel">ยกเลิก</button>
           <button type="submit" class="btn btn-primary" id="pSave">บันทึก</button>
         </div>
@@ -1188,7 +1206,7 @@ async function openDetail(host, id, onSaved, teams, people) {
     } catch (e) {
       fail('พิมพ์ไม่สำเร็จ: ' + e.message);
     } finally {
-      b.disabled = false; b.textContent = '🖨 พิมพ์ / PDF';
+      b.disabled = false; b.textContent = '📄 ดูแบบฟอร์ม / พิมพ์';
     }
   });
 

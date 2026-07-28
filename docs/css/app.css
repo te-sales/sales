@@ -803,6 +803,11 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 .rt-edit:focus { outline: none; border-color: var(--accent); }
 .rt-edit mark { padding: 0 1px; border-radius: 2px; }
 
+/* ── โปรไฟล์ของฉัน (ชื่อ/รหัสผ่าน) — ข้อความสถานะ ── */
+.prof-msg { font-size: 13px; align-self: center; }
+.prof-ok  { color: var(--green); }
+.prof-err { color: var(--red); }
+
 .loglist { list-style: none; margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .loglist li {
   background: var(--bg-elev); border: 1px solid var(--border-soft);

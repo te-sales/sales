@@ -8,7 +8,7 @@ import { dateField, thaiDate, initDatePicker } from '../ui/datepicker.js';
 import { logListHtml, bindLogEditing, logFormHtml, readLogForm, clearLogForm } from '../ui/loglist.js';
 import { signoffState, signoffBarHtml, bindSignoff, canSign,
          signoffHistoryHtml, bindSignoffHistory } from '../ui/signoff.js';
-import { printCustomer } from '../ui/formprint.js';
+import { printCustomer, printCustomerBatch } from '../ui/formprint.js';
 import { photoFieldHtml, bindPhotoField } from '../ui/photofield.js';
 import { cardFieldHtml, bindCardField } from '../ui/cardfield.js';
 import { openAIImport, openAILog } from './ai-intake.js';
@@ -145,6 +145,8 @@ export default {
 
         ${listViewHtml()}
         <button class="btn btn-ghost btn-sm" id="bCsv">⭳ CSV</button>
+        <button class="btn btn-ghost btn-sm" id="bPrintAll"
+                title="พิมพ์ลูกค้าที่กรองอยู่ตอนนี้ รวมเป็น PDF ไฟล์เดียว (ตามฟอร์ม Potential)">🖨 พิมพ์ทั้งหมด</button>
       </div>
 
       <div id="bScope"></div>
@@ -367,6 +369,22 @@ export default {
     $('bNew').addEventListener('click', () => openDetail(root.querySelector('#bPanel'), null, reload, teams, people));
     $('bAI').addEventListener('click', () => openAIImport('customer', { onSaved: reload }));
     $('bCsv').addEventListener('click', () => exportCsv(rows, ownerName));
+
+    // พิมพ์รวมลูกค้าหลายรายเป็น PDF เดียว (ตามฟอร์ม Potential) — ใช้ชุดที่กรองอยู่ตอนนี้
+    $('bPrintAll').addEventListener('click', async () => {
+      const btn = $('bPrintAll');
+      const orig = '🖨 พิมพ์ทั้งหมด';
+      if (!rows.length) { btn.textContent = 'ไม่มีรายการให้พิมพ์'; setTimeout(() => { btn.textContent = orig; }, 1600); return; }
+      btn.disabled = true;
+      try {
+        await printCustomerBatch(rows.map(r => r.id), (i, n) => { btn.textContent = `กำลังเตรียม ${i}/${n}…`; });
+      } catch (e) {
+        btn.textContent = 'พิมพ์ไม่สำเร็จ'; setTimeout(() => { btn.textContent = orig; }, 2000);
+        console.warn('พิมพ์รวมไม่สำเร็จ:', e.message);
+      } finally {
+        btn.disabled = false; if (btn.textContent.startsWith('กำลัง')) btn.textContent = orig;
+      }
+    });
 
     await reload();
 
@@ -639,7 +657,7 @@ async function openDetail(host, id, onSaved, teams, people) {
                     title="ลบออกจากฐานข้อมูลถาวร — กู้กลับไม่ได้">🗑 ลบถาวร</button>` : ''}` : ''}
           <span class="spacer"></span>
           ${id ? `<button type="button" class="btn btn-ghost" id="bPrint"
-                    title="พิมพ์ฟอร์ม Potential (มุมสีตามระดับ) — ตอนพิมพ์ตั้ง Margins: None + เปิด Background graphics ให้มุมสีชิดขอบ">🖨 พิมพ์ / PDF</button>` : ''}
+                    title="ดูลูกค้ารายนี้เป็นมุมมองฟอร์ม Potential ต้นฉบับบนจอ · พิมพ์/บันทึก PDF ได้ในตัว (ตั้ง Margins: None + เปิด Background graphics ให้มุมสีชิดขอบ)">📄 ดูแบบฟอร์ม / พิมพ์</button>` : ''}
           <button type="button" class="btn btn-ghost" id="bCancel">ยกเลิก</button>
           <button type="submit" class="btn btn-primary" id="bSave">บันทึก</button>
         </div>
@@ -811,7 +829,7 @@ async function openDetail(host, id, onSaved, teams, people) {
     } catch (e) {
       fail('พิมพ์ไม่สำเร็จ: ' + e.message);
     } finally {
-      b.disabled = false; b.textContent = '🖨 พิมพ์ / PDF';
+      b.disabled = false; b.textContent = '📄 ดูแบบฟอร์ม / พิมพ์';
     }
   });
 
