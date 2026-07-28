@@ -58,7 +58,7 @@ function logRows(logs, perPage) {
   const rows = [];
   for (let i = 0; i < perPage; i++) {
     const l = logs[i];
-    // แถวที่เป็นคอมเมนต์ของหัวหน้าผู้เซ็น → เน้นสีน้ำเงินตอนพิมพ์ (print.css .pf-signoff-row)
+    // แถวที่เป็นคอมเมนต์ของหัวหน้าผู้เซ็น → เน้นสีเขียวตอนพิมพ์ (print.css .pf-signoff-row)
     rows.push(`<tr class="${l && l._signoff ? 'pf-signoff-row' : ''}">
       <td>${l ? esc(thaiDate(l.log_date)) : '&nbsp;'}</td>
       <td>${l ? esc(l.by_name || '') : '&nbsp;'}</td>
@@ -352,7 +352,7 @@ function signoffPseudoLogs(list) {
     by_name:    (s.profiles?.full_name || s.profiles?.email || 'หัวหน้างาน') + ' (ตรวจ)',
     response:   '✓ เซ็นรับทราบ' + (s.reviewed_note ? ' — ' + s.reviewed_note : ''),
     next_doing: '',
-    _signoff:   true,   // → เน้นสีน้ำเงินตอนพิมพ์
+    _signoff:   true,   // → เน้นสีเขียวตอนพิมพ์
   }));
 }
 
