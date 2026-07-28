@@ -638,6 +638,7 @@ export default {
           ? `<div class="dash-scope-note">กำลังดูเป้า<b>รายคน</b>: <b>${esc(picked)}</b> · นับเฉพาะงานที่ระบุผู้ดูแลเป็นคนนี้${targetBaht ? '' : ' · ⚠ ยังไม่ได้ตั้งเป้ารายคนช่วงนี้ (ตั้งที่ ตั้งค่าระบบ → เป้ารายเดือนต่อทีม → รายคน)'}</div>`
           : (selected.size && !isSale ? `<div class="dash-scope-note">กำลังดูเฉพาะ <b>${esc(picked)}</b> · ตัวเลขด้านล่างนับเฉพาะขอบเขตนี้</div>` : '')}
         ${custs.length ? doccCard(scopedC, picked, isPerson || selected.size > 0) : ''}
+        ${custs.length ? customerCard(scopedC, picked, isPerson || selected.size > 0) : ''}
         <div class="grid cols-4">
           <div class="card stat-clickable" data-target-drill role="button" tabindex="0"
                title="คลิกดูรายละเอียดเป้ารายเดือน/ไตรมาส/ครึ่งปี/ปี">
@@ -667,7 +668,6 @@ export default {
         </div>
 
         ${!isPerson && teams.length > 1 && !isSale ? teamBreakdownSection(rows, teams, targetsMap, opt) : ''}
-        ${(custs.length || showFilter) ? customerCard(scopedC, picked, selected.size > 0) : ''}
 
         <div class="grid cols-2 sec-grid">
           <div class="card sec">

@@ -16,7 +16,7 @@ import { mountTeamScope } from '../ui/teamscope.js';
 import { mountPersonScope, ownerSelectHtml } from '../ui/personscope.js';
 import { lastLogSpan, mountLogHover } from '../ui/loghover.js';
 import { listViewHtml, bindListView, applyListView } from '../ui/listview.js';
-import { richFieldHtml, bindRichFields } from '../ui/richtext.js';
+import { richToText } from '../ui/richtext.js';
 
 // ── สี 3 ระดับ ── (ความหมายจากฟอร์มกระดาษ)
 export const COLORS = [
@@ -518,9 +518,12 @@ function fieldHtml([key, label, type], row, teams, people, meId) {
   if (type === 'owner')
     return ownerSelectHtml(key, label, v, people, meId);
 
-  // ช่องข้อความยาว = rich text (ไฮไลต์/หนา/เอียง/ขีดเส้น/สีเข้ม) — เจ้าของขอ 27 ก.ค. 2569
+  // ช่องข้อความยาว = textarea ธรรมดา
+  //   rich text ย้ายไปใช้เฉพาะ RESPONSE / NEXT DOING เท่านั้น (เจ้าของสั่ง 28 ก.ค. 2569)
+  //   ค่าเดิมที่เคยเก็บเป็น HTML → แปลงเป็นข้อความล้วนก่อนโชว์ในกล่อง
   if (type === 'area')
-    return richFieldHtml(key, v, { label });
+    return `<label class="fld fld-wide"><span>${esc(label)}</span>
+      <textarea name="${esc(key)}" rows="3">${esc(richToText(v))}</textarea></label>`;
 
   if (type === 'docc')
     return `<label class="fld"><span>${esc(label)}</span><select name="${key}">
@@ -676,8 +679,7 @@ async function openDetail(host, id, onSaved, teams, people) {
   // ช่องนามบัตร 2 รูป (ด้านหน้า/ด้านหลัง) → เก็บลง input[name=card_front_url|card_back_url] · กดดูซูมได้
   const cardEl = host.querySelector('.cardfield');
   if (cardEl) bindCardField(cardEl, { onError: fail, canDelete: canDeleteImg });
-  // ช่องข้อความมีรูปแบบ (rich text) — ผูกแถบเครื่องมือ + sync HTML ที่ล้างแล้วลง hidden input
-  bindRichFields(host);
+  // (rich text ผูก event ที่ document แล้ว — ใช้เฉพาะ RESPONSE / NEXT DOING ในบันทึกติดตาม)
 
   // ── มีวันเกิดจริง → คำนวณอายุให้ (ล็อกช่อง) · ไม่มีวันเกิด → กรอกอายุเองได้ (ไม่สร้างวันเกิดปลอม) ──
   const bdayHidden = host.querySelector('[name="birthday"]');

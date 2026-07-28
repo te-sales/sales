@@ -10,6 +10,7 @@
 //      → ผู้เรียกต้องวาดใหม่เฉพาะรายการบันทึก ไม่ใช่ทั้งแผง
 
 import { dateField, thaiDate, todayISO } from './datepicker.js';
+import { richFieldHtml, sanitizeHtml, richBlank } from './richtext.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -48,8 +49,8 @@ export function logListHtml(logs, me) {
             ? `<button type="button" class="btn-log log-edit" data-edit="${esc(l.id)}">แก้ไข</button>`
             : ''}
         </div>
-        ${l.response   ? `<div class="log-body">${esc(l.response)}</div>` : ''}
-        ${l.next_doing ? `<div class="log-next log-body">→ ${esc(l.next_doing)}</div>` : ''}
+        ${l.response   ? `<div class="log-body">${sanitizeHtml(l.response)}</div>` : ''}
+        ${l.next_doing ? `<div class="log-next log-body">→ ${sanitizeHtml(l.next_doing)}</div>` : ''}
       </div>
     </li>`).join('');
 }
@@ -80,10 +81,8 @@ export function bindLogEditing(host, logs, updateFn, onSaved, deleteFn) {
             ${dateField('', l.log_date, { cls: 'dp-log-date', label: 'วันที่บันทึก' })}</label>
           <label class="fld"><span>BY — ช่องทางติดต่อ</span>
             <input type="text" data-f="by_name" value="${esc(l.by_name || '')}" placeholder="เช่น โทร / เข้าพบ / ไลน์"></label>
-          <label class="fld fld-wide"><span>RESPONSE</span>
-            <textarea data-f="response" class="ta-grow" rows="4">${esc(l.response || '')}</textarea></label>
-          <label class="fld fld-wide"><span>NEXT DOING</span>
-            <textarea data-f="next_doing" class="ta-grow" rows="3">${esc(l.next_doing || '')}</textarea></label>
+          ${richFieldHtml('', l.response,   { label: 'RESPONSE',   dataF: 'response' })}
+          ${richFieldHtml('', l.next_doing, { label: 'NEXT DOING', dataF: 'next_doing' })}
         </div>
         <p class="login-err" data-err hidden></p>
         <div class="log-edit-foot">
@@ -93,7 +92,6 @@ export function bindLogEditing(host, logs, updateFn, onSaved, deleteFn) {
           <button type="button" class="btn btn-primary btn-sm" data-save>บันทึกการแก้ไข</button>
         </div>`;
       li.appendChild(box);
-      box.querySelectorAll('textarea.ta-grow').forEach(growTA);   // เนื้อหาเดิมยาว → ยืดให้เห็นทั้งหมดทันที
 
       const err = box.querySelector('[data-err]');
       box.querySelector('[data-cancel]').addEventListener('click', () => {
@@ -131,11 +129,14 @@ export function bindLogEditing(host, logs, updateFn, onSaved, deleteFn) {
         const dp = box.querySelector('input.dp-log-date');
         if (dp) patch.log_date = dp.value;
 
-        if (!String(patch.response).trim() && !String(patch.next_doing).trim()) {
+        // ช่อง rich text ที่ลบหมดมักเหลือ <br> — ใช้ richBlank ตัดสินว่าว่างจริง (ไม่งั้นบันทึกว่างผ่าน)
+        if (richBlank(patch.response) && richBlank(patch.next_doing)) {
           err.textContent = 'ต้องมี RESPONSE หรือ NEXT DOING อย่างน้อยหนึ่งช่อง';
           err.hidden = false;
           return;
         }
+        if (richBlank(patch.response))   patch.response = '';
+        if (richBlank(patch.next_doing)) patch.next_doing = '';
 
         const sv = box.querySelector('[data-save]');
         sv.disabled = true; sv.textContent = 'กำลังบันทึก…';
@@ -160,18 +161,19 @@ export function logFormHtml(idPrefix = 'lg') {
         ${dateField('', todayISO(), { id: idPrefix + 'Date', label: 'วันที่บันทึก' })}</label>
       <label class="fld"><span>BY — ช่องทางติดต่อ</span>
         <input type="text" id="${idPrefix}By" placeholder="เช่น โทร / เข้าพบ / ไลน์"></label>
-      <label class="fld fld-wide"><span>RESPONSE — ผลที่ได้</span>
-        <textarea id="${idPrefix}Res" class="ta-grow" rows="3"></textarea></label>
-      <label class="fld fld-wide"><span>NEXT DOING — ทำอะไรต่อ</span>
-        <textarea id="${idPrefix}Next" class="ta-grow" rows="3"></textarea></label>
+      ${richFieldHtml('', '', { label: 'RESPONSE — ผลที่ได้',   id: idPrefix + 'Res',  ph: 'เช่น เข้าพบ ผอ. แล้ว ขอให้ส่งสเปกเพิ่ม' })}
+      ${richFieldHtml('', '', { label: 'NEXT DOING — ทำอะไรต่อ', id: idPrefix + 'Next', ph: 'เช่น ส่งสเปกวันจันทร์' })}
     </div>`;
 }
 
 /** อ่านค่าจากฟอร์มเพิ่มบันทึก — คืน null ถ้ายังไม่ได้พิมพ์อะไร */
 export function readLogForm(root, idPrefix = 'lg') {
   const q = (s) => root.querySelector(s);
-  const res  = q('#' + idPrefix + 'Res')?.value.trim()  || '';
-  const next = q('#' + idPrefix + 'Next')?.value.trim() || '';
+  // RESPONSE / NEXT DOING เป็น rich text — hidden input เก็บ HTML ที่ล้างแล้ว · ว่างจริงเช็คด้วย richBlank
+  const resHtml  = q('#' + idPrefix + 'Res')?.value  || '';
+  const nextHtml = q('#' + idPrefix + 'Next')?.value || '';
+  const res  = richBlank(resHtml)  ? '' : resHtml;
+  const next = richBlank(nextHtml) ? '' : nextHtml;
   if (!res && !next) return null;
   return {
     log_date:   q('#' + idPrefix + 'Date')?.value || undefined,
@@ -182,8 +184,13 @@ export function readLogForm(root, idPrefix = 'lg') {
 }
 
 export function clearLogForm(root, idPrefix = 'lg') {
-  ['Res', 'Next', 'By'].forEach(k => {
-    const e = root.querySelector('#' + idPrefix + k);
-    if (e) e.value = '';
+  // Res/Next เป็น rich text: ล้างทั้ง hidden (ค่า) และช่องแก้ไขที่มองเห็น (contenteditable)
+  ['Res', 'Next'].forEach(k => {
+    const h = root.querySelector('#' + idPrefix + k);
+    if (!h) return;
+    h.value = '';
+    h.closest('[data-rich]')?.querySelector('[data-rt-edit]')?.replaceChildren();
   });
+  const by = root.querySelector('#' + idPrefix + 'By');
+  if (by) by.value = '';
 }

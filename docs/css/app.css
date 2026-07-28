@@ -802,6 +802,8 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 }
 .rt-edit:focus { outline: none; border-color: var(--accent); }
 .rt-edit mark { padding: 0 1px; border-radius: 2px; }
+/* placeholder ของช่องมีรูปแบบ (contenteditable ว่าง = โชว์ข้อความใบ้) */
+.rt-edit:empty::before { content: attr(data-ph); color: var(--text-mute); pointer-events: none; }
 
 /* ── โปรไฟล์ของฉัน (ชื่อ/รหัสผ่าน) — ข้อความสถานะ ── */
 .prof-msg { font-size: 13px; align-self: center; }

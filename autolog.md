@@ -27,6 +27,16 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-28 · ยังไม่ commit · rich text เฉพาะ RESPONSE/NEXT DOING + แก้บั๊กพิมพ์ในบล็อกไม่ได้ + การ์ดสีขึ้นบน
+**step:** ต่อยอด (คำสั่งเจ้าของ 3 ข้อ) | **ประเภท:** แก้บั๊ก + รีแฟกเตอร์ + ฟีเจอร์
+- **แก้บั๊ก "พิมพ์ในบล็อก rich text ไม่ได้"** — ต้นเหตุ: `richFieldHtml` ห่อด้วย `<label>` → คลิก contenteditable แล้วเบราว์เซอร์เด้ง focus ไปที่ปุ่มแรกในเลเบล (ปุ่ม B) caret ไม่เคยลงช่อง · **พิสูจน์ด้วย CDP คลิก+คีย์จริง** (label: activeElement=BUTTON, text="" · div: พิมพ์ได้) → เปลี่ยน wrapper เป็น `<div>`
+- **ย้าย rich text ไปใช้เฉพาะ RESPONSE / NEXT DOING** (เจ้าของสั่ง) — ถอด rich ออกจากช่อง `area` ทุกช่อง (ภูมิลำเนา/การศึกษา/Win plan ฯลฯ) กลับเป็น textarea ธรรมดา · ค่าเดิมที่เคยเก็บ HTML → `richToText` ตัดเป็นข้อความล้วนตอนโชว์
+- เพิ่ม rich ให้ RESPONSE/NEXT DOING ทั้ง 5 จุด: add-log (loglist `logFormHtml` = book3/quicklog) · edit-log (`bindLogEditing`) · pending qLog panel · pending full-modal (`#lgRes/#lgNext`, id-only กันไปปน FormData งาน)
+- `richFieldHtml` รับ `id`/`ph`/`dataF` + `name` เป็น optional · event ผูกแบบ **delegation ที่ document ครั้งเดียว** (`installGlobalRich`) → ช่องที่สร้างทีหลัง (add/edit-log) ทำงานเลยไม่ต้อง bind รายกล่อง · เพิ่ม `richBlank` (contenteditable ว่างเหลือ `<br>` = ไม่นับว่ามีค่า) · แสดง log ผ่าน `sanitizeHtml` · loghover/print ตัดเป็นข้อความล้วน
+- **การ์ด "ลูกค้า Book 3 สี" (🟢🟡🔴) ย้ายขึ้นบน** (ก่อนกริด KPI ถัดจากการ์ด DOCC) + แก้ให้ป้าย/ตัวเลขตามฟิลเตอร์ทีม/รายคน (เดิมส่ง `selected.size>0` → โหมดรายคนโชว์ "ทั้งองค์กร" ผิด · เปลี่ยนเป็น `isPerson||selected.size>0`)
+**ไฟล์:** docs/js/ui/richtext.js · docs/js/ui/loglist.js · docs/js/ui/loghover.js · docs/js/ui/formprint.js · docs/js/modules/pending.js · docs/js/modules/book3.js · docs/js/modules/dashboard.js · docs/css/app.css · docs/sw.js + config.js (v0.64.0)
+**ทดสอบ:** CDP headless — rich/บั๊กพิมพ์ 18/18 · การ์ดสีบนภาพรวม 13/13 · ไม่มี JS error · ยืนยันต้นเหตุ label ด้วย iso-label2 (label→focus เด้งปุ่ม, div→พิมพ์ได้)
+
 ## 2026-07-28 · ยังไม่ commit · การ์ดลูกค้าตามประเภท DOCC บนหน้าภาพรวม
 **step:** ต่อยอด (นอก roadmap) | **ประเภท:** ฟีเจอร์
 - เพิ่ม **การ์ด "ลูกค้าตามประเภท (DOCC)" เป็นการ์ดลำดับแรก**บนหน้าภาพรวม — นับจำนวนรายลูกค้าแยกตาม D/O/C/C + "ยังไม่ระบุ" + ยอดรวม

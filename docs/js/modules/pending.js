@@ -14,7 +14,7 @@ import { mountTeamScope } from '../ui/teamscope.js';
 import { mountPersonScope, ownerSelectHtml } from '../ui/personscope.js';
 import { lastLogSpan, mountLogHover } from '../ui/loghover.js';
 import { listViewHtml, bindListView, applyListView } from '../ui/listview.js';
-import { richFieldHtml, bindRichFields } from '../ui/richtext.js';
+import { richFieldHtml, bindRichFields, richToText, richBlank } from '../ui/richtext.js';
 
 // ── ขั้นตอนงานขาย ── ยกจาก prototype v3 แต่เปลี่ยน hex เป็นตัวแปร CSS ตามกติกาธีม
 export const STAGES = [
@@ -603,10 +603,8 @@ async function openQuickLog(host, pendingId, onSaved) {
               ${dateField('log_date', new Date().toISOString().slice(0, 10), { label: 'วันที่บันทึก' })}</label>
             <label class="fld"><span>BY — ช่องทางติดต่อ</span>
               <input type="text" name="by_name" placeholder="เช่น โทร / เข้าพบ / ไลน์"></label>
-            <label class="fld fld-wide"><span>RESPONSE — ผลที่ได้</span>
-              <textarea name="response" rows="3" placeholder="เช่น เข้าพบ ผอ. แล้ว ขอให้ส่งสเปกเพิ่ม"></textarea></label>
-            <label class="fld fld-wide"><span>NEXT DOING — ทำอะไรต่อ</span>
-              <textarea name="next_doing" rows="2" placeholder="เช่น ส่งสเปกวันจันทร์"></textarea></label>
+            ${richFieldHtml('response', '', { label: 'RESPONSE — ผลที่ได้', ph: 'เช่น เข้าพบ ผอ. แล้ว ขอให้ส่งสเปกเพิ่ม' })}
+            ${richFieldHtml('next_doing', '', { label: 'NEXT DOING — ทำอะไรต่อ', ph: 'เช่น ส่งสเปกวันจันทร์' })}
           </div>
 
           ${logs.length ? `
@@ -646,11 +644,14 @@ async function openQuickLog(host, pendingId, onSaved) {
     ev.preventDefault();
     q('#qErr').hidden = true;
     const d = Object.fromEntries(new FormData(ev.target).entries());
-    if (!String(d.response || '').trim() && !String(d.next_doing || '').trim()) {
+    // RESPONSE/NEXT DOING เป็น rich text (HTML) — ว่างจริงเช็คด้วย richBlank (contenteditable ว่างมักเหลือ <br>)
+    if (richBlank(d.response) && richBlank(d.next_doing)) {
       q('#qErr').textContent = 'กรอก RESPONSE หรือ NEXT DOING อย่างน้อยหนึ่งช่อง';
       q('#qErr').hidden = false;
       return;
     }
+    if (richBlank(d.response))   d.response = '';
+    if (richBlank(d.next_doing)) d.next_doing = '';
     const btn = q('#qSave');
     btn.disabled = true; btn.textContent = 'กำลังบันทึก…';
     try {
@@ -753,9 +754,12 @@ function fieldHtml([key, label, type, ph], row, teams, people, meId) {
   if (type === 'owner')
     return ownerSelectHtml(key, label, v, people, meId);
 
-  // ช่องข้อความยาว = rich text (ไฮไลต์/หนา/เอียง/ขีดเส้น/สีเข้ม) — เจ้าของขอ 27 ก.ค. 2569
+  // ช่องข้อความยาว = textarea ธรรมดา
+  //   rich text (ไฮไลต์/หนา/สี ฯลฯ) ย้ายไปใช้เฉพาะ RESPONSE / NEXT DOING เท่านั้น (เจ้าของสั่ง 28 ก.ค. 2569)
+  //   ค่าเดิมที่เคยเก็บเป็น HTML → แปลงเป็นข้อความล้วนก่อนโชว์ในกล่อง
   if (type === 'area')
-    return richFieldHtml(key, v, { label });
+    return `<label class="fld fld-wide"><span>${esc(label)}</span>
+      <textarea name="${esc(key)}" rows="3"${p}>${esc(richToText(v))}</textarea></label>`;
 
   if (type === 'stage')
     return `<label class="fld"><span>${esc(label)}</span><select name="${key}">
@@ -864,10 +868,8 @@ async function openDetail(host, id, onSaved, teams, people) {
                 <label class="fld"><span>วันที่</span>
                   ${dateField('', new Date().toISOString().slice(0, 10), { id: 'lgDate', label: 'วันที่บันทึก' })}</label>
                 <label class="fld"><span>BY — ช่องทางติดต่อ</span><input type="text" id="lgBy" placeholder="เช่น โทร / เข้าพบ / ไลน์"></label>
-                <label class="fld fld-wide"><span>RESPONSE — ผลที่ได้</span>
-                  <textarea id="lgRes" rows="2"></textarea></label>
-                <label class="fld fld-wide"><span>NEXT DOING — ทำอะไรต่อ</span>
-                  <textarea id="lgNext" rows="2"></textarea></label>
+                ${richFieldHtml('', '', { label: 'RESPONSE — ผลที่ได้', id: 'lgRes', ph: 'เช่น เข้าพบ ผอ. แล้ว ขอให้ส่งสเปกเพิ่ม' })}
+                ${richFieldHtml('', '', { label: 'NEXT DOING — ทำอะไรต่อ', id: 'lgNext', ph: 'เช่น ส่งสเปกวันจันทร์' })}
               </div>
               <div class="lg-add-row">
                 <button type="button" class="btn btn-ghost btn-sm" id="lgAdd">+ เพิ่มบันทึก</button>
@@ -1008,8 +1010,11 @@ async function openDetail(host, id, onSaved, teams, people) {
   /** อ่านช่องบันทึกติดตามที่พิมพ์ค้างไว้ — คืน null ถ้ายังไม่ได้พิมพ์อะไร */
   function draftLog() {
     if (!id) return null;
-    const res  = q('#lgRes')?.value.trim()  || '';
-    const next = q('#lgNext')?.value.trim() || '';
+    // RESPONSE/NEXT DOING เป็น rich text — hidden input เก็บ HTML · ว่างจริงเช็คด้วย richBlank
+    const resHtml  = q('#lgRes')?.value  || '';
+    const nextHtml = q('#lgNext')?.value || '';
+    const res  = richBlank(resHtml)  ? '' : resHtml;
+    const next = richBlank(nextHtml) ? '' : nextHtml;
     if (!res && !next) return null;
     return {
       pending_id: id,
@@ -1021,7 +1026,14 @@ async function openDetail(host, id, onSaved, teams, people) {
   }
 
   function clearDraft() {
-    ['#lgRes', '#lgNext', '#lgBy'].forEach(sel => { const e = q(sel); if (e) e.value = ''; });
+    // Res/Next เป็น rich text: ล้างทั้ง hidden และช่องแก้ไขที่มองเห็น
+    ['#lgRes', '#lgNext'].forEach(sel => {
+      const h = q(sel);
+      if (!h) return;
+      h.value = '';
+      h.closest('[data-rich]')?.querySelector('[data-rt-edit]')?.replaceChildren();
+    });
+    const by = q('#lgBy'); if (by) by.value = '';
   }
   // กดพื้นหลังนอกกล่อง = ปิด (mousedown กัน drag จากในกล่องแล้วปล่อยข้างนอกแล้วปิดทิ้ง)
   q('#pModal').addEventListener('mousedown', (e) => { if (e.target.id === 'pModal') close(); });

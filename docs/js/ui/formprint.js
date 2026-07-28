@@ -62,8 +62,8 @@ function logRows(logs, perPage) {
     rows.push(`<tr class="${l && l._signoff ? 'pf-signoff-row' : ''}">
       <td>${l ? esc(thaiDate(l.log_date)) : '&nbsp;'}</td>
       <td>${l ? esc(l.by_name || '') : '&nbsp;'}</td>
-      <td class="pf-wide">${l ? esc(l.response || '') : '&nbsp;'}</td>
-      <td>${l ? esc(l.next_doing || '') : '&nbsp;'}</td>
+      <td class="pf-wide">${l ? esc(plain(l.response || '')) : '&nbsp;'}</td>
+      <td>${l ? esc(plain(l.next_doing || '')) : '&nbsp;'}</td>
     </tr>`);
   }
   return rows.join('');

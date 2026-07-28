@@ -8,6 +8,7 @@
 // ⚠️ pointer-events:none — ห้ามให้ popup กินคลิกปุ่ม (กติกาเดียวกับแถบ PWA ใน CLAUDE.md)
 
 import { thaiDate } from './datepicker.js';
+import { richToText } from './richtext.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -25,13 +26,16 @@ export function truncate(s, n = CLAMP) {
  * l = { log_date, by_name, response, next_doing }
  */
 export function lastLogSpan(l) {
-  const preview = l.response || l.next_doing || '';
+  // RESPONSE/NEXT DOING อาจเป็น rich text (HTML) — ตัดแท็กเหลือข้อความล้วนก่อนโชว์/ตัดสั้น
+  const res  = richToText(l.response || '');
+  const next = richToText(l.next_doing || '');
+  const preview = res || next || '';
   // เก็บของเต็มใน data-* (encode กัน quote/บรรทัดใหม่พังโครง HTML)
   const payload = encodeURIComponent(JSON.stringify({
     date: thaiDate(l.log_date) || l.log_date || '',
     by:   l.by_name || '',
-    response: l.response || '',
-    next:     l.next_doing || '',
+    response: res,
+    next:     next,
   }));
   return `<span class="lastlog-t" data-loghover="${payload}">${esc(truncate(preview))}</span>`;
 }
