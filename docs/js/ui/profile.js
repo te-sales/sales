@@ -9,6 +9,7 @@
 //   • อีเมล (login) แก้ที่นี่ไม่ได้ — เป็นตัวระบุบัญชี ต้องยืนยันอีเมล แสดงแบบอ่านอย่างเดียว
 
 import { adapter } from '../data/adapter.js';
+import { fileToDataUrl, safePhoto } from './photofield.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -16,6 +17,8 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m =>
 /** @param onNameSaved (newName) => void — ให้แถบหัว/แถบข้างอัปเดตชื่อตาม */
 export function openProfile(user, onNameSaved = () => {}) {
   if (!user) return;
+  // ลายเซ็นของตัวเอง — เฉพาะคนที่ "เซ็นรับทราบได้" (หัวหน้างาน/ผู้ดูแลระบบ) · sale ไม่มีลายเซ็น
+  const canSign = user.role === 'admin' || user.role === 'manager';
   document.getElementById('profileModal')?.remove();
   const host = document.createElement('div');
   host.className = 'modal';
@@ -59,6 +62,21 @@ export function openProfile(user, onNameSaved = () => {}) {
           </div>
           <p class="fld-hint">💡 เปลี่ยนแล้วใช้บัญชีเดิมต่อได้ทันที ไม่ต้องล็อกอินใหม่</p>
         </section>
+
+        ${canSign ? `
+        <section class="fgroup">
+          <h3>ลายเซ็นของฉัน</h3>
+          <div class="sigrow" id="profSigRow" data-sig="${esc(user.id)}">
+            <div class="sig-thumb" data-sig-thumb><span class="sig-none">กำลังโหลด…</span></div>
+            <div class="sig-actions">
+              <input type="file" accept="image/*" data-sig-file hidden>
+              <button type="button" class="btn btn-ghost btn-sm" data-sig-pick>✍️ เพิ่มลายเซ็น</button>
+              <button type="button" class="btn btn-ghost btn-sm" data-sig-del hidden>ลบ</button>
+            </div>
+          </div>
+          <p class="fld-hint">ใช้ตอน "เซ็นรับทราบ" — แสดงบน PDF ในคอลัมน์ NEXT DOING (เอียง 15°) · ไฟล์ .png พื้นหลังโปร่งใสสวยที่สุด</p>
+          <span class="prof-msg" id="profSigMsg"></span>
+        </section>` : ''}
       </div>
       <div class="modal-foot"><span class="spacer"></span>
         <button type="button" class="btn btn-ghost" data-close>เสร็จ</button></div>
@@ -104,6 +122,54 @@ export function openProfile(user, onNameSaved = () => {}) {
       btn.disabled = false; btn.textContent = 'ตั้งรหัสผ่านใหม่';
     }
   });
+
+  // ── ลายเซ็นของฉัน (หัวหน้า/admin จัดการของตัวเองได้ · RLS อนุญาต profile_id = auth.uid()) ──
+  if (canSign) {
+    const thumb = q('[data-sig-thumb]');
+    const pick  = q('[data-sig-pick]');
+    const del   = q('[data-sig-del]');
+    const fileInp = q('[data-sig-file]');
+    const paint = (url) => {
+      const safe = safePhoto(url);
+      thumb.innerHTML = safe ? `<img src="${safe}" alt="ลายเซ็น">` : '<span class="sig-none">ยังไม่มีลายเซ็น</span>';
+      pick.textContent = safe ? 'เปลี่ยนรูป' : '✍️ เพิ่มลายเซ็น';
+      del.hidden = !safe;
+    };
+    // โหลดลายเซ็นปัจจุบันของตัวเอง (listSignatures อ่านได้ทุกคน — กรองเอาเฉพาะของเรา)
+    (async () => {
+      try { const list = await adapter.listSignatures(); paint(list.find(s => s.profile_id === user.id)?.image_url); }
+      catch { paint(''); }
+    })();
+
+    pick.addEventListener('click', () => fileInp.click());
+    fileInp.addEventListener('change', async () => {
+      const f = fileInp.files?.[0];
+      fileInp.value = '';
+      if (!f) return;
+      try {
+        const url = await fileToDataUrl(f, { maxSide: 600, mime: 'image/png' });   // png คงพื้นหลังโปร่งใส
+        await adapter.saveSignature(user.id, url);
+        paint(url);
+        msg(q('#profSigMsg'), '✓ บันทึกลายเซ็นแล้ว — จะแสดงบน PDF ตอนคุณเซ็นรับทราบ', true);
+      } catch (e) { msg(q('#profSigMsg'), e.message, false); }
+    });
+
+    // ลบต้องกด 2 ครั้งยืนยัน
+    let armed = false, armT = null;
+    del.addEventListener('click', async () => {
+      if (!armed) {
+        armed = true; del.textContent = 'ยืนยันลบ?';
+        armT = setTimeout(() => { armed = false; if (del.isConnected) del.textContent = 'ลบ'; }, 3500);
+        return;
+      }
+      clearTimeout(armT); armed = false;
+      try {
+        await adapter.deleteSignature(user.id);
+        paint('');
+        msg(q('#profSigMsg'), '✓ ลบลายเซ็นแล้ว', true);
+      } catch (e) { del.textContent = 'ลบ'; msg(q('#profSigMsg'), e.message, false); }
+    });
+  }
 }
 
 export default { openProfile };

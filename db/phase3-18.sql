@@ -7,7 +7,9 @@
 --
 -- 🔒 สิทธิ์:
 --    อ่าน  — ทุกคนที่ล็อกอิน (ต้องอ่านลายเซ็นของผู้เซ็นมาแสดงบนฟอร์มที่พิมพ์)
---    เพิ่ม/แก้/ลบ — admin เท่านั้น (บังคับที่ RLS ไม่ใช่แค่ UI · is_admin() นิยามใน policies.sql)
+--    เพิ่ม/แก้/ลบ — admin (จัดการให้ทุกคน) หรือ เจ้าของลายเซ็นเอง (profile_id = auth.uid())
+--                   → หัวหน้าจัดการลายเซ็นตัวเองได้ในหน้า "โปรไฟล์ของฉัน" (เจ้าของสั่ง 31 ก.ค. 2569)
+--                   บังคับที่ RLS ไม่ใช่แค่ UI · is_admin() นิยามใน policies.sql
 --
 -- ไม่รันไฟล์นี้ก็ไม่พัง — adapter คืน [] ถ้าตารางยังไม่มี · แค่ยังเก็บ/โชว์ลายเซ็นไม่ได้
 -- วิธีรัน: วางไฟล์นี้ใน Supabase → SQL Editor → Run (รันซ้ำได้ ปลอดภัย)
@@ -29,11 +31,11 @@ create policy sig_select on signatures
   for select to authenticated
   using (true);
 
--- เพิ่ม/แก้/ลบ: admin เท่านั้น
+-- เพิ่ม/แก้/ลบ: admin (จัดการให้ทุกคน) หรือ เจ้าของลายเซ็นเอง
 create policy sig_write on signatures
   for all to authenticated
-  using (is_admin())
-  with check (is_admin());
+  using (is_admin() or profile_id = auth.uid())
+  with check (is_admin() or profile_id = auth.uid());
 
 grant select, insert, update, delete on signatures to authenticated;
 revoke all on signatures from anon;
