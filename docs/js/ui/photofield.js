@@ -20,9 +20,11 @@ export function safePhoto(u) {
   return (/^data:image\//i.test(s) || /^https?:\/\//i.test(s)) ? s : '';
 }
 
-/** อ่านไฟล์รูป → ย่อผ่าน canvas → คืน data URL (JPEG)
- *  opt.maxSide / opt.quality: ปรับได้ (รูปบุคคล = 512 · นามบัตรต้องอ่านออก+ซูม = ใหญ่กว่า) */
-export function fileToDataUrl(file, { maxSide = MAX_SIDE, quality = QUALITY } = {}) {
+/** อ่านไฟล์รูป → ย่อผ่าน canvas → คืน data URL
+ *  opt.maxSide / opt.quality: ปรับได้ (รูปบุคคล = 512 · นามบัตรต้องอ่านออก+ซูม = ใหญ่กว่า)
+ *  opt.mime: 'image/jpeg' (ค่าเริ่มต้น) หรือ 'image/png' — ลายเซ็นใช้ png เพื่อคงพื้นหลังโปร่งใส
+ *            (ไม่งั้น jpeg เติมพื้นขาว → เวลาหมุนเอียงจะเห็นกล่องขาวทับฟอร์ม) */
+export function fileToDataUrl(file, { maxSide = MAX_SIDE, quality = QUALITY, mime = 'image/jpeg' } = {}) {
   return new Promise((resolve, reject) => {
     if (!file || !/^image\//.test(file.type)) return reject(new Error('ไฟล์ต้องเป็นรูปภาพ'));
     const fr = new FileReader();
@@ -39,7 +41,7 @@ export function fileToDataUrl(file, { maxSide = MAX_SIDE, quality = QUALITY } = 
         const cv = document.createElement('canvas');
         cv.width = w; cv.height = h;
         cv.getContext('2d').drawImage(img, 0, 0, w, h);
-        try { resolve(cv.toDataURL('image/jpeg', quality)); }
+        try { resolve(cv.toDataURL(mime, quality)); }
         catch (e) { reject(new Error('แปลงรูปไม่สำเร็จ: ' + e.message)); }
       };
       img.src = fr.result;

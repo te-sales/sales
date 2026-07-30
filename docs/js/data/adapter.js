@@ -103,6 +103,11 @@ export const adapter = {
   listSignoffHistory: (t, id)   => need().listSignoffHistory(t, id),
   addSignoff:         (t, id, n)=> need().addSignoff(t, id, n),
 
+  // ลายเซ็นหัวหน้า (phase 3.18) — admin จัดการ · โชว์บน PDF ตอนเซ็นรับทราบ
+  listSignatures:     ()        => need().listSignatures(),
+  saveSignature:      (pid, url)=> need().saveSignature(pid, url),
+  deleteSignature:    (pid)     => need().deleteSignature(pid),
+
   // B1 admin — ผู้ใช้ / ทีม / สิทธิ์ข้ามทีม (step 2.4)
   listProfiles:      ()        => need().listProfiles(),
   saveProfile:       (id, p)   => need().saveProfile(id, p),

@@ -27,6 +27,17 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-28 · ยังไม่ commit · ลายเซ็นหัวหน้า (เซ็นรับทราบ) — admin จัดการ + วางบน PDF เอียง 45°
+**step:** ต่อยอด (คำสั่งเจ้าของ) | **ประเภท:** ฟีเจอร์ (DB + adapter + UI + พิมพ์)
+- **ตาราง `signatures`** (`db/phase3-18.sql`) — 1 บัญชี 1 ลายเซ็น (data URL) · RLS: อ่านทุกคนล็อกอิน · เขียน/ลบ admin เท่านั้น (โมเดลตาม news_reports)
+- **หน้าตั้งค่าระบบ:** การ์ด "ลายเซ็นหัวหน้า" (admin) — ลิสต์เฉพาะ role admin/manager · อัปโหลด/เปลี่ยน/ลบ (ลบกด 2 ครั้ง) · เก็บ png ย่อ 600px คงพื้นหลังโปร่งใส
+- **พิมพ์ PDF:** เมื่อผู้เซ็นมีลายเซ็นในระบบ → วางรูปในคอลัมน์ **NEXT DOING** แถวเดียวกับ "✓ เซ็นรับทราบ" · ใหญ่ ~2 บรรทัด · เอียง 45° (`transform: rotate(-45deg)` · ไม่กระทบ layout ตาราง) · ใช้ทั้ง Pending + Book 3 สี · map ผ่าน `signoff.signed_by`
+- adapter methods: `listSignatures`/`saveSignature`/`deleteSignature` (supabase + local + **facade allowlist ใน adapter.js**) · `fileToDataUrl` เพิ่ม option `mime` (png) · โหลดลายเซ็นครั้งเดียวต่อการพิมพ์ (batch ไม่ดึงซ้ำ)
+- 🔴 กับดักที่เจอ: adapter.js เป็น allowlist ชัดเจน — เพิ่ม method ใน impl แล้วต้องลงทะเบียนใน facade ด้วย ไม่งั้น UI เรียกไม่เจอ (เสียเทสต์ 1 รอบ)
+**ไฟล์:** db/phase3-18.sql · docs/js/data/{adapter,supabase-adapter,local-adapter}.js · docs/js/modules/admin.js · docs/js/ui/{formprint,photofield}.js · docs/css/{print,app}.css · docs/sw.js + config.js (v0.65.0)
+**ทดสอบ:** CDP + emulate print + DOM.setFileInputFiles (อัปโหลดจริง) — จัดการ+พิมพ์ 20/20 · regression signoff-green 5/5 · rich 18/18 · ไม่มี JS error
+**ค้าง:** เจ้าของต้องรัน `db/phase3-18.sql` ใน Supabase ก่อนถึงเก็บ/โชว์ลายเซ็นได้ (ไม่รัน adapter คืน [] ไม่พัง)
+
 ## 2026-07-28 · ยังไม่ commit · พิมพ์: แถวหัวหน้าเซ็นรับทราบ = ตัวอักษรสีเขียว
 **step:** ต่อยอด (คำสั่งเจ้าของ) | **ประเภท:** ปรับ UI (พิมพ์)
 - แถว "หัวหน้าเซ็นรับทราบ" ตอนพิมพ์ PDF เปลี่ยนจากสีน้ำเงิน → **สีเขียว `#1f7a44`** (ใช้คลาสร่วม `.pf-signoff-row` = ครอบทั้ง Book 3 สี + Pending ในที่เดียว) · แถวบันทึกปกติยังน้ำเงินเหมือนเดิม

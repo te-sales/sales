@@ -19,6 +19,7 @@ const emptyDb = () => ({
   profiles: [],
   team_access: [],
   signoffs: [],
+  signatures: [],
   pending_products: [],
   team_targets: [],
   sale_targets: [],
@@ -547,6 +548,24 @@ const localAdapter = {
     db.signoffs.push(row);
     save();
     return row;
+  },
+
+  // ── ลายเซ็นหัวหน้า (phase 3.18) — 1 บัญชี 1 ลายเซ็น · admin จัดการ ──
+  async listSignatures() {
+    return (db.signatures || []).map(s => ({ profile_id: s.profile_id, image_url: s.image_url }));
+  },
+  async saveSignature(profileId, imageUrl) {
+    db.signatures = db.signatures || [];
+    const row = { profile_id: profileId, image_url: imageUrl,
+                  updated_at: new Date().toISOString(), updated_by: db.session?.user?.id || null };
+    const i = db.signatures.findIndex(s => s.profile_id === profileId);
+    if (i >= 0) db.signatures[i] = row; else db.signatures.push(row);
+    save();
+    return row;
+  },
+  async deleteSignature(profileId) {
+    db.signatures = (db.signatures || []).filter(s => s.profile_id !== profileId);
+    save();
   },
 
   // B1 — Admin (step 2.4) · โหมด local ไม่มี RLS จริง จำลองให้รูปข้อมูลตรงกัน

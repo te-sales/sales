@@ -10,6 +10,7 @@
 import { adapter } from '../data/adapter.js';
 import { CONFIG } from '../config.js';
 import { buildBackup, BACKUP_FORMAT } from '../data/import-map.js';
+import { fileToDataUrl, safePhoto } from '../ui/photofield.js';
 
 export const ROLES = [
   { id: 'admin',   label: 'ผู้ดูแลระบบ', note: 'เห็นและแก้ได้ทุกทีม · จัดการผู้ใช้ได้' },
@@ -63,9 +64,9 @@ async function renderAdmin(root) {
 
     root.innerHTML = '<div class="skeleton">กำลังโหลด…</div>';
 
-    let profiles = [], teams = [], access = [], settings = {}, teamTargets = [], saleTargets = [], backups = [];
+    let profiles = [], teams = [], access = [], settings = {}, teamTargets = [], saleTargets = [], backups = [], signatures = [];
     try {
-      [profiles, teams, access, settings, teamTargets, saleTargets, backups] = await Promise.all([
+      [profiles, teams, access, settings, teamTargets, saleTargets, backups, signatures] = await Promise.all([
         adapter.listProfiles(),
         adapter.listTeams(),
         adapter.listTeamAccess(),
@@ -73,6 +74,7 @@ async function renderAdmin(root) {
         adapter.listAllTeamTargets().catch(() => []),
         adapter.listAllSaleTargets().catch(() => []),
         adapter.listBackupLog(50).catch(() => []),   // ยังไม่ได้รัน phase3-15 ก็ไม่พังทั้งหน้า
+        adapter.listSignatures().catch(() => []),     // ยังไม่ได้รัน phase3-18 ก็ไม่พังทั้งหน้า
       ]);
     } catch (e) {
       const missing = /ยังไม่ได้สร้างตาราง|does not exist|42P01/i.test(e.message);
@@ -90,6 +92,11 @@ async function renderAdmin(root) {
     };
     // คืนแถว team_access เต็ม (มี can_edit) ไม่ใช่แค่ team_id — step 3.10 ต้องรู้ว่าดูได้/แก้ได้
     const accessOf = (pid) => access.filter(a => a.profile_id === pid);
+
+    // ── ลายเซ็นหัวหน้า (phase 3.18): map ผู้ที่ "เซ็นรับทราบได้" (admin/manager) → รูปลายเซ็น ──
+    const sigMap = {};
+    for (const s of signatures || []) sigMap[s.profile_id] = s.image_url;
+    const signers = profiles.filter(p => p.is_active !== false && ['admin', 'manager'].includes(p.role));
 
     // ── สำรองขึ้น Google Drive (task 5): ข้อความสถานะ ──
     const fmtWhen = (iso) => { try {
@@ -168,6 +175,21 @@ async function renderAdmin(root) {
           </table>
         </div>
         <p class="login-err" id="uErr" role="alert" hidden></p>
+      </div>
+
+      <div class="card sec">
+        <h3 class="sec-h">ลายเซ็นหัวหน้า <span class="sec-sub">ใช้ตอนเซ็นรับทราบ · แสดงบน PDF ที่พิมพ์</span></h3>
+        <p class="sec-foot" style="margin:0 0 12px">
+          อัปโหลดรูปลายเซ็นให้หัวหน้า/ผู้ดูแลแต่ละคน (ไฟล์ <b>.png</b> พื้นหลังโปร่งใสจะสวยที่สุด) —
+          เวลาคนนั้น <b>เซ็นรับทราบ</b> งาน/ลูกค้าแล้วสั่งพิมพ์ ระบบจะวางลายเซ็นในคอลัมน์ <b>NEXT DOING</b>
+          แถวเดียวกับที่เซ็นให้อัตโนมัติ (ใหญ่ ~2 บรรทัด · เอียง 45° เหมือนลายเซ็นจริง)
+        </p>
+        <div class="siglist" id="sigList">
+          ${signers.length
+            ? signers.map(u => sigRow(u, sigMap[u.id])).join('')
+            : '<p class="tm-nomem" style="padding:4px 0">ยังไม่มีหัวหน้างาน/ผู้ดูแลในระบบ — ตั้ง role เป็น "หัวหน้างาน" หรือ "ผู้ดูแลระบบ" ให้ผู้ใช้ก่อนในตารางด้านบน</p>'}
+        </div>
+        <p class="login-err" id="sigErr" role="alert" hidden></p>
       </div>
 
       <div class="card sec">
@@ -330,6 +352,48 @@ async function renderAdmin(root) {
       } catch (e) { flash($('#tmErr'), e.message, true); }
     });
 
+    // ── ลายเซ็นหัวหน้า (phase 3.18): อัปโหลด/เปลี่ยน/ลบ · admin จัดการให้ ──
+    const sigList = $('#sigList');
+    sigList?.addEventListener('click', (e) => {
+      const row = e.target.closest('[data-sig]');
+      if (!row) return;
+      if (e.target.closest('[data-sig-pick]')) { row.querySelector('[data-sig-file]').click(); return; }
+      const del = e.target.closest('[data-sig-del]');
+      if (!del) return;
+      // ลบต้องกด 2 ครั้งยืนยัน (ลบแล้วต้องอัปใหม่)
+      if (del.dataset.armed !== '1') {
+        del.dataset.armed = '1'; del.textContent = 'ยืนยันลบ?';
+        setTimeout(() => { if (del.isConnected) { del.dataset.armed = ''; del.textContent = 'ลบ'; } }, 3500);
+        return;
+      }
+      (async () => {
+        try {
+          await adapter.deleteSignature(row.dataset.sig);
+          row.querySelector('[data-sig-thumb]').innerHTML = '<span class="sig-none">ยังไม่มีลายเซ็น</span>';
+          del.hidden = true; del.dataset.armed = ''; del.textContent = 'ลบ';
+          row.querySelector('[data-sig-pick]').textContent = '✍️ เพิ่มลายเซ็น';
+          flash($('#sigErr'), '✓ ลบลายเซ็นแล้ว');
+        } catch (err) { flash($('#sigErr'), err.message, true); }
+      })();
+    });
+    sigList?.addEventListener('change', async (e) => {
+      const inp = e.target.closest('[data-sig-file]');
+      if (!inp) return;
+      const row = inp.closest('[data-sig]');
+      const f = inp.files?.[0];
+      inp.value = '';                                     // เลือกไฟล์เดิมซ้ำได้
+      if (!f) return;
+      try {
+        // png คงพื้นหลังโปร่งใส (ลายเซ็นหมุนเอียงแล้วไม่มีกล่องขาวทับฟอร์ม)
+        const url = await fileToDataUrl(f, { maxSide: 600, mime: 'image/png' });
+        await adapter.saveSignature(row.dataset.sig, url);
+        row.querySelector('[data-sig-thumb]').innerHTML = `<img src="${safePhoto(url)}" alt="ลายเซ็น">`;
+        row.querySelector('[data-sig-del]').hidden = false;
+        row.querySelector('[data-sig-pick]').textContent = 'เปลี่ยนรูป';
+        flash($('#sigErr'), '✓ บันทึกลายเซ็นแล้ว — จะแสดงบน PDF ตอนคนนี้เซ็นรับทราบ');
+      } catch (err) { flash($('#sigErr'), err.message, true); }
+    });
+
     // ── สำรอง & กู้คืน (step 3.6) ──
     $('#bkExport')?.addEventListener('click', async () => {
       const btn = $('#bkExport');
@@ -442,6 +506,23 @@ const monthLabel = (ym) => {
   const [y, m] = String(ym).split('-').map(Number);
   return y && m ? `${TH_MON[m - 1]} ${String((y + 543) % 100).padStart(2, '0')}` : ym;
 };
+
+// แถวจัดการลายเซ็น 1 คน (phase 3.18) — thumbnail + ปุ่มอัปโหลด/ลบ · admin เท่านั้นที่เห็นหน้านี้
+function sigRow(u, url) {
+  const safe = safePhoto(url);
+  return `<div class="sigrow" data-sig="${esc(u.id)}">
+    <div class="sig-info"><b>${esc(u.full_name || u.email || '—')}</b>
+      <span class="sig-role">${esc(roleOf(u.role).label)}</span></div>
+    <div class="sig-thumb" data-sig-thumb>${safe
+      ? `<img src="${safe}" alt="ลายเซ็น">`
+      : '<span class="sig-none">ยังไม่มีลายเซ็น</span>'}</div>
+    <div class="sig-actions">
+      <input type="file" accept="image/*" data-sig-file hidden>
+      <button type="button" class="btn btn-ghost btn-sm" data-sig-pick>${safe ? 'เปลี่ยนรูป' : '✍️ เพิ่มลายเซ็น'}</button>
+      <button type="button" class="btn btn-ghost btn-sm" data-sig-del ${safe ? '' : 'hidden'}>ลบ</button>
+    </div>
+  </div>`;
+}
 
 function userRow(u, teams, myAccess, me) {
   const isMe = u.id === me?.id;

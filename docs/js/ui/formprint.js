@@ -13,6 +13,7 @@
 import { adapter } from '../data/adapter.js';
 import { thaiDate } from './datepicker.js';
 import { sanitizeHtml, richToText } from './richtext.js';
+import { safePhoto } from './photofield.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -59,11 +60,17 @@ function logRows(logs, perPage) {
   for (let i = 0; i < perPage; i++) {
     const l = logs[i];
     // แถวที่เป็นคอมเมนต์ของหัวหน้าผู้เซ็น → เน้นสีเขียวตอนพิมพ์ (print.css .pf-signoff-row)
+    // ถ้า admin อัปโหลดลายเซ็นของหัวหน้าไว้ → วางรูปลายเซ็นในคอลัมน์ NEXT DOING แถวเดียวกัน
+    //   (ใหญ่ ~2 แถวตัวอักษร + เอียง 45° ให้เหมือนลายเซ็นจริง · จัดขนาด/มุมใน print.css .pf-sign-img)
+    const sig = (l && l._signoff && safePhoto(l._signImg)) || '';
+    const nextCell = sig
+      ? `<img class="pf-sign-img" src="${sig}" alt="ลายเซ็นหัวหน้า">`
+      : (l ? esc(plain(l.next_doing || '')) : '&nbsp;');
     rows.push(`<tr class="${l && l._signoff ? 'pf-signoff-row' : ''}">
       <td>${l ? esc(thaiDate(l.log_date)) : '&nbsp;'}</td>
       <td>${l ? esc(l.by_name || '') : '&nbsp;'}</td>
       <td class="pf-wide">${l ? esc(plain(l.response || '')) : '&nbsp;'}</td>
-      <td>${l ? esc(plain(l.next_doing || '')) : '&nbsp;'}</td>
+      <td${sig ? ' class="pf-sign-cell"' : ''}>${nextCell}</td>
     </tr>`);
   }
   return rows.join('');
@@ -346,24 +353,35 @@ const fileName = (s) => String(s || '').replace(/[\\/:*?"<>|]/g, ' ').trim().sli
  * แปลงประวัติการเซ็นรับทราบ → แถวบันทึก (pseudo-log) เพื่อแทรกในไทม์ไลน์ PDF (step 3.11)
  * ให้เห็นว่า "ช่วงเวลานั้นมีหัวหน้าตรวจ + คอมเมนต์อะไร" ต่อท้ายวันที่ที่บันทึก
  */
-function signoffPseudoLogs(list) {
+function signoffPseudoLogs(list, sigMap = {}) {
   return (list || []).map(s => ({
     log_date:   String(s.signed_at || '').slice(0, 10),
     by_name:    (s.profiles?.full_name || s.profiles?.email || 'หัวหน้างาน') + ' (ตรวจ)',
     response:   '✓ เซ็นรับทราบ' + (s.reviewed_note ? ' — ' + s.reviewed_note : ''),
     next_doing: '',
-    _signoff:   true,   // → เน้นสีเขียวตอนพิมพ์
+    _signoff:   true,                        // → เน้นสีเขียวตอนพิมพ์
+    _signImg:   sigMap[s.signed_by] || '',   // ลายเซ็นของผู้เซ็น (ถ้า admin อัปโหลดไว้ในหน้าตั้งค่า)
   }));
 }
 
 /** รวมบันทึกติดตาม + ประวัติการเซ็น แล้วเรียงตามวันที่ (เก่า→ใหม่) */
-function mergeLogsWithSignoffs(logs, signoffs) {
-  return [...(logs || []), ...signoffPseudoLogs(signoffs)]
+function mergeLogsWithSignoffs(logs, signoffs, sigMap) {
+  return [...(logs || []), ...signoffPseudoLogs(signoffs, sigMap)]
     .sort((a, b) => String(a.log_date).localeCompare(String(b.log_date)));
 }
 
+/** โหลดลายเซ็นหัวหน้าทั้งหมด → map { profile_id: dataURL } · ไม่มีตาราง/ผิดพลาด = {} */
+async function loadSigMap() {
+  try {
+    const list = await adapter.listSignatures();
+    const m = {};
+    for (const s of list || []) m[s.profile_id] = s.image_url;
+    return m;
+  } catch { return {}; }
+}
+
 /** สร้าง HTML ฟอร์ม 1 งาน Pending + ชื่อไฟล์ — คืน null ถ้าไม่พบ (ใช้ทั้งพิมพ์เดี่ยว/รวม) */
-async function pendingRecord(id) {
+async function pendingRecord(id, sigMap) {
   const row = await adapter.getPending(id);
   if (!row) return null;
   // getPending แนบ contacts/logs มาให้อยู่แล้ว · รายการสินค้าดึงเพิ่ม
@@ -374,19 +392,21 @@ async function pendingRecord(id) {
   // แทรกประวัติการเซ็นรับทราบเข้าไปในไทม์ไลน์ด้วย (เห็นว่ามีตรวจ + คอมเมนต์ช่วงไหน)
   let signoffs = [];
   try { signoffs = await adapter.listSignoffHistory('pending_projects', id); } catch { signoffs = []; }
-  const sorted = mergeLogsWithSignoffs(logs, signoffs);   // เก่า→ใหม่ เหมือนเขียนไล่ลงกระดาษ
+  const sig = sigMap || await loadSigMap();               // พิมพ์เดี่ยว = โหลดเอง · พิมพ์รวม = ส่งมาให้ (โหลดครั้งเดียว)
+  const sorted = mergeLogsWithSignoffs(logs, signoffs, sig);   // เก่า→ใหม่ เหมือนเขียนไล่ลงกระดาษ
   return { html: pendingFormHtml(row, row.project_contacts || [], products, sorted),
            title: fileName(`Pending ${row.pending_no || ''} ${row.project_name || ''}`) };
 }
 
 /** สร้าง HTML ฟอร์ม 1 ลูกค้า Book 3 สี + ชื่อไฟล์ — คืน null ถ้าไม่พบ */
-async function customerRecord(id) {
+async function customerRecord(id, sigMap) {
   const row = await adapter.getCustomer(id);
   if (!row) return null;
   const logs = row.customer_logs || await adapter.listCustomerLogs(id);
   let signoffs = [];
   try { signoffs = await adapter.listSignoffHistory('customers', id); } catch { signoffs = []; }
-  const sorted = mergeLogsWithSignoffs(logs, signoffs);
+  const sig = sigMap || await loadSigMap();
+  const sorted = mergeLogsWithSignoffs(logs, signoffs, sig);
   return { html: customerFormHtml(row, sorted),
            title: fileName(`Book3 ${row.no || ''} ${row.name || ''}`) };
 }
@@ -413,10 +433,11 @@ export async function printCustomer(id) {
 async function collectHtml(ids, getRecord, onProgress) {
   const parts = [];
   const n = (ids || []).length;
+  const sigMap = await loadSigMap();   // โหลดลายเซ็นครั้งเดียวสำหรับทั้งชุด (กันดึงซ้ำทุกใบ)
   let i = 0;
   for (const id of ids || []) {
     onProgress?.(++i, n);
-    try { const r = await getRecord(id); if (r) parts.push(r.html); } catch { /* ข้ามรายการที่เปิดไม่ได้ */ }
+    try { const r = await getRecord(id, sigMap); if (r) parts.push(r.html); } catch { /* ข้ามรายการที่เปิดไม่ได้ */ }
   }
   return parts;
 }

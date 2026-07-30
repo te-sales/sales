@@ -648,6 +648,24 @@ const supabaseAdapter = {
     });
   },
 
+  // ── ลายเซ็นหัวหน้า (phase 3.18) — 1 บัญชี 1 ลายเซ็น · admin จัดการ · โชว์บน PDF ตอนพิมพ์ ──
+  // ยังไม่รัน phase3-18.sql ก็คืน [] ไม่ให้หน้าตั้งค่า/พิมพ์พัง
+  async listSignatures() {
+    try { return await rest('/signatures?select=profile_id,image_url&limit=100000'); }
+    catch (e) { if (/signatures|does not exist|42P01|PGRST20[04]/i.test(e.message || '')) return []; throw e; }
+  },
+  async saveSignature(profileId, imageUrl) {
+    const body = { profile_id: profileId, image_url: imageUrl, updated_by: session?.user?.id || null };
+    return rest('/signatures?on_conflict=profile_id', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+      body: JSON.stringify(body),
+    });
+  },
+  async deleteSignature(profileId) {
+    await rest(`/signatures?profile_id=eq.${encodeURIComponent(profileId)}`, { method: 'DELETE' });
+  },
+
   async getDashboardStats() {
     // ตารางของ Phase 2 อาจยังไม่ถูกสร้าง (เจ้าของยังไม่ได้รัน phase2.sql)
     // → นับไม่ได้ก็คืน null ให้ UI แสดง "—" ไม่ใช่พังทั้งหน้า
