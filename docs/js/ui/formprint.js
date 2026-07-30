@@ -61,7 +61,7 @@ function logRows(logs, perPage) {
     const l = logs[i];
     // แถวที่เป็นคอมเมนต์ของหัวหน้าผู้เซ็น → เน้นสีเขียวตอนพิมพ์ (print.css .pf-signoff-row)
     // ถ้า admin อัปโหลดลายเซ็นของหัวหน้าไว้ → วางรูปลายเซ็นในคอลัมน์ NEXT DOING แถวเดียวกัน
-    //   (ใหญ่ ~2 แถวตัวอักษร + เอียง 45° ให้เหมือนลายเซ็นจริง · จัดขนาด/มุมใน print.css .pf-sign-img)
+    //   (ใหญ่ ~2 แถวตัวอักษร + เอียง 15° ให้เหมือนลายเซ็นจริง · จัดขนาด/มุมใน print.css .pf-sign-img)
     const sig = (l && l._signoff && safePhoto(l._signImg)) || '';
     const nextCell = sig
       ? `<img class="pf-sign-img" src="${sig}" alt="ลายเซ็นหัวหน้า">`

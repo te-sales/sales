@@ -173,7 +173,7 @@
 .pf-wide { width: 48%; }
 
 /* ── ลายเซ็นหัวหน้าในคอลัมน์ NEXT DOING ของแถวเซ็นรับทราบ (phase 3.18) ──
-   ใหญ่ ~2 แถวตัวอักษร + เอียง 45° ให้เหมือนลายเซ็นจริง (เจ้าของสั่ง 28 ก.ค. 2569)
+   ใหญ่ ~2 แถวตัวอักษร + เอียง 15° ให้เหมือนลายเซ็นจริง (เจ้าของสั่ง 15° · 28 ก.ค. 2569)
    · transform ไม่กระทบ layout ของตาราง → ฟอร์มไม่เพี้ยน (รูปแค่ "วางทับ" ในเซลล์)
    · ต้องมาหลัง ".pf-log td" จึงชนะความสูง 15pt (specificity เท่ากัน = ลำดับหลังชนะ)
    · ปรับมุมได้ที่ --sign-rot ถ้าเจ้าของอยากเอียงมาก/น้อยกว่านี้ */
@@ -181,7 +181,7 @@
 .pf-sign-cell { overflow: visible; text-align: center; padding: 1pt 2pt; }
 .pf-sign-img {
   display: inline-block; height: 26pt; width: auto; max-width: 92pt;
-  transform: rotate(var(--sign-rot, -45deg)); transform-origin: center center;
+  transform: rotate(var(--sign-rot, -15deg)); transform-origin: center center;
 }
 
 /* ข้อความ placeholder ในช่องติดรูป (ตอนไม่มีรูป) */
