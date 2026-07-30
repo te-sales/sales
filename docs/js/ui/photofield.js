@@ -20,11 +20,27 @@ export function safePhoto(u) {
   return (/^data:image\//i.test(s) || /^https?:\/\//i.test(s)) ? s : '';
 }
 
+/** ตัดพื้นหลังสีขาวออก (ลายเซ็น) — พิกเซลสว่าง = โปร่งใส · ลายเส้นเข้ม/สีน้ำเงิน = เก็บไว้
+ *  ทำไมต้องตัด: ลายเซ็นถูกหมุนเอียง 15° วางในเซลล์ — ถ้ามีกล่องพื้นขาวทึบจะบังเส้นตาราง/ขอบฟอร์ม
+ *  วิธี: แปลง alpha ตามความสว่าง (luminance) · สว่างเกิน HI = โปร่งใส · เข้มกว่า LO = ทึบ · ระหว่างนั้นไล่ระดับ (ขอบเนียน) */
+function stripWhite(ctx, w, h) {
+  const HI = 240, LO = 180;
+  const im = ctx.getImageData(0, 0, w, h);
+  const d = im.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    const a = lum >= HI ? 0 : lum <= LO ? 255 : Math.round(255 * (HI - lum) / (HI - LO));
+    if (a < d[i + 3]) d[i + 3] = a;   // ไม่เพิ่มความทึบให้พิกเซลที่โปร่งอยู่แล้ว
+  }
+  ctx.putImageData(im, 0, 0);
+}
+
 /** อ่านไฟล์รูป → ย่อผ่าน canvas → คืน data URL
  *  opt.maxSide / opt.quality: ปรับได้ (รูปบุคคล = 512 · นามบัตรต้องอ่านออก+ซูม = ใหญ่กว่า)
  *  opt.mime: 'image/jpeg' (ค่าเริ่มต้น) หรือ 'image/png' — ลายเซ็นใช้ png เพื่อคงพื้นหลังโปร่งใส
- *            (ไม่งั้น jpeg เติมพื้นขาว → เวลาหมุนเอียงจะเห็นกล่องขาวทับฟอร์ม) */
-export function fileToDataUrl(file, { maxSide = MAX_SIDE, quality = QUALITY, mime = 'image/jpeg' } = {}) {
+ *            (ไม่งั้น jpeg เติมพื้นขาว → เวลาหมุนเอียงจะเห็นกล่องขาวทับฟอร์ม)
+ *  opt.removeWhiteBg: true → ตัดพื้นหลังสีขาวออกให้เหลือแต่ลายเส้น (บังคับ output เป็น png) */
+export function fileToDataUrl(file, { maxSide = MAX_SIDE, quality = QUALITY, mime = 'image/jpeg', removeWhiteBg = false } = {}) {
   return new Promise((resolve, reject) => {
     if (!file || !/^image\//.test(file.type)) return reject(new Error('ไฟล์ต้องเป็นรูปภาพ'));
     const fr = new FileReader();
@@ -40,9 +56,12 @@ export function fileToDataUrl(file, { maxSide = MAX_SIDE, quality = QUALITY, mim
         }
         const cv = document.createElement('canvas');
         cv.width = w; cv.height = h;
-        cv.getContext('2d').drawImage(img, 0, 0, w, h);
-        try { resolve(cv.toDataURL(mime, quality)); }
-        catch (e) { reject(new Error('แปลงรูปไม่สำเร็จ: ' + e.message)); }
+        const ctx = cv.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        try {
+          if (removeWhiteBg) stripWhite(ctx, w, h);
+          resolve(cv.toDataURL(removeWhiteBg ? 'image/png' : mime, quality));
+        } catch (e) { reject(new Error('แปลงรูปไม่สำเร็จ: ' + e.message)); }
       };
       img.src = fr.result;
     };

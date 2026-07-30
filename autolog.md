@@ -27,6 +27,13 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-31 · ยังไม่ commit · ลายเซ็น: ตัดพื้นหลังขาวออก + ปรับขนาดจากหน้า setting
+**step:** ต่อยอด (คำสั่งเจ้าของ) | **ประเภท:** ฟีเจอร์ (รูป + setting)
+- **ตัดพื้นหลังสีขาว:** `fileToDataUrl` เพิ่ม option `removeWhiteBg` — แปลง alpha ตาม luminance (สว่าง≥240=โปร่งใส · เข้ม≤180=ทึบ · ระหว่างนั้นไล่ระดับขอบเนียน) → เหลือแต่ลายเส้น (น้ำเงิน/ดำ) · บังคับ output png · ใช้ตอนอัปลายเซ็นทั้ง admin + profile · แก้อาการกล่องขาวหมุนทับเส้นตารางฟอร์ม
+- **ปรับขนาดจาก setting:** สไลเดอร์ "ขนาดลายเซ็นบนฟอร์มพิมพ์" (50–300%) ในการ์ดลายเซ็น (หน้าตั้งค่า admin) → เก็บ `app_settings.signature.size_pct` · formprint อ่านค่าตั้ง → เซ็ต `--sign-scale` บน `#printRoot` · print.css `.pf-sign-img`/`.pf-signoff-row td` = `calc(base * var(--sign-scale,1))` (100% = 52pt ฐานเดิม) · มีผลทั้งพรีวิว + พิมพ์
+**ไฟล์:** docs/js/ui/{photofield,formprint,profile}.js · docs/js/modules/admin.js · docs/css/{print,app}.css · sw.js + config.js (v0.65.4)
+**ทดสอบ:** CDP — bg removal (มุมขาว alpha 0 · น้ำเงิน alpha>200) + size (scale 2 → 104pt · สไลเดอร์บันทึก 150) 9/9 · regression admin+print 21/21 · profile 12/12 · ไม่มี JS error
+
 ## 2026-07-31 · ยังไม่ commit · ลายเซ็นพิมพ์: ขยายขนาด 2 เท่า (200%)
 **step:** ต่อยอด (คำสั่งเจ้าของ) | **ประเภท:** ปรับ UI (พิมพ์)
 - `.pf-sign-img` height 26pt→52pt · max-width 92pt→184pt · `.pf-signoff-row td` height 30pt→60pt (ให้แถวพอดีรูปที่ใหญ่ขึ้น) · แก้ข้อความ hint ในหน้าตั้งค่า

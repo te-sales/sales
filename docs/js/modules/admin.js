@@ -97,6 +97,7 @@ async function renderAdmin(root) {
     const sigMap = {};
     for (const s of signatures || []) sigMap[s.profile_id] = s.image_url;
     const signers = profiles.filter(p => p.is_active !== false && ['admin', 'manager'].includes(p.role));
+    const sigSizePct = Number(settings.signature?.size_pct) || 100;   // ขนาดลายเซ็นบนฟอร์มพิมพ์ (100% = ฐาน)
 
     // ── สำรองขึ้น Google Drive (task 5): ข้อความสถานะ ──
     const fmtWhen = (iso) => { try {
@@ -188,6 +189,13 @@ async function renderAdmin(root) {
           ${signers.length
             ? signers.map(u => sigRow(u, sigMap[u.id])).join('')
             : '<p class="tm-nomem" style="padding:4px 0">ยังไม่มีหัวหน้างาน/ผู้ดูแลในระบบ — ตั้ง role เป็น "หัวหน้างาน" หรือ "ผู้ดูแลระบบ" ให้ผู้ใช้ก่อนในตารางด้านบน</p>'}
+        </div>
+        <div class="sig-size">
+          <label for="sigSize">ขนาดลายเซ็นบนฟอร์มพิมพ์</label>
+          <input type="range" id="sigSize" min="50" max="300" step="10" value="${sigSizePct}">
+          <b id="sigSizeVal">${sigSizePct}%</b>
+          <button type="button" class="btn btn-ghost btn-sm" id="sigSizeSave">บันทึกขนาด</button>
+          <span class="lg-hint" id="sigSizeMsg"></span>
         </div>
         <p class="login-err" id="sigErr" role="alert" hidden></p>
       </div>
@@ -384,14 +392,27 @@ async function renderAdmin(root) {
       inp.value = '';                                     // เลือกไฟล์เดิมซ้ำได้
       if (!f) return;
       try {
-        // png คงพื้นหลังโปร่งใส (ลายเซ็นหมุนเอียงแล้วไม่มีกล่องขาวทับฟอร์ม)
-        const url = await fileToDataUrl(f, { maxSide: 600, mime: 'image/png' });
+        // ตัดพื้นหลังสีขาวออกให้เหลือแต่ลายเส้น + png คงความโปร่งใส (หมุนเอียงแล้วไม่มีกล่องขาวทับฟอร์ม)
+        const url = await fileToDataUrl(f, { maxSide: 600, mime: 'image/png', removeWhiteBg: true });
         await adapter.saveSignature(row.dataset.sig, url);
         row.querySelector('[data-sig-thumb]').innerHTML = `<img src="${safePhoto(url)}" alt="ลายเซ็น">`;
         row.querySelector('[data-sig-del]').hidden = false;
         row.querySelector('[data-sig-pick]').textContent = 'เปลี่ยนรูป';
         flash($('#sigErr'), '✓ บันทึกลายเซ็นแล้ว — จะแสดงบน PDF ตอนคนนี้เซ็นรับทราบ');
       } catch (err) { flash($('#sigErr'), err.message, true); }
+    });
+
+    // ── ปรับขนาดลายเซ็นบนฟอร์มพิมพ์ (global · เก็บใน app_settings.signature.size_pct) ──
+    const sizeInp = $('#sigSize');
+    sizeInp?.addEventListener('input', () => { $('#sigSizeVal').textContent = sizeInp.value + '%'; });
+    $('#sigSizeSave')?.addEventListener('click', async () => {
+      const btn = $('#sigSizeSave'); btn.disabled = true;
+      try {
+        await adapter.saveSetting('signature', { ...(settings.signature || {}), size_pct: Number(sizeInp.value) });
+        settings.signature = { ...(settings.signature || {}), size_pct: Number(sizeInp.value) };
+        flash($('#sigSizeMsg'), '✓ บันทึกขนาดแล้ว — มีผลตอนพิมพ์/ดูแบบฟอร์มครั้งถัดไป');
+      } catch (e) { flash($('#sigSizeMsg'), e.message, true); }
+      btn.disabled = false;
     });
 
     // ── สำรอง & กู้คืน (step 3.6) ──

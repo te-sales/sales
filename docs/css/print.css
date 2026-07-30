@@ -177,10 +177,12 @@
    · transform ไม่กระทบ layout ของตาราง → ฟอร์มไม่เพี้ยน (รูปแค่ "วางทับ" ในเซลล์)
    · ต้องมาหลัง ".pf-log td" จึงชนะความสูง 15pt (specificity เท่ากัน = ลำดับหลังชนะ)
    · ปรับมุมได้ที่ --sign-rot · ปรับขนาดที่ height/max-width */
-.pf-signoff-row td { height: 60pt; vertical-align: middle; }
+.pf-signoff-row td { height: calc(60pt * var(--sign-scale, 1)); vertical-align: middle; }
 .pf-sign-cell { overflow: visible; text-align: center; padding: 1pt 2pt; }
 .pf-sign-img {
-  display: inline-block; height: 52pt; width: auto; max-width: 184pt;
+  display: inline-block;
+  height: calc(52pt * var(--sign-scale, 1)); width: auto;
+  max-width: calc(184pt * var(--sign-scale, 1));
   transform: rotate(var(--sign-rot, -15deg)); transform-origin: center center;
 }
 

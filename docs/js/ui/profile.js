@@ -147,7 +147,7 @@ export function openProfile(user, onNameSaved = () => {}) {
       fileInp.value = '';
       if (!f) return;
       try {
-        const url = await fileToDataUrl(f, { maxSide: 600, mime: 'image/png' });   // png คงพื้นหลังโปร่งใส
+        const url = await fileToDataUrl(f, { maxSide: 600, mime: 'image/png', removeWhiteBg: true });   // ตัดพื้นขาว + png โปร่งใส
         await adapter.saveSignature(user.id, url);
         paint(url);
         msg(q('#profSigMsg'), '✓ บันทึกลายเซ็นแล้ว — จะแสดงบน PDF ตอนคุณเซ็นรับทราบ', true);

@@ -317,6 +317,7 @@ function doPrint(html, title) {
     <p class="pfp-hint">📄 มุมมองแบบฟอร์มต้นฉบับ · กด <b>🖨 พิมพ์ / บันทึก PDF</b> ได้เลย (ตอนพิมพ์ตั้ง <b>Margins = None</b> + เปิด <b>Background graphics</b> ให้มุมสี/เส้นตารางครบ)</p>
     <div class="pfp-pages">${html}</div>`;
 
+  el.style.setProperty('--sign-scale', String(_signScale));   // ขนาดลายเซ็นตามที่ตั้งไว้ (พรีวิว + พิมพ์)
   el.classList.add('pfp-show');
   document.documentElement.classList.add('is-printing');
   document.title = title || prevTitle;      // ชื่อไฟล์ PDF ที่ได้ = ชื่อหน้าเว็บ
@@ -370,14 +371,22 @@ function mergeLogsWithSignoffs(logs, signoffs, sigMap) {
     .sort((a, b) => String(a.log_date).localeCompare(String(b.log_date)));
 }
 
-/** โหลดลายเซ็นหัวหน้าทั้งหมด → map { profile_id: dataURL } · ไม่มีตาราง/ผิดพลาด = {} */
+// ขนาดลายเซ็นบนฟอร์มพิมพ์ — ปรับได้จากหน้าตั้งค่า (app_settings.signature.size_pct) · 100% = ขนาดฐาน
+let _signScale = 1;
+
+/** โหลดลายเซ็นหัวหน้าทั้งหมด → map { profile_id: dataURL } + อ่านขนาดที่ตั้งไว้ · ไม่มีตาราง/ผิดพลาด = {} */
 async function loadSigMap() {
   try {
-    const list = await adapter.listSignatures();
+    const [list, settings] = await Promise.all([
+      adapter.listSignatures(),
+      adapter.getSettings().catch(() => ({})),
+    ]);
+    const pct = Number(settings?.signature?.size_pct);
+    _signScale = (pct >= 20 && pct <= 500) ? pct / 100 : 1;   // กันค่าเพี้ยน
     const m = {};
     for (const s of list || []) m[s.profile_id] = s.image_url;
     return m;
-  } catch { return {}; }
+  } catch { _signScale = 1; return {}; }
 }
 
 /** สร้าง HTML ฟอร์ม 1 งาน Pending + ชื่อไฟล์ — คืน null ถ้าไม่พบ (ใช้ทั้งพิมพ์เดี่ยว/รวม) */
