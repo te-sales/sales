@@ -27,6 +27,16 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-31 · ยังไม่ commit · งานติดตาม: เลือก SALE ผู้รับผิดชอบ + งานของแต่ละคน [ชุด 6 ข้อ #3+#4]
+**step:** ต่อยอด (คำสั่งเจ้าของ ชุด 6 ข้อ · ข้อ 3+4) | **ประเภท:** ฟีเจอร์ (UI · ไม่ต้อง migration)
+- `activities.owner_id` **มีอยู่แล้ว** (adapter default=ผู้สร้าง · listActivities กรอง owner ได้) → เพิ่มแค่ UI
+- **#4** ฟอร์มกิจกรรมมี dropdown "SALE ผู้รับผิดชอบ" (`owner_id` · default=ตัวเรา) · แถวโชว์ชื่อผู้รับผิดชอบ (`.aowner` 👤 · resolve จาก profiles)
+- **#3** ดรอปดาวน์ "ดูงานของ" (`#aPerson`) — 🙋 ของฉัน (ค่าเริ่มต้น · แต่ละคนเห็นงานตัวเอง) / 👥 ทั้งทีม / รายคน · กรอง `scopedRows()` ตาม owner_id · bucketize จาก scoped
+- **#3** quicklog สร้างงานติดตาม (+7) จาก NEXT DOING → ตั้ง `owner_id = record owner` (`TAB[tab].ownerField`) → งานไปโผล่ใน to-do ของ SALE ผู้ดูแล ไม่ใช่คนที่กดบันทึก
+**ไฟล์:** docs/js/modules/activities.js · docs/js/modules/quicklog.js · docs/css/app.css · sw.js + config.js (v0.66.2)
+**ทดสอบ:** CDP — owner filter (ของฉัน/ทั้งทีม/รายคน) + ฟอร์ม SALE + มอบหมาย+บันทึก 11/11 · ไม่มี JS error
+**ค้าง (ชุด 6 ข้อ):** ✅#6 ✅#1 ✅#2 ✅#3 ✅#4 · เหลือ #5 ลิงค์ปฏิทิน+แชร์ไลน์ (client-side)
+
 ## 2026-07-31 · ยังไม่ commit · รอตรวจ: ค้นหาชื่อ SALE + เรียง + แยก Pending/Book3 [ชุด 6 ข้อ #1+#2]
 **step:** ต่อยอด (คำสั่งเจ้าของ ชุด 6 ข้อ · ข้อ 1+2) | **ประเภท:** ฟีเจอร์ (UI)
 - โหลด profiles → แปลง `owner_id`(Pending)/`sale_id`(Book3) เป็นชื่อ SALE (`saleNameOf` · fallback sale_name) → โชว์ในแต่ละแถว (`.rv-sale` 👤)

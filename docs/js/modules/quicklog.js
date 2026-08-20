@@ -320,6 +320,8 @@ export async function openQuickLog(opts = {}) {
             act_type: (body.querySelector('#qlBy')?.value || '').trim() || undefined,
             due_date: shiftDay(todayISO(), 7),
             status: 'plan',
+            // งานติดตามไปโผล่ใน "สิ่งที่ต้องทำ" ของ SALE ผู้ดูแล record นั้น (ไม่ใช่คนที่กดบันทึก)
+            owner_id: picked[TAB[tab].ownerField] || undefined,
             ...(tab === 'customer' ? { customer_id: picked.id } : { pending_id: picked.id }),
           });
           madeAct = true;

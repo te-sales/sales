@@ -97,7 +97,7 @@ const linkLabel = (r) => {
   return '';
 };
 
-function rowHtml(r, bucketId) {
+function rowHtml(r, bucketId, owner = '') {
   const t = typeOf(r.act_type);
   const done = r.status === 'done';
   const link = linkLabel(r);
@@ -110,6 +110,7 @@ function rowHtml(r, bucketId) {
       <div class="amain">
         <div class="atitle">${esc(r.title || '(ไม่มีชื่อ)')}</div>
         <div class="ameta">
+          ${owner ? `<span class="aowner">👤 ${esc(owner)}</span>` : ''}
           ${t ? `<span class="atag">${t.icon} ${esc(t.label)}</span>` : ''}
           ${link ? `<span class="alink" title="${esc(link)}">${esc(link)}</span>` : ''}
           ${r.teams?.code ? `<span class="ateam">${esc(r.teams.code)}</span>` : ''}
@@ -130,6 +131,18 @@ export default {
     // โหลดรายชื่อไว้ให้ดรอปดาวน์ "ผูกกับ" — โหลดครั้งเดียวตอนเปิดหน้า
     let teams = [], pendings = [], customers = [];
     try { teams = await adapter.listTeams(); } catch {}
+
+    // รายชื่อ (SALE ผู้รับผิดชอบ) + ตัวฉัน — ให้เลือก sale ในฟอร์ม + กรอง "งานของแต่ละคน"
+    let profiles = [];
+    try { profiles = await adapter.listProfiles(); } catch {}
+    const me = (await adapter.getSession())?.user || null;
+    const profById = new Map((profiles || []).map(p => [p.id, p]));
+    const ownerName = (oid) => { const p = oid && profById.get(oid); return p ? (p.full_name || p.email || '') : ''; };
+    const activePeople = (profiles || []).filter(p => p.is_active !== false)
+      .sort((a, b) => (a.id === me?.id ? -1 : b.id === me?.id ? 1 : 0)
+                   || String(a.full_name || a.email || '').localeCompare(String(b.full_name || b.email || ''), 'th'));
+    // ค่าเริ่มต้น = "ของฉัน" (แต่ละคนเปิดมาเห็นงานของตัวเองก่อน) · '__all' = ทั้งทีม
+    if (view.person == null) view.person = me?.id || '__all';
 
     root.innerHTML = `
       <form class="qadd" id="aQuick">
@@ -159,6 +172,11 @@ export default {
           <button type="button" data-status="all"  class="${view.status === 'all'  ? 'on' : ''}">ทั้งหมด</button>
         </div>
 
+        <select class="inp inp-sm" id="aPerson" aria-label="ดูงานของ">
+          <option value="__all" ${view.person === '__all' ? 'selected' : ''}>👥 ทั้งทีม</option>
+          ${activePeople.map(p => `<option value="${esc(p.id)}" ${view.person === p.id ? 'selected' : ''}>${p.id === me?.id ? '🙋 ของฉัน' : esc(p.full_name || p.email || '—')}</option>`).join('')}
+        </select>
+
         <button class="btn btn-ghost btn-sm" id="aCsv">⭳ CSV</button>
       </div>
 
@@ -168,7 +186,10 @@ export default {
 
     const $ = (id) => root.querySelector('#' + id);
     const listEl = $('aList');
-    let rows = [], buckets = null, hidden = 0;
+    let rows = [];
+    // งานที่แสดง = กรองตาม "ดูงานของ" (ของฉัน/ทั้งทีม/รายคน) — owner_id ตรงกับที่เลือก
+    const scopedRows = () => (view.person && view.person !== '__all')
+      ? rows.filter(r => r.owner_id === view.person) : rows;
 
     async function reload() {
       saveView(view);
@@ -187,8 +208,6 @@ export default {
         $('aSum').textContent = '';
         return;
       }
-      buckets = bucketize(rows);
-      hidden  = rows.filter(isParentArchived).length;
       paint();
       refreshCounts();
     }
@@ -217,13 +236,17 @@ export default {
      * บอกให้รู้ว่ามีของถูกซ่อนอยู่ — ห้ามซ่อนเงียบ ๆ
      * ผู้ใช้ที่เพิ่งเก็บงานเข้าคลังต้องเข้าใจว่ากิจกรรมหายไปไหน ไม่ใช่คิดว่าข้อมูลหาย
      */
-    function hiddenNote() {
+    function hiddenNote(hidden) {
       if (!hidden) return '';
       return `<p class="sec-foot">ซ่อน ${hidden} รายการที่อยู่ในงาน/ลูกค้าซึ่งเก็บเข้าคลังไปแล้ว —
               ปลุกงานนั้นกลับมา รายการจะกลับมาเองครบ</p>`;
     }
 
     function paint() {
+      // นับ/แสดงเฉพาะงานของคนที่เลือกใน "ดูงานของ" (owner_id)
+      const scoped  = scopedRows();
+      const buckets = bucketize(scoped);
+      const hidden  = scoped.filter(isParentArchived).length;
       const show = visibleBuckets().filter(id => buckets[id].length);
       const total = show.reduce((a, id) => a + buckets[id].length, 0);
 
@@ -244,7 +267,7 @@ export default {
             ${allHidden ? `กิจกรรมที่เหลือ ${hidden} รายการอยู่ในงาน/ลูกค้าที่เก็บเข้าคลังไปแล้ว`
                         : filtered ? 'ลองเปลี่ยนตัวกรองด้านบน'
                         : 'พิมพ์สิ่งที่ต้องทำในช่องด้านบนแล้วกด "+ เพิ่ม" ได้เลย'}
-          </div>` + (allHidden ? '' : hiddenNote());
+          </div>` + (allHidden ? '' : hiddenNote(hidden));
         return;
       }
 
@@ -255,9 +278,9 @@ export default {
             <h3 class="agrp-h agrp-${b.tone}">
               ${esc(b.label)} <span class="agrp-n">${buckets[id].length}</span>
             </h3>
-            <ul class="alist">${buckets[id].map(r => rowHtml(r, id)).join('')}</ul>
+            <ul class="alist">${buckets[id].map(r => rowHtml(r, id, ownerName(r.owner_id))).join('')}</ul>
           </section>`;
-      }).join('') + hiddenNote();
+      }).join('') + hiddenNote(hidden);
     }
 
     // ── เหตุการณ์ ──
@@ -278,6 +301,13 @@ export default {
       });
     });
 
+    // "ดูงานของ" — ของฉัน/ทั้งทีม/รายคน · กรองในหน่วยความจำ (owner_id) ไม่ต้องโหลดใหม่
+    $('aPerson')?.addEventListener('change', (e) => {
+      view.person = e.target.value;
+      saveView(view);
+      paint();
+    });
+
     listEl.addEventListener('click', async (e) => {
       const tg = e.target.closest('[data-toggle]');
       if (tg) {
@@ -285,7 +315,7 @@ export default {
         return toggleDone(tg.dataset.toggle);
       }
       const hit = e.target.closest('[data-id]');
-      if (hit) openDetail(root.querySelector('#aPanel'), findRow(hit.dataset.id), reload, teams, pickLists);
+      if (hit) openDetail(root.querySelector('#aPanel'), findRow(hit.dataset.id), reload, teams, pickLists, '', activePeople, me?.id);
     });
 
     const findRow = (id) => rows.find(r => String(r.id) === String(id)) || null;
@@ -333,7 +363,7 @@ export default {
     });
 
     $('aFull').addEventListener('click', () =>
-      openDetail(root.querySelector('#aPanel'), null, reload, teams, pickLists, $('aqTitle').value.trim()));
+      openDetail(root.querySelector('#aPanel'), null, reload, teams, pickLists, $('aqTitle').value.trim(), activePeople, me?.id));
 
     $('aCsv').addEventListener('click', () => exportCsv(rows));
 
@@ -356,12 +386,13 @@ export default {
 // ฟอร์มเต็ม
 // ══════════════════════════════════════════════════════════
 
-async function openDetail(host, row, onSaved, teams, pickLists, presetTitle = '') {
+async function openDetail(host, row, onSaved, teams, pickLists, presetTitle = '', people = [], meId = null) {
   host.innerHTML = '<div class="modal"><div class="modal-box modal-sm"><div class="skeleton">กำลังโหลด…</div></div></div>';
   const { pendings, customers } = await pickLists();
 
   const id = row?.id || null;
   const v = (k, d = '') => row?.[k] ?? d;
+  const ownerSel = row?.owner_id || meId || '';   // งานใหม่ = ตัวเราเป็นค่าเริ่มต้น
 
   host.innerHTML = `
     <div class="modal" id="aModal">
@@ -385,6 +416,11 @@ async function openDetail(host, row, onSaved, teams, pickLists, presetTitle = ''
 
             <label class="fld"><span>กำหนดทำภายใน</span>
               ${dateField('due_date', v('due_date'), { label: 'กำหนดทำภายใน' })}</label>
+
+            ${people.length ? `<label class="fld"><span>SALE ผู้รับผิดชอบ</span>
+              <select name="owner_id">
+                ${people.map(p => `<option value="${esc(p.id)}" ${ownerSel === p.id ? 'selected' : ''}>${esc(p.full_name || p.email || '—')}${p.id === meId ? ' (ฉัน)' : ''}</option>`).join('')}
+              </select></label>` : ''}
 
             <label class="fld"><span>ผูกกับงาน (Pending Project)</span>
               <select name="pending_id">
