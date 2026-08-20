@@ -1338,6 +1338,8 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 .rv-main { flex: 1; min-width: 0; }
 .rv-title { font-size: 13.5px; word-break: break-word; }
 .rv-meta { font-size: 11.5px; color: var(--text-mute); margin-top: 2px; }
+.rv-sale { color: var(--text-dim); font-weight: 500; }
+.rv-dot { opacity: .5; }
 .rv-right { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
 .rv-upd { font-size: 11px; color: var(--text-mute); white-space: nowrap; }
 
