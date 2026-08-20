@@ -27,6 +27,14 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-31 · ยังไม่ commit · แก้บั๊ก: ลบ/แก้สินค้า (PRODUCT) แล้วกดบันทึกไม่เข้า
+**step:** แก้บั๊ก (เจ้าของแจ้ง) | **ประเภท:** แก้บั๊ก (supabase-adapter)
+- อาการ: ลบแถวสินค้าใน Pending แล้วบันทึก → แถวที่ลบกลับมาโผล่ตอนเปิดใหม่ (เหมือนไม่บันทึก)
+- ต้นเหตุ: `readProducts` ไล่ `line_no` ใหม่ 1..N ตามแถวที่เหลือ · `savePendingProducts` (supabase) ลบเฉพาะแถว "ที่ส่งมาแล้วว่าง" — แต่แถวที่ผู้ใช้ลบทิ้งไม่ได้ถูกส่งมาเลย → แถว line_no เดิมที่สูงกว่าค้างเป็น "แถวผี" กลับมาตอนโหลด
+- แก้: `savePendingProducts` **ลบทั้งชุดของงานนั้นก่อน แล้ว insert ใหม่ทั้งหมด** (ตรงกับ local-adapter ที่ทำถูกอยู่แล้ว) · ใช้แค่ DELETE + INSERT (RLS `pproducts_all` for all อนุญาต · unique(pending_id,line_no) มีอยู่) → DB ตรงกับตารางบนจอเป๊ะ
+**ไฟล์:** docs/js/data/supabase-adapter.js · sw.js + config.js (v0.66.4)
+**ทดสอบ:** CDP (local · logic เดียวกับ supabase) — ลบ 5→2 + แก้ชื่อ → บันทึก → เปิดใหม่เหลือ 2 ไม่มีแถวผี · แก้ค่าคงอยู่ · 8/8 · ไม่มี JS error
+
 ## 2026-07-31 · ยังไม่ commit · แจ้งเตือน: ลิงค์ปฏิทิน (Google/.ics) + แชร์ไลน์ บน to-do [ชุด 6 ข้อ #5]
 **step:** ต่อยอด (คำสั่งเจ้าของ ชุด 6 ข้อ · ข้อ 5 · เจ้าของเลือก client-side) | **ประเภท:** ฟีเจอร์ (UI)
 - `js/ui/reminders.js` (ใหม่) — `gcalUrl` (Google Calendar ทั้งวัน) · `icsDataUrl` (data: .ics + VALARM เตือน 9:00) · `lineShareUrl` (แชร์ข้อความ) · `reminderLinksHtml`

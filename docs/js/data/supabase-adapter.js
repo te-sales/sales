@@ -963,22 +963,20 @@ const supabaseAdapter = {
   async savePendingProducts(pendingId, rows) {
     const pid = encodeURIComponent(pendingId);
     const FIELDS = ['product', 'amount', 'price_unit', 'total', 'discount', 'net', 'note'];
-    const keep = [], drop = [];
+    // เก็บเฉพาะแถวที่มีข้อมูลอย่างน้อย 1 ช่อง (แถวว่างทิ้ง)
+    const keep = (rows || []).filter(r => FIELDS.some(k => String(r[k] ?? '').trim() !== ''));
 
-    for (const r of rows || []) {
-      const filled = FIELDS.some(k => String(r[k] ?? '').trim() !== '');
-      (filled ? keep : drop).push(r);
-    }
-
-    for (const r of drop) {
-      await rest(`/pending_products?pending_id=eq.${pid}&line_no=eq.${Number(r.line_no)}`,
-                 { method: 'DELETE' });
-    }
+    // ⚠️ ต้องลบ "ทั้งชุด" ของงานนี้ก่อน แล้วค่อยใส่ใหม่ทั้งหมด — DB จึงตรงกับตารางบนจอเป๊ะ
+    //    (แถวที่ผู้ใช้ "ลบออกจากตาราง" จะหายจาก DB ด้วย)
+    //    🔴 บั๊กเดิม: ลบเฉพาะแถวที่ "ส่งมาแล้วว่าง" — แต่แถวที่ผู้ใช้ลบทิ้งไม่ได้ถูกส่งมาเลย
+    //       (readProducts ไล่ line_no ใหม่ 1..N ตามแถวที่เหลือ) → แถว line_no เดิมที่สูงกว่าค้างเป็น "แถวผี"
+    //       กลับมาโผล่ตอนเปิดใหม่ = "ลบแล้วไม่บันทึก" (เหมือน local-adapter ที่ลบทั้งชุดก่อนอยู่แล้ว)
+    await rest(`/pending_products?pending_id=eq.${pid}`, { method: 'DELETE' });
 
     if (keep.length) {
-      await rest('/pending_products?on_conflict=pending_id,line_no', {
+      await rest('/pending_products', {
         method: 'POST',
-        headers: { Prefer: 'resolution=merge-duplicates' },
+        headers: { Prefer: 'return=minimal' },
         body: JSON.stringify(keep.map(r => ({ ...cleanRow(r), pending_id: pendingId }))),
       });
     }
