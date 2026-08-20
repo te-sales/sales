@@ -8,6 +8,7 @@
 
 import { adapter } from '../data/adapter.js';
 import { dateField, thaiDate, initDatePicker, todayISO, shiftDay } from '../ui/datepicker.js';
+import { reminderLinksHtml } from '../ui/reminders.js';
 
 // ── ประเภทกิจกรรม ──
 // เก็บลง DB เป็น id ไม่ใช่ข้อความไทย (กติกาเดียวกับ stage/color)
@@ -114,6 +115,7 @@ function rowHtml(r, bucketId, owner = '') {
           ${t ? `<span class="atag">${t.icon} ${esc(t.label)}</span>` : ''}
           ${link ? `<span class="alink" title="${esc(link)}">${esc(link)}</span>` : ''}
           ${r.teams?.code ? `<span class="ateam">${esc(r.teams.code)}</span>` : ''}
+          ${!done ? reminderLinksHtml(r.title || 'สิ่งที่ต้องทำ', r.due_date, [link, owner ? 'ผู้รับผิดชอบ: ' + owner : ''].filter(Boolean).join(' · ')) : ''}
         </div>
       </div>
       <div class="adate">${r.due_date ? esc(thaiDate(r.due_date)) : '—'}</div>
@@ -314,6 +316,7 @@ export default {
         e.stopPropagation();
         return toggleDone(tg.dataset.toggle);
       }
+      if (e.target.closest('.a-remind')) return;   // กดลิงค์แจ้งเตือน = ไม่เปิดฟอร์มแก้ไข
       const hit = e.target.closest('[data-id]');
       if (hit) openDetail(root.querySelector('#aPanel'), findRow(hit.dataset.id), reload, teams, pickLists, '', activePeople, me?.id);
     });

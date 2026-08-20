@@ -27,6 +27,15 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-07-31 · ยังไม่ commit · แจ้งเตือน: ลิงค์ปฏิทิน (Google/.ics) + แชร์ไลน์ บน to-do [ชุด 6 ข้อ #5]
+**step:** ต่อยอด (คำสั่งเจ้าของ ชุด 6 ข้อ · ข้อ 5 · เจ้าของเลือก client-side) | **ประเภท:** ฟีเจอร์ (UI)
+- `js/ui/reminders.js` (ใหม่) — `gcalUrl` (Google Calendar ทั้งวัน) · `icsDataUrl` (data: .ics + VALARM เตือน 9:00) · `lineShareUrl` (แชร์ข้อความ) · `reminderLinksHtml`
+- แต่ละสิ่งที่ต้องทำที่มีวันครบกำหนด (ยังไม่ทำ) → 3 ปุ่มเล็ก 📅/📥/💬 ใน `.a-remind` · ปฏิทินเตือนเอง (แจ้งเตือน/อีเมลตามที่ตั้ง) ไม่ต้อง server
+- guard คลิกลิงค์ = ไม่เปิดฟอร์มแก้ไข · ลิงค์ออกนอกเว็บ `rel="noopener noreferrer"` · reminders.js เข้า SHELL (precache)
+**ไฟล์:** docs/js/ui/reminders.js (ใหม่) · docs/js/modules/activities.js · docs/css/app.css · docs/sw.js + config.js (v0.66.3)
+**ทดสอบ:** CDP — unit (gcal/ics/line/html) + บน to-do (3 ปุ่ม/href/guard/ไม่มีวัน=ไม่มีปุ่ม) 12/12 · regression activities 11/11 · ไม่มี JS error
+**ค้าง (ชุด 6 ข้อ):** ✅ครบทั้ง 6 ข้อ (#1–#6)
+
 ## 2026-07-31 · ยังไม่ commit · งานติดตาม: เลือก SALE ผู้รับผิดชอบ + งานของแต่ละคน [ชุด 6 ข้อ #3+#4]
 **step:** ต่อยอด (คำสั่งเจ้าของ ชุด 6 ข้อ · ข้อ 3+4) | **ประเภท:** ฟีเจอร์ (UI · ไม่ต้อง migration)
 - `activities.owner_id` **มีอยู่แล้ว** (adapter default=ผู้สร้าง · listActivities กรอง owner ได้) → เพิ่มแค่ UI
