@@ -58,13 +58,29 @@ export function thaiDate(v) {
  */
 export function dateField(name, value, opt = {}) {
   const v = /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? value : '';
-  return `<span class="dp">
+  // ช่วงปีในดรอปดาวน์ (ค่าเริ่มต้น ±5) — วันเกิดส่ง yearsBack สูง ๆ ให้ย้อนถึงปีเกิดได้
+  const yb = Number.isFinite(opt.yearsBack)    ? ` data-yb="${opt.yearsBack}"`    : '';
+  const yf = Number.isFinite(opt.yearsForward) ? ` data-yf="${opt.yearsForward}"` : '';
+  return `<span class="dp"${yb}${yf}>
     <input type="hidden"${name ? ` name="${esc(name)}"` : ''} value="${esc(v)}"${opt.id ? ` id="${esc(opt.id)}"` : ''}${opt.cls ? ` class="${esc(opt.cls)}"` : ''}>
     <input type="text" class="dp-view" readonly
            value="${esc(thaiDate(v))}" placeholder="${esc(opt.placeholder || 'เลือกวันที่')}"
            aria-haspopup="dialog" aria-label="${esc(opt.label || 'เลือกวันที่')}">
     <button type="button" class="dp-x" tabindex="-1" title="ล้างวันที่"${v ? '' : ' hidden'}>×</button>
   </span>`;
+}
+
+/** พิมพ์วันที่เอง → 'YYYY-MM-DD' · รับ วัน/เดือน/ปี (คั่นด้วย / - .) · ปี ≥2400 = พ.ศ. แปลงเป็น ค.ศ. ให้ · '' = อ่านไม่ออก */
+export function parseTyped(s) {
+  const m = String(s || '').trim().match(/^(\d{1,2})\s*[/\-.]\s*(\d{1,2})\s*[/\-.]\s*(\d{4})$/);
+  if (!m) return '';
+  const d = +m[1], mo = +m[2];
+  let y = +m[3];
+  if (y >= 2400) y -= 543;                    // พ.ศ. → ค.ศ.
+  if (mo < 1 || mo > 12) return '';
+  const dim = new Date(y, mo, 0).getDate();   // จำนวนวันของเดือนนั้น (กัน 31 ก.พ.)
+  if (d < 1 || d > dim) return '';
+  return iso(y, mo - 1, d);
 }
 
 // ── popup ตัวเดียวใช้ร่วมกันทั้งหน้า ──
@@ -85,6 +101,10 @@ function ensurePop() {
   //    → ผู้ใช้เลือกเดือน/ปีไม่ได้เลย (ช่องกรอกเป็น readonly อยู่แล้ว ไม่ต้องหวง focus)
   pop.addEventListener('click', onPopClick);
   pop.addEventListener('change', onPopChange);
+  // กด Enter ในช่อง "พิมพ์เอง" = ตกลง (ไม่ให้ submit ฟอร์มแม่)
+  pop.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.target.classList.contains('dp-typein')) { e.preventDefault(); applyTyped(); }
+  });
   return pop;
 }
 
@@ -124,8 +144,14 @@ function render() {
     cells += `<button type="button" class="${cls.join(' ')}" data-d="${v}">${d}</button>`;
   }
 
+  // ช่วงปีอ่านจาก data-yb/yf ของช่องที่เปิดอยู่ (วันเกิด = ย้อนไกล) · เผื่อครอบ viewY เสมอ (แก้ค่าปีเก่าได้)
+  const ds = bound?.dataset || {};
+  const back = ds.yb != null && ds.yb !== '' ? Number(ds.yb) : 5;
+  const fwd  = ds.yf != null && ds.yf !== '' ? Number(ds.yf) : 5;
+  const y0 = Math.min(nowY - back, viewY);
+  const y1 = Math.max(nowY + fwd, viewY);
   const years = [];
-  for (let y = nowY - 5; y <= nowY + 5; y++) {
+  for (let y = y0; y <= y1; y++) {
     years.push(`<option value="${y}"${y === viewY ? ' selected' : ''}>${y + 543}</option>`);
   }
 
@@ -143,7 +169,22 @@ function render() {
     <div class="dp-foot">
       <button type="button" class="dp-btn" data-set="${today}">วันนี้</button>
       <button type="button" class="dp-btn" data-clear>ล้าง</button>
+    </div>
+    <div class="dp-type">
+      <input type="text" class="dp-typein" inputmode="numeric" aria-label="พิมพ์วันที่เอง"
+             placeholder="พิมพ์เอง เช่น 15/8/2530">
+      <button type="button" class="dp-btn dp-typego" data-typego>ตกลง</button>
     </div>`;
+}
+
+/** อ่านค่าจากช่อง "พิมพ์เอง" → ตั้งค่าวันที่ · อ่านไม่ออกก็เตือนแดงชั่วคราว ไม่ปิด */
+function applyTyped() {
+  const inp = pop?.querySelector('.dp-typein');
+  if (!inp || !bound) return;
+  const v = parseTyped(inp.value);
+  if (v) { setValue(bound, v); return close(); }
+  inp.classList.add('dp-bad');
+  setTimeout(() => inp.classList.remove('dp-bad'), 1500);
 }
 
 function place(dp) {
@@ -178,6 +219,8 @@ function onPopClick(e) {
   if (set) { setValue(bound, set.dataset.set); return close(); }
 
   if (e.target.closest('[data-clear]')) { setValue(bound, ''); return close(); }
+
+  if (e.target.closest('[data-typego]')) return applyTyped();
 
   const mv = e.target.closest('[data-mv]');
   if (mv) {

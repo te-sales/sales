@@ -531,8 +531,11 @@ function fieldHtml([key, label, type], row, teams, people, meId) {
       ${DOCC.map(d => `<option value="${d.id}" ${v === d.id ? 'selected' : ''}>${d.letter} · ${esc(d.label)}</option>`).join('')}
     </select></label>`;
 
-  if (type === 'date')
-    return `<label class="fld"><span>${esc(label)}</span>${dateField(key, v, { label })}</label>`;
+  if (type === 'date') {
+    // วันเกิด → เปิดช่วงปีย้อนหลัง 100 ปี (เลือกปีเกิดได้) + พิมพ์วันที่เองได้ในปฏิทิน
+    const dopt = key === 'birthday' ? { label, yearsBack: 100, yearsForward: 1 } : { label };
+    return `<label class="fld"><span>${esc(label)}</span>${dateField(key, v, dopt)}</label>`;
+  }
 
   // AGE — เก็บเป็น field อายุแยกต่างหาก (ไม่สร้างวันเกิดปลอม)
   //   • มีวันเกิดจริง → คำนวณอายุจากวันเกิดให้ (readonly · ไม่เก็บ age ดิบ)

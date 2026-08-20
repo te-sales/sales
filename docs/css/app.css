@@ -1124,10 +1124,22 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 }
 .dp-btn:hover { background: var(--bg-hover); color: var(--text); }
 
+/* ช่อง "พิมพ์เอง" ในปฏิทิน — ระบุวันที่ตรง ๆ (โดยเฉพาะวันเกิดย้อนหลังไกล) */
+.dp-type { display: flex; gap: 6px; margin-top: 6px; }
+.dp-typein {
+  flex: 1; min-width: 0; padding: 6px 8px; font-size: 12.5px;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--bg-elev); color: var(--text);
+}
+.dp-typein::placeholder { color: var(--text-mute); }
+.dp-typein.dp-bad { border-color: var(--danger, #e23b3b); }
+.dp-typego { flex: 0 0 auto; padding: 6px 12px; }
+
 @media (max-width: 430px) {
   .dp-pop { width: calc(100vw - 24px); max-width: 300px; }
   .dp-d { height: 40px; }        /* จุดแตะบนมือถือ */
   .dp-btn { min-height: 44px; }
+  .dp-typein { min-height: 44px; }
 }
 
 /* ---------- F5 Book 3 สี (2.2) ---------- */
