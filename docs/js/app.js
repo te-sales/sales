@@ -16,12 +16,13 @@ import book3      from './modules/book3.js';
 import activities from './modules/activities.js';
 import sources    from './modules/sources.js';
 import review     from './modules/review.js';
+import prep       from './modules/prep.js';
 import admin      from './modules/admin.js';
 import { openQuickLog } from './modules/quicklog.js';   // ⚡ บันทึกเร็ว (P11) — เปิดจากปุ่มบนแถบหัว
 
 // Supplier (F9) พักไว้ก่อนตามที่เจ้าของสั่ง 23 ก.ค. 2569 — สเปคอยู่ใน CLAUDE.md หัวข้อ "แผนอัปเดตอนาคต"
 // เข้า #suppliers ตรง ๆ จะเด้งกลับหน้าภาพรวมเอง (router ตกกลับ dashboard เมื่อไม่รู้จักชื่อหน้า)
-const VIEWS = { dashboard, pending, book3, activities, sources, review, admin };
+const VIEWS = { dashboard, pending, book3, prep, activities, sources, review, admin };
 
 const el = {
   login:      document.getElementById('login'),

@@ -27,6 +27,17 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-08-21 · ยังไม่ commit · ฟีเจอร์: หน้า "รอบันทึก" (คิว staging · จดชื่อไว้ก่อน ทยอยเปิดมาบันทึก)
+**step:** นอก roadmap (เจ้าของขอ · เคาะแนวทาง 2 ข้อผ่าน AskUserQuestion) | **ประเภท:** ฟีเจอร์ | **เวอร์ชัน:** 0.67.0
+- แท็บใหม่ **📝 รอบันทึก** (◔) ใน sidebar + bottombar → โมดูล `docs/js/modules/prep.js` (P13)
+- **จดชื่อเร็ว** (ปุ่ม "+ จดชื่อใหม่"): เลือก Book 3 สี / Pending · กรอกแค่ชื่อก็พอ → `saveIntake({source:'manual',status:'draft'})` ไม่ต้องพึ่ง AI
+- **เปิดบันทึก**: เรียก `openAIImport(target_type,{onSaved})` → เด้งเข้าแท็บ "รายการรอตรวจ" เดิม (แก้/เช็คซ้ำ/บันทึกจริง/ปิด draft→merged) — **ใช้ตรรกะบันทึกเดิม 100% ไม่ก๊อป**
+- **ทิ้ง**: กด 2 ครั้ง → `rejectIntake` (เก็บหลักฐาน หลุดจากคิว)
+- เห็นเฉพาะ status draft+approved · ค่าเริ่มต้นกรอง = **ของฉัน** (created_by) สลับดูทีม/คนได้ด้วย teamscope/personscope ตัวเดิม (ownerField:'created_by') · บอกจำนวน "นอกทีมที่เลือก" ไม่ซ่อนเงียบ
+- ⭐ **ไม่มีตารางใหม่ ไม่ต้อง migration** — ใช้ `intake_items` (staging 3.5) เดิม · ต้องรัน `db/phase3-5.sql` ให้ครบเหมือนเดิม
+**ไฟล์:** docs/js/modules/prep.js · docs/js/app.js (import+VIEWS) · docs/index.html (nav ×2) · docs/sw.js (SHELL+VERSION v0.67.0) · docs/js/config.js (0.67.0) · docs/css/app.css (.prep-*/.qp-*)
+**ทดสอบ:** CDP โหมด local 22/22 ผ่าน · ไม่มี JS error (จดลูกค้า/งาน · กรองของฉัน↔ทุกคน · ทิ้ง 2 คลิก · เปิดบันทึก→AI modal แท็บ staging)
+
 ## 2026-07-31 · ยังไม่ commit · แก้บั๊ก: ลบ/แก้สินค้า (PRODUCT) แล้วกดบันทึกไม่เข้า
 **step:** แก้บั๊ก (เจ้าของแจ้ง) | **ประเภท:** แก้บั๊ก (supabase-adapter)
 - อาการ: ลบแถวสินค้าใน Pending แล้วบันทึก → แถวที่ลบกลับมาโผล่ตอนเปิดใหม่ (เหมือนไม่บันทึก)

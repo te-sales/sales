@@ -2274,3 +2274,43 @@ textarea.ai-grow { resize: none; overflow: hidden; }
 .gd-status { display: flex; gap: 28px; flex-wrap: wrap; font-size: 14px; }
 .gd-status b { color: var(--text); }
 .gd-l { display: block; font-size: 11.5px; color: var(--text-mute); margin-bottom: 1px; }
+
+/* ---------- P13 · หน้า "รอบันทึก" (คิว staging) ---------- */
+.prep-toolbar { align-items: center; }
+.prep-spacer { flex: 1; }                          /* ดันปุ่ม "+ จดชื่อใหม่" ไปขวาสุด */
+.prep-hint { font-size: 12px; color: var(--text-mute); min-height: 16px; margin: 2px 2px 10px; }
+
+.prep-list { display: flex; flex-direction: column; gap: 10px; }
+.prep-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 14px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-md, 12px);
+}
+.prep-badge {
+  flex: none; align-self: flex-start;
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+  padding: 3px 9px; border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.prep-badge.k-cust { color: var(--amber, #d9a300); border-color: color-mix(in srgb, var(--amber, #d9a300) 45%, transparent); }
+.prep-badge.k-pend { color: var(--accent-text); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.prep-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.prep-name { font-size: 14.5px; font-weight: 600; color: var(--text); }
+.prep-sub  { font-size: 12.5px; color: var(--text-dim); }
+.prep-meta { font-size: 11px; color: var(--text-mute); }
+.prep-actions { flex: none; display: flex; gap: 8px; }
+
+.prep-err { color: var(--red); font-size: 12.5px; margin-top: 4px; }
+.qp-add-box { max-width: 440px; width: 100%; }
+.qp-add-box .modal-body { display: flex; flex-direction: column; gap: 14px; }
+.qp-kind { width: 100%; }
+.qp-kind button { flex: 1; padding: 9px 6px; font-size: 13px; }
+.qp-note { font-size: 11.5px; color: var(--text-mute); line-height: 1.5; margin: 0; }
+
+@media (max-width: 640px) {
+  .prep-row { flex-wrap: wrap; gap: 8px 12px; }
+  .prep-actions { width: 100%; }
+  .prep-actions .btn { flex: 1; }
+}
