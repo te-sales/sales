@@ -27,6 +27,16 @@
 
 <!-- ⬇️ เพิ่มรายการใหม่ใต้บรรทัดนี้ (ใหม่สุดอยู่บน) ⬇️ -->
 
+## 2026-08-21 · ไม่ commit (ข้อมูลลูกค้า) · นำเข้า Book 3 สี จาก Obsidian → SQL (ให้ธีระศักดิ์)
+**ประเภท:** งานข้อมูล (ไม่แตะโค้ด repo) | **ค้าง:** รอเจ้าของรันไฟล์ใน Supabase
+- แปลง `/Users/kei/Documents/KEI KM WIKI/raw/TE-Book 3 สี` (27 ราย) → `customers` + `customer_logs`
+- ผลลัพธ์ = **`_local/import-book3-theerasak.sql`** (gitignore · ข้อมูลลูกค้าจริง ห้าม commit) + `_local/book3-parsed.json` (ตัวกลางตรวจ)
+- เจ้าของขอ 3 ข้อ: SQL ครบชุด (รวม 35 logs) · ผูก sale=ธีระศักดิ์ (หา profile จาก email/ชื่อ) + team_id · **ข้ามรายชื่อซ้ำของเดิม** (idempotent) · priority ข้าม (รายงาน VIP 5/HIGH 7 แยก)
+- docc แปลงเป็นตัวเล็ก (check DB) · หัวไฟล์มี `add column if not exists` docc/age/nickname กันพังถ้ายังไม่รัน phase 3-9/3-12/3-17
+- **ทดสอบ:** libpg-query parse ผ่าน + **PGlite PG16 รันจริง 12/12** (เข้า 27+35 · ผูกเจ้าของถูก · รันซ้ำไม่เพิ่ม)
+- ไม่นำเข้า: รูปภาพ/นามบัตร (Obsidian ฝัง `![[...]]` ไม่ใช่ URL) · priority (ไม่มีคอลัมน์)
+- ⚠️ ก่อนรัน: ตรวจบรรทัด "หา sale ธีระศักดิ์" (`where email ilike 'theerasaku%' ...`) ให้ตรงบัญชีจริง — ไม่พบจะ raise exception (ไม่เขียนมั่ว)
+
 ## 2026-08-21 · ยังไม่ commit · ฟีเจอร์: หน้า "รอบันทึก" (คิว staging · จดชื่อไว้ก่อน ทยอยเปิดมาบันทึก)
 **step:** นอก roadmap (เจ้าของขอ · เคาะแนวทาง 2 ข้อผ่าน AskUserQuestion) | **ประเภท:** ฟีเจอร์ | **เวอร์ชัน:** 0.67.0
 - แท็บใหม่ **📝 รอบันทึก** (◔) ใน sidebar + bottombar → โมดูล `docs/js/modules/prep.js` (P13)
