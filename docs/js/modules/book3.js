@@ -25,6 +25,8 @@ export const COLORS = [
   { id: 'red',    dot: '🔴', label: 'เพิ่งเริ่ม / โอกาสน้อย', short: 'แดง' },
 ];
 const colorOf = (id) => COLORS.find(c => c.id === id) || COLORS[2];
+// เรียงตาม "สี" ต้องใช้ระดับความสัมพันธ์ (สนิท→เพิ่งเริ่ม) ไม่ใช่ตัวอักษร a-z (green<red<yellow ผิดความหมาย)
+const COLOR_RANK = { green: 0, yellow: 1, red: 2 };
 
 // ── DOCC — ประเภทลูกค้าในงานก่อสร้าง (D-O-C-C · เจ้าของขอ 27 ก.ค. 2569) ──
 // ตัว C ซ้ำ 2 แบบ (Contractor/Consult) → เก็บ "คำเต็ม" ในฐานข้อมูล · หน้าจอโชว์ตัวย่อ
@@ -171,11 +173,26 @@ export default {
       return r;
     };
 
-    // กรองทีม → คน → DOCC — ใช้ที่เดียวทั้งตอนโหลดใหม่และตอนสลับตัวกรอง
+    // เรียงฝั่งเบราว์เซอร์ — "สี" เรียงตามระดับ (COLOR_RANK) · "ผู้ดูแล" เรียงตามชื่อจริง (ไม่ใช่ UUID sale_id)
+    const saleLabel = (r) => ownerName(r.sale_id) || r.sale_name || '';
+    const sortRows = (list) => {
+      const sign = view.dir === 'asc' ? 1 : -1;
+      const tie = (a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || ''));  // เสมอกัน → ใหม่ก่อน
+      const cmp = {
+        color: (a, b) => (COLOR_RANK[a.color] ?? 9) - (COLOR_RANK[b.color] ?? 9),
+        sale:  (a, b) => saleLabel(a).localeCompare(saleLabel(b), 'th'),
+        name:  (a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'th'),
+        org:   (a, b) => String(a.org  || '').localeCompare(String(b.org  || ''), 'th'),
+      }[view.sort];
+      if (!cmp) return [...list].sort(tie);   // ค่าเริ่มต้น (updated_at) → ใหม่ก่อน
+      return [...list].sort((a, b) => (cmp(a, b) * sign) || tie(a, b));
+    };
+
+    // กรองทีม → คน → DOCC → เรียง — ใช้ที่เดียวทั้งตอนโหลดใหม่และตอนสลับตัวกรอง/เรียง
     const applyScopes = () => {
       let r = scopeTP(rawRows);
       if (view.docc) r = r.filter(x => x.docc === view.docc);   // กรองประเภทลูกค้า (ฝั่งเบราว์เซอร์)
-      rows = r;
+      rows = sortRows(r);
       updateBadges();
     };
 
@@ -270,12 +287,12 @@ export default {
         <div class="tbl-wrap">
           <table class="tbl">
             <thead><tr>
-              <th style="min-width:60px">สี</th>
+              <th data-sort="color" style="min-width:60px">สี${view.sort === 'color' ? (view.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
               <th data-sort="name" style="min-width:200px">ชื่อ${view.sort === 'name' ? (view.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
               <th data-sort="org" style="min-width:170px">หน่วยงาน${view.sort === 'org' ? (view.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
               <th style="min-width:150px">ตำแหน่ง</th>
               <th style="min-width:140px">ติดต่อ</th>
-              <th style="min-width:110px">ผู้ดูแล</th>
+              <th data-sort="sale" style="min-width:110px">ผู้ดูแล${view.sort === 'sale' ? (view.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
               <th style="min-width:240px" class="nosort">การติดตามล่าสุด</th>
             </tr></thead>
             <tbody>
@@ -351,7 +368,9 @@ export default {
         const k = th.dataset.sort;
         if (view.sort === k) view.dir = view.dir === 'asc' ? 'desc' : 'asc';
         else { view.sort = k; view.dir = 'asc'; }
-        return reload();
+        saveView(view);
+        applyScopes();   // เรียงฝั่งเบราว์เซอร์ทั้งหมด (สี/ผู้ดูแล/ชื่อ/หน่วยงาน) — ไม่ต้องโหลด DB ใหม่
+        return paint();
       }
 
       const hit = e.target.closest('[data-id]');
